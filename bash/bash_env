@@ -1,0 +1,70 @@
+# Convert number of seconds to human readable format
+sec_to_hms () {
+    local sec="$1"
+    if [ $sec -ge 86400 ]; then
+	local ndays=$[sec/86400]
+	sec=$[sec-ndays*86400]
+	echo -n "${ndays}d";
+    fi
+    if [ $sec -ge 3600 ]; then
+	local nhours=$[sec/3600]
+	sec=$[sec-nhours*3600]
+	echo -n "${nhours}h";
+    fi
+    if [ $sec -ge 60 ]; then
+	local nmins=$[sec/60]
+	sec=$[sec-nmins*60]
+	echo -n "${nmins}m";
+    fi
+    echo "${sec}s"
+}
+
+# List components of the path
+path_list() {
+    local var="$1"; shift
+    local n=0
+    for component in $(path-adjust --var=$var --list); do
+	echo "$n $component"
+	n=$[n+1]
+    done
+    return 0
+}
+
+# Backward compatibility
+append_path() {
+    path-adjust insert --append "$@"
+}
+
+# Make a directory and then cd into it
+mkcd() {
+    local next arg dirname
+
+    # Parse arguments to get the first directory name
+    for arg in "$@"; do
+	if [ "$next" = "name" ]; then
+	    dirname="$arg"
+	    break
+	elif [ "$next" = "skip" ]; then
+	    next=
+	else
+	    case "$arg" in
+		-m)
+		    next=skip
+		    ;;
+		--)
+		    next=name
+		    ;;
+		-*)
+		    ;;
+		*)
+		    dirname="$arg"
+		    break
+		    ;;
+	    esac
+	fi
+    done
+
+    # Call mkdir with all arguments
+    mkdir "$@" || return 1
+    cd $dirname
+}

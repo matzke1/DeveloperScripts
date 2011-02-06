@@ -1,0 +1,127 @@
+# Robb's bash(1) initialization for both login and non-login shells.  The login shells source this file from one of the
+# login initializaton files, usually ~/.bash_profile.
+
+[ -f $HOME/.bash_env ] && . $HOME/.bash_env
+
+##############################################################################
+# SHELL BEHAVIOR
+##############################################################################
+
+# Make sure user's bin directory is somewhere in the path.
+# FIXME: This should probably be rewritten so as not to use a hard-coded
+#        location for path-adjust.
+eval $(~/bin/path-adjust insert ~/bin)
+
+# Ignoring commands will cause prompt beeping to malfunction
+export HISTCONTROL=
+export HISTFILESIZE=100
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# check the window size after each command and, if necessary, update the
+# values of LINES and COLUMNS.
+shopt -s checkwinsize
+
+# Make sure system directories are in $MANPATH so if we add more paths
+# later everything is still found.
+export MANPATH=$(manpath 2>/dev/null)
+
+##############################################################################
+# PROMPT
+##############################################################################
+
+if [ -n "$PS1" ]; then
+    # Do something in the prompt if the last command takes more than N seconds.
+    command_prompt () {
+	local old_histtimeformat="$HISTTIMEFORMAT"
+
+	HISTTIMEFORMAT="%s "
+	local start_time=$(history 1 | awk '{print $2}')
+	HISTTIMEFORMAT="$old_histtimeformat"
+
+	if [ -n "$start_time" ]; then
+	    local stop_time=$(date "+%s")
+	    local elapsed=$[stop_time - start_time]
+	    if [ $elapsed -gt 15 ]; then
+		sec_to_hms $elapsed >>/dev/tty
+		echo -en '\a' >&2
+	    fi
+	fi
+
+	[ "$SHLVL" -gt 1 ] && echo "L$SHLVL "
+
+    }
+
+    if (echo "$PS1" |grep command_prompt >/dev/null 2>&1); then
+	: already set
+    elif [ -n "$(type -p tput)" ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429).  Lack of such support is extremely rare, and such a
+	# case would tend to support setf rather than setaf.)
+	PS1='$(command_prompt)\[\033[01;31m\]$PS1_STACK\[\033[0m\]\[\033[00;32m\]\u@\h:\W $\[\033[0m\] '
+    else
+	PS1='$(command_prompt)$PS1_STACK\u@\h:\W $ '
+    fi
+
+
+    # If we're running under "screen" then set the prompt
+    [ -n "$STY" ] && PS1_STACK="screen $PS1_STACK"
+fi
+
+##############################################################################
+# ALIASES
+##############################################################################
+
+if [ -n "$PS1" ]; then
+    alias ll='ls -lhF '
+    alias scr='screen -D -R -e^Hh'
+
+    if [ -x /usr/bin/dircolors ]; then
+	eval "`dircolors -b`"
+	alias ls='ls --color=auto'
+	alias grep='grep --color=auto'
+	alias fgrep='fgrep --color=auto'
+	alias egrep='egrep --color=auto'
+    fi
+fi
+
+##############################################################################
+# ENVIRONMENT VARIABLES
+##############################################################################
+
+export EDITOR=vim
+export ENSCRIPT="--media=Letter --font=Courier8"
+export LC_PAPER="en_US.UTF-8"
+export LC_ALL="C"
+export LESS="RS"
+
+##############################################################################
+# Distcc and ccache
+##############################################################################
+
+[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='localhost/4 arborea/2 theater/1'
+export DISTCC_HOSTS;
+export CCACHE_PREFIX=distcc
+
+[ -d /usr/lib/ccache ] && eval $(path-adjust insert --prepend /usr/lib/ccache)
+
+##############################################################################
+# ROSE CONFIGURATION
+##############################################################################
+
+# ~/bin/rosegit-bin is usually a symlink to ROSE's scripts/rosegit/bin dir.
+if [ -e $HOME/bin/rosegit-bin ]; then
+    eval $(path-adjust --append $HOME/bin/rosegit-bin)
+    [ -n "$(type -p qgit)"  ] && alias qg='qgit --all'
+    [ -n "$(type -p qgit4)" ] && alias qg='qgit4 --all'
+    [ -f $HOME/GS-CAD/ROSE/zgrviewer/run.sh ] && alias zgrviewer="$HOME/GS-CAD/ROSE/zgrviewer/run.sh"
+fi
+
+##############################################################################
+# THIS MUST BE LAST!!!!
+##############################################################################
+
+# Move ~/bin to the front of $PATH
+eval $(path-adjust insert --move --prepend ~/bin)
+export PATH

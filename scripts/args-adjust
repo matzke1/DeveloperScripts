@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+# Adds, removes, modifies switches for configure
+# usage: $0 SWITCH        OTHERS           -- prepend a new switch with no argument to OTHERS if not already present\n";
+#        $0 SWITCH=VALUE  OTHERS           -- prepend a new switch and/or set its value as specified\n";
+#        $0 SWITCH+=VALUE OTHERS           -- append another word to the switch's value, creating switch if necessary\n";
+#        $0 SWITCH-=VALUE OTHERS           -- remove the specified word from the switch value if switch is present\n";
+#        $0 del SWITCH    OTHERS           -- remove all occurrences switch\n";
+#
+# Switch values may be enclosed in single or double quotes
+use strict;
+
+
+#print STDERR "\n\n", join(" ", map {"[$_]"} @ARGV), "\n";
+
+# If necessary, enclose argument in single quotes and escape special characters
+sub escape {
+  local($_) = @_;
+  return $_ unless /['"\s\${}()]/;
+  s/'/'"'"'/g;
+  return "'$_'";
+}
+
+# What to do
+my $do_delete;
+$do_delete = shift @ARGV if $ARGV[0] eq 'del';
+my($key,$how,$val) = $ARGV[0] =~ /^(.+?)(?:(-=|\+=|=)(.+))?$/;
+shift;
+
+# Arguments over which to operate
+my(@newargs,$found);
+for (@ARGV) {
+  my($switch,$arg) = /^([^=]+)(?:=(.+))?/;
+  if ($switch eq $key) {
+    $found++;
+    next if $do_delete;
+    if ($how eq '=') {
+      $arg = $val;
+    } elsif ($how eq '+=') {
+      my @args = split /\s+/, $arg;
+      push @args, $val unless grep {$_ eq $val} @args; # append new arg if not present already
+      $arg = join " ", @args;
+    } elsif ($how eq '-=') {
+      $arg = join " ", grep {$_ ne $val} split /\s+/, $arg;
+    } elsif ($how eq '') {
+      $arg = undef;
+    }
+  }
+  push @newargs, $switch . (defined $arg ? "=" . escape $arg : "");
+}
+
+if (!$do_delete && !$found && $how ne '-=') {
+  unshift @newargs, $key . (defined $val ? "=" . escape $val : "");
+}
+
+print join(" ", @newargs), "\n";

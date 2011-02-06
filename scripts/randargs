@@ -1,0 +1,62 @@
+#!/usr/bin/perl -w
+# Copyright (C) 2000 Robb Matzke. All rights reserved.
+#
+# Usage
+#   randargs [SWITCHES] [--] [ARGS]
+#
+# Echos ARGS in random order. Command-line switches are:
+#   --lines=FILE
+#   -l FILE      The lines of FILE are merged with ARGS
+#
+#   -n N         At most N random args are printed.
+#
+use strict;
+my @items;
+my $maxout;
+
+while (@ARGV && $ARGV[0]=~/^-/) {
+  local $_ = shift;
+  if (/^(-l|--lines=)(.*)/) {
+    my($switch,$arg) = ($1,$2);
+    if ($arg!~/\S/) {
+      die "randargs: no argument for switch: $switch\n" unless @ARGV;
+      $arg = shift;
+    }
+    my($expanded) = glob $arg; # to handle --lines=~/foo
+    $arg = $expanded if defined $expanded && -f $expanded;
+    open FILE, $arg or die "randargs: cannot open $arg: $!\n";
+    while (<FILE>) {
+      chomp;
+      push @items, $_ if /\S/;
+    }
+    close FILE;
+  } elsif (/^(-n)(.*)/) {
+    my($switch,$arg) = ($1,$2);
+    if ($arg!~/\S/) {
+      die "randargs: no argument for switch: $switch\n" unless @ARGV;
+      $arg = shift;
+    }
+    die "randargs: $switch argument must be an integer\n" unless $arg=~/^\d+$/;
+    $maxout = $arg;
+  } elsif ($_ eq "--") {
+    last;
+  } else {
+    die "randargs: unknown command-line switch: $_\n";
+  }
+}
+push @items, @ARGV;
+
+# Shuffle them
+for (my $i1=0; $i1<@items; $i1++) {
+  my $i2 = int rand @items;
+  ($items[$i1], $items[$i2]) = ($items[$i2], $items[$i1]);
+}
+
+# Output
+$maxout = @items unless defined $maxout;
+$maxout = @items if $maxout > @items;
+for (my $i=0; $i<$maxout; $i++) {
+  print $items[$i], "\n";
+}
+
+exit 0;

@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Remove files from /tmp that haven't been accessed in more than N days, where
+# N is the largest value such that /tmp is less than 30% utilized
+
+# Initial guess for N
+N=7
+
+# Directory to clean up. Do not delete the directory itself.
+DIR=/tmp
+
+# Prune until utilization falls below the specified percent.
+THRESHOLD=70
+
+while [ $N -gt 0 ]; do
+
+    # The 'df' command prints utilization as a percent.
+    utilization=$(df $DIR | tail -n1 | sed -n '/%/ s/.*[ \t]\([0-9][0-9]*\)%.*/\1/p')
+    if [ "$utilization" = "" ]; then
+	echo "$0: cannot figure out disk utilization" >&2
+	exit 1
+    fi
+
+    # If utilization is high, then remove plain files that are older than N days.  Note that due to the way find
+    # calculates days, in order to satisfy the "-atime +N" constraint a file must have been last accessed at least
+    # N+1 days (24-hours periods) ago.
+    [ $utilization -lt $THRESHOLD ] && break
+    (find $DIR -mount -type f -atime +$N -print0 |xargs -0 rm -f) >/dev/null 2>&1
+    (find $DIR -mount -depth -type d -ctime +$N -print0 |xargs -0 rmdir) >/dev/null 2>&1
+    N=$[N-1]
+
+done
+exit 0

@@ -1,0 +1,181 @@
+#!/usr/bin/perl
+# Copyright (C) 2006 Robb Matzke. All rights reserved.
+# Licensed under terms of the GNU GPL.
+#
+# Examples:
+#   path-adjust insert --prepend ~/bin                       # insert at front if it doesn't exist, nothing otherwise
+#   path-adjust insert --append  ~/bin                       # insert at back if it doesn't exist, nothing otherwise
+#   path-adjust insert --append --move ~/bin                 # insert at back, moving it there if it exists
+#   path-adjust insert --prepend --move ~/bin                # insert at front, moving it there if it exists
+#   path-adjust insert --dupok ~/bin                         # insert even if it already exists.
+#
+#   path-adjust replace /opt /usr                            # replace in place if it exists
+#   path-adjust replace --prepend /opt /usr                  # replace and move to front if it exists
+#
+#   path-adjust remove /opt insert --prepend --move /usr     # remove /opt and insert /usr at the front
+#
+#
+use strict;
+
+sub usage {
+  print <<EOF;
+usage: path-adjust [GLOBALS] ACTIONS...
+  This command operates on a colon-separated path list from the environment and echoes
+  shell commands that would adjust that environment variable.  The global switches are
+  as follows:
+
+    --var=VAR        Under normal circumstances the command operates on the \$PATH
+                     environment variable. This switch changes that behavior.
+
+    --list           Normally the output is shell commands, but when this switch is
+                     present the output is one path component per line.
+
+  The ACTIONS list says what to do to the variable. Each action begins with a command
+  word, followed by optional command switches, followed by zero or more components
+  arguments. The commands are:
+
+    insert           The specified components are inserted into the list if they
+                     do not exist in the list (or if --append, --prepend, or
+                     --dupok is specified). Existing components are not moved to
+                     the front or back unless the --move switch is specified.
+    remove           Matching components are removed from the list.
+    keep             Matching components are kept in the list and all others are
+                     removed.  This is the inverse of the 'remove' command.
+    replace          Matching components are replaced with other values. The
+                     first argument is the target component (or pattern when
+                     --regexp is present) to be replaced and the remaining arguments
+                     are the replacement values.  New values are not inserted if
+                     the target is not found (unless --prepend or --append is
+                     specified), and they are inserted only once (unless
+                     --dupok is specified).
+    clean            Removes duplicate values from the list.
+
+  command switches are:
+
+    --append         Components are inserted at the back of the list.
+    --prepend        Components are inserted at the front of the list.
+    --move           An insert operation moves if they already exist.
+    --dupok          Duplicate components are not squashed.
+    --regexp         Component matching uses regular expressions.
+EOF
+}
+
+sub clean {
+  my($list) = @_;
+
+  for (my $i=0; $i<@$list; $i++) {
+    for (my $j=$i+1; $j<@$list; 1) {
+      if ($list->[$i] eq $list->[$j]) {
+	splice @$list, $j, 1;
+      } else {
+	$j++;
+      }
+    }
+  }
+}
+
+sub process_action {
+  my ($action,$position,$existing,$regexp,$list,@args) = @_;
+  return clean $list if $action eq 'clean';
+  my @repl;
+
+  $position ||= 'front' if $action eq 'insert';
+  @repl = splice @args, 1 if $action eq 'replace';
+
+  if ($existing eq 'move' || $action ne 'insert') {
+    # If existing args should be moved then we can delete them from the @$list.
+    for (my $i=0; $i<@$list; 1) {
+      my $found = ($regexp && grep {$list->[$i] =~ /$_/} @args) || (!$regexp && grep {$list->[$i] eq $_} @args);
+      $found = !$found if $action eq 'keep';
+      if ($found) {
+	splice @$list, $i, 1;
+	$position = $i if $action eq 'replace' && $position!~/\d/ && $existing ne 'move';
+      } else {
+	$i++;
+      }
+    }
+  } elsif ($existing eq 'keep') {
+    # Existing arguments should be kept where they are. Therefore we can just delete the argument from the @args list.
+    for (my $i=0; $i<@args; 1) {
+      if (grep {$_ eq $args[$i]} @$list) {
+	splice @args, $i, 1;
+      } else {
+	$i++;
+      }
+    }
+  }
+
+  @repl = @args if $action eq 'insert';
+
+  # Insert the replacement
+  if ($position eq 'front') {
+    unshift @$list, @repl;
+  } elsif ($position eq 'back') {
+    push @$list, @repl;
+  } elsif ($position ne "") {
+    splice @$list, $position, 0, @repl;
+  }
+}
+	
+# Global switches
+my $var = "PATH";
+my $do_list=0;
+while (@ARGV) {
+  local $_ = $ARGV[0];
+  if (/^--var=(.*)/) {
+    $var = $1;
+    shift;
+  } elsif (/^--list$/) {
+    $do_list = 1;
+    shift;
+  } else {
+    last;
+  }
+}
+my $origlist = $ENV{$var};
+my @list = grep {$_ ne ""} split ':', $origlist;
+
+# Command info
+my $command = 'insert';		# 'insert', 'remove', 'replace', 'keep', or 'clean'
+my $position = undef;		# undef, 'front', or 'back'
+my $existing = 'keep';          # 'keep', 'dup', or 'move'
+my $regexp = 0;                 # Boolean
+my @components;                 # Component arguments
+
+# Process the commands from the command-line
+while (@ARGV) {
+  local $_ = shift;
+  if (/^(insert|remove|replace|keep|clean)$/) {
+    process_action $command, $position, $existing, $regexp, \@list, @components;
+    $command = $_;
+    $position = undef;
+    $existing = 'keep';
+    $regexp = 0;
+    @components = ();
+  } elsif (/^--append$/) {
+    $position = 'back';
+  } elsif (/^--prepend$/) {
+    $position = 'front';
+  } elsif (/^--dupok$/) {
+    $existing = 'dup';
+  } elsif (/^--move$/) {
+    $existing = 'move';
+  } elsif (/^--regexp$/) {
+    $regexp = 1;
+  } elsif (/^(-h|--help)$/) {
+    usage;
+    exit 0;
+  } elsif (/^-/) {
+    die "path-adjust: unrecognized command switch: $_\n";
+  } else {
+    push @components, $_;
+  }
+}
+process_action $command, $position, $existing, $regexp, \@list, @components;
+
+if ($do_list) {
+  map {print $_, "\n"} @list;
+} else {
+  my $list = join ":", grep {$_ ne ""} @list;
+  print "export $var='$list'\n" if $list ne $origlist;
+}

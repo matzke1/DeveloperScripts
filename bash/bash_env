@@ -19,6 +19,41 @@ sec_to_hms () {
     echo "${sec}s"
 }
 
+extended_hms () {
+    local sec="$1"
+    if [ $sec -ge 86400 ]; then
+	local ndays=$[sec/86400]
+	sec=$[sec-ndays*86400]
+	local units="days"
+	[ "$ndays" -eq 1 ] && units="day"
+	echo -n "$ndays $units "
+    fi
+    if [ $sec -ge 3600 ]; then
+	local nhours=$[sec/3600]
+	sec=$[sec-nhours*3600]
+	local units="hours"
+	[ "$nhours" -eq 1 ] && units="hour"
+	echo -n "$nhours $units ";
+    fi
+    if [ $sec -ge 60 ]; then
+	local nmins=$[sec/60]
+	sec=$[sec-nmins*60]
+	local units="minutes"
+	[ "$nmins" -eq 1 ] && units="minute"
+	echo -n "$nmins $units ";
+    fi
+
+    local units="seconds"
+    [ "$sec" -eq 1 ] && units="second"
+    echo "$sec $units"
+}
+
+lola_say () {
+    local sentence="$*"
+    [ -n "$LOLA" ] && echo "$sentence" |nc -q1 $LOLA >/dev/null 2>&1
+}
+
+
 # List components of the path
 path_list() {
     local var="$1"; shift

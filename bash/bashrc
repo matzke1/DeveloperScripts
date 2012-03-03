@@ -1,6 +1,7 @@
 # Robb's bash(1) initialization for both login and non-login shells.  The login shells source this file from one of the
 # login initializaton files, usually ~/.bash_profile.
 
+[ -f $HOME/.environment ] && . $HOME/.environment
 [ -f $HOME/.bash_env ] && . $HOME/.bash_env
 
 ##############################################################################
@@ -31,21 +32,36 @@ export MANPATH=$(manpath 2>/dev/null)
 # PROMPT
 ##############################################################################
 
+LOLA="arborea 10145"
+
 if [ -n "$PS1" ]; then
     # Do something in the prompt if the last command takes more than N seconds.
     command_prompt () {
-	local old_histtimeformat="$HISTTIMEFORMAT"
+	local status=$?
 
+	local old_histtimeformat="$HISTTIMEFORMAT"
 	HISTTIMEFORMAT="%s "
 	local start_time=$(history 1 | awk '{print $2}')
+	HISTTIMEFORMAT="X-X-X"
+	local cmd="$(history 1 |sed 's/.*X-X-X//')"
 	HISTTIMEFORMAT="$old_histtimeformat"
+
+	local cmd_name=$(command-name "$cmd")
 
 	if [ -n "$start_time" ]; then
 	    local stop_time=$(date "+%s")
 	    local elapsed=$[stop_time - start_time]
 	    if [ $elapsed -gt 15 ]; then
 		sec_to_hms $elapsed >>/dev/tty
-		echo -en '\a' >&2
+		if [ -n "$LOLA" -a -n "$cmd_name" ]; then
+		    if [ "$status" -ne 0 ]; then
+			lola_say "$cmd_name failed after $(extended_hms $elapsed)"
+		    else
+			lola_say "$cmd_name completed in $(extended_hms $elapsed)"
+		    fi
+		else
+		    echo -en '\a' >&2
+		fi
 	    fi
 	fi
 
@@ -83,39 +99,8 @@ if [ -n "$PS1" ]; then
 	alias grep='grep --color=auto'
 	alias fgrep='fgrep --color=auto'
 	alias egrep='egrep --color=auto'
+	alias tuxblue='keepalive ssh -L 8080:hudson-rose-30:8080 tuxblue1'
     fi
-fi
-
-##############################################################################
-# ENVIRONMENT VARIABLES
-##############################################################################
-
-export EDITOR=vim
-export ENSCRIPT="--media=Letter --font=Courier8"
-export LC_PAPER="en_US.UTF-8"
-export LC_ALL="C"
-export LESS="RS"
-
-##############################################################################
-# Distcc and ccache
-##############################################################################
-
-[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='localhost/4 arborea/2 theater/1'
-export DISTCC_HOSTS;
-export CCACHE_PREFIX=distcc
-
-[ -d /usr/lib/ccache ] && eval $(path-adjust insert --prepend /usr/lib/ccache)
-
-##############################################################################
-# ROSE CONFIGURATION
-##############################################################################
-
-# ~/bin/rosegit-bin is usually a symlink to ROSE's scripts/rosegit/bin dir.
-if [ -e $HOME/bin/rosegit-bin ]; then
-    eval $(path-adjust --append $HOME/bin/rosegit-bin)
-    [ -n "$(type -p qgit)"  ] && alias qg='qgit --all'
-    [ -n "$(type -p qgit4)" ] && alias qg='qgit4 --all'
-    [ -f $HOME/GS-CAD/ROSE/zgrviewer/run.sh ] && alias zgrviewer="$HOME/GS-CAD/ROSE/zgrviewer/run.sh"
 fi
 
 ##############################################################################

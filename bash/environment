@@ -1,0 +1,32 @@
+# Environment variables							-*- shell-script -*-
+# Must be parsable by dash and bash
+
+eval $(~/bin/path-adjust insert ~/bin)
+
+export EDITOR=vim
+export ENSCRIPT="--media=Letter --font=Courier8"
+export LC_PAPER="en_US.UTF-8"
+export LC_ALL="C"
+export LESS="RS"
+
+##############################################################################
+# Distcc and ccache
+##############################################################################
+
+[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='localhost/12'
+export DISTCC_HOSTS;
+export CCACHE_PREFIX=distcc
+
+[ -d /usr/lib/ccache ] && eval $(path-adjust insert --prepend /usr/lib/ccache)
+
+##############################################################################
+# ROSE CONFIGURATION
+##############################################################################
+
+# ~/bin/rosegit-bin is usually a symlink to ROSE's scripts/rosegit/bin dir.
+if [ -e $HOME/bin/rosegit-bin ]; then
+    eval $(path-adjust --append $HOME/bin/rosegit-bin)
+    [ -n "$(type -p qgit)"  ] && alias qg='qgit --all'
+    [ -n "$(type -p qgit4)" ] && alias qg='qgit4 --all'
+    [ -f $HOME/GS-CAD/ROSE/zgrviewer/run.sh ] && alias zgrviewer="$HOME/GS-CAD/ROSE/zgrviewer/run.sh"
+fi

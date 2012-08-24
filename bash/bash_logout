@@ -1,6 +1,12 @@
-# /etc/skel/.bash_logout
+# /etc/skel/.bash_logout      -*- shell-script -*-
 
 # This file is sourced when a login shell terminates.
 
 # Clear the screen for security's sake.
-#clear
+if [ "$SHLVL" = 1 ]; then
+    if [ -x /usr/bin/clear_console ]; then
+       	/usr/bin/clear_console -q
+    elif [ -x /usr/bin/clear ]; then
+	/usr/bin/clear
+    fi
+fi

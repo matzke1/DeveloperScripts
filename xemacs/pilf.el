@@ -5,6 +5,8 @@
 ;; While c-mode is primarily in charge of indentation of lines, pilf minor mode operates on a single line at a time to
 ;; adjust white space within the line.
 
+(defconst pilf-author-name (user-full-name))
+
 (defvar pilf-mode-map nil
   "Keymap used in pilf minor mode overrides the cc-mode key map.")
 (if pilf-mode-map
@@ -13,6 +15,7 @@
   (define-key pilf-mode-map [space] 'pilf-electric-space)
   (define-key pilf-mode-map [return] 'pilf-electric-return)
   (define-key pilf-mode-map [?{] 'pilf-electric-ltcurly)
+  (define-key pilf-mode-map [?}] 'pilf-electric-rtcurly)
   (define-key pilf-mode-map [?\(] 'pilf-electric-ltparen)
   (define-key pilf-mode-map [?\)] 'pilf-electric-rtparen)
   (define-key pilf-mode-map [?<] 'pilf-electric-ltangle)
@@ -22,6 +25,7 @@
   (define-key pilf-mode-map [?/] 'pilf-electric-slash)
   (define-key pilf-mode-map [?\"] 'pilf-electric-dquote)
   (define-key pilf-mode-map [?*] 'pilf-electric-star)
+  (define-key pilf-mode-map [?~] 'pilf-electric-tilde)
   )
 
 (defun pilf-mode (&optional arg)
@@ -52,6 +56,12 @@ specified by the string."
   (or (assq 'pilf-mode minor-mode-map-alist)
       (setq minor-mode-map-alist
 	    (cons (cons 'pilf-mode pilf-mode-map) minor-mode-map-alist))))
+
+(defun pilf-cite-author ()
+  "Returns an author citation.
+
+The citation consists of the author name or nickname followed by a date, all enclosed in square brackets."
+  (concat "[" pilf-author-name " " (format-time-string "%Y-%m-%d") "]"))
 
 (defun pilf-beginning-of-comment ()
   "Moves point backward to the slash that begins the current comment.
@@ -227,6 +237,24 @@ decoration and line feeds."
    ((re-search-backward "\\([^ \t\n]\\)[ \t]*{\\([ \t\n]*\\)\\=" nil t)
     (replace-match (concat (match-string 1) " {" (match-string 2)) t t))))
 
+(defun pilf-electric-rtcurly (&optional arg)
+  "Inserts a right curly brace and does other magic stuff."
+  (interactive "P")
+  (pilf-normal-behavior [?}] arg)
+
+  (cond
+   (arg nil)
+
+   ;; If this is the end of a "namespace" then append "// namespace" to the curly brace before advancing to the next line
+   ((condition-case nil
+	(save-excursion
+	  (backward-sexp)
+	  (re-search-backward "namespace\\s-+\\sw+\\s-*\\=" nil t))
+      (error nil))
+    (re-search-backward "}[ \t\n]*\\=" nil nil)
+    (replace-match "} // namespace\n" t t)
+    (c-indent-line))))
+
 (defun pilf-electric-ltparen (&optional arg)
   "Inserts a left parenthesis and does other magic stuff."
   (interactive "P")
@@ -243,6 +271,7 @@ decoration and line feeds."
      nil t)
     (if (or (equal (match-string 2) "catch")
 	    (equal (match-string 2) "for")
+	    (equal (match-string 2) "foreach")
 	    (equal (match-string 2) "if")
 	    (equal (match-string 2) "return")
 	    (equal (match-string 2) "switch")
@@ -486,3 +515,26 @@ bar.  The \"Tab\" key also works to insert white space."
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "\\(//\\|///\\|///<\\)  \\=" nil t))))
       (replace-match (concat (match-string 1) " ") t t)))))
    
+(defun pilf-electric-tilde (&optional arg)
+  "Inserts author name and date.
+
+Cites an author by inserting the author name and date in square brackets when three tilde's appear in a row in a comment."
+  (interactive "P")
+  (pilf-normal-behavior [?~] arg)
+  (cond
+   (arg nil)
+
+   ;; If this is the third tilde in a row in a comment and there are not four tildes in a row, replace the three with an
+   ;; author citation.
+   ((and (pilf-in-comment)
+	 (save-excursion (not (re-search-backward "~~~~\\=" nil t)))
+	 (save-excursion (re-search-backward "~~~\\=" nil t)))
+    (replace-match (pilf-cite-author) t t))
+
+   ;; If this is the third tilde and the line contains "#~~~" then replace it with '#if 1 /*DEBUGGING [citation]*/ and
+   ;; advance to the next line.
+   ((save-excursion (re-search-backward "^#~~~\\=" nil t))
+    (replace-match (concat "#if 1 /*DEBUGGING " (pilf-cite-author) "*/\n") t t)
+    (save-excursion (insert "\n#endif"))
+    (c-indent-line))))
+

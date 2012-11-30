@@ -179,6 +179,8 @@
 				   (substatement-case-open after)
 				   (extern-lang-open after)
 				   (extern-lang-close before after)
+				   (namespace-open after)
+				   (namespace-close before after)
 				   ))
 
     ;; Linefeeds before and/or after colons?
@@ -231,6 +233,7 @@
 				   (friend                . 0)
 				   (func-decl-cont        . +)
 				   (inclass               . +)
+				   (innamespace           . 0)
 				   (inextern-lang         . 0)
 				   (inher-intro           . +)
 				   (inher-cont            . c-lineup-multi-inher)
@@ -241,6 +244,7 @@
 				   (label                 . 0)
 				   (member-init-intro     . +)
 				   (member-init-cont      . 0)
+				   (namespace-open        . -)
 				   (objc-method-intro     . -1000)
 				   (objc-method-args-cont . c-lineup-ObjC-method-args)
 				   (objc-method-call-cont . c-lineup-ObjC-method-call)
@@ -305,7 +309,7 @@
 (define-key global-map "\C-cl" 'fume-list-functions)
 (define-key global-map "\C-cg" 'fume-prompt-function-goto)
 (define-key global-map '(shift button3) 'mouse-function-menu) ;note: conflicts with Hyperbole
-(setq fume-max-items 50
+(setq fume-max-items 40
       fume-fn-window-position 3
       fume-auto-position-popup t
       fume-display-in-modeline-p t

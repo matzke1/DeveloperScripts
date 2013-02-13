@@ -12,7 +12,7 @@
 (if pilf-mode-map
     ()
   (setq pilf-mode-map (make-sparse-keymap "pilf-mode-map"))
-  (define-key pilf-mode-map [space] 'pilf-electric-space)
+  (define-key pilf-mode-map (kbd "SPC") 'pilf-electric-space)
   (define-key pilf-mode-map [return] 'pilf-electric-return)
   (define-key pilf-mode-map [?{] 'pilf-electric-ltcurly)
   (define-key pilf-mode-map [?}] 'pilf-electric-rtcurly)
@@ -47,10 +47,8 @@ specified by the string."
 	 ((stringp arg) (c-set-style arg) t)
 	 ((> (prefix-numeric-value arg) 0))))
 
-  ;; Add the minor mode name to the mode line. This will be inserted before or after the minor mode entry for the
-  ;; c-auto-hungry-string, so don't use a leading space like most other minor modes.
-  (setq minor-mode-alist (remassq 'pilf-mode minor-mode-alist))
-  (setq minor-mode-alist (cons '(pilf-mode ("/" c-indentation-style)) minor-mode-alist))
+  ;; Add the minor mode name to the mode line.
+;  (setq minor-mode-alist '(pilf-mode " Pilf"))
 
   ;; Add the minor-mode key map if not done already.
   (or (assq 'pilf-mode minor-mode-map-alist)
@@ -68,7 +66,7 @@ The citation consists of the author name or nickname followed by a date, all enc
 
 When called from inside a comment, point is moved to the slash that
 starts the C or C++ style comment and the function returns the symbol
-c for C-style comments and cc for c++ style comments. When called from
+c for C-style comments and c++ for c++ style comments. When called from
 outside a comment, point is unmoved and the function returns nil. The
 determination of whether this function was called from inside or
 outside a comment is made by c-in-literal. Specifically, we are not
@@ -76,21 +74,21 @@ considered to be in a comment until point is after the \"/*\" or
 \"//\", and the comment continues until we are after the \"*/\" or
 line feed."
   (save-match-data
-    (let ((was-in-comment (eq (c-in-literal) 'c)))
-      (while (and (eq (c-in-literal) 'c)
+    (let ((was-in-comment (or (eq (c-in-literal) 'c) (eq (c-in-literal) 'c++))))
+      (while (and (or (eq (c-in-literal) 'c) (eq (c-in-literal) 'c++))
 		  (re-search-backward "//\\|/\\*" nil t)))
       (cond
        ((not was-in-comment) nil)
        ((looking-at "/\\*") 'c)
        ((looking-at "//")
 	(while (re-search-backward "/\\=" nil t))
-	'cc)))))
+	'c++)))))
 
 (defun pilf-in-comment ()
   "Returns information about the current comment.
 
 If point is inside a comment (as defined by c-in-literal) then return
-a cons cell whose car is either the symbol c for a C comment or cc for
+a cons cell whose car is either the symbol c for a C comment or c++ for
 a C++ comment and whose cdr is the buffer position where the comment
 starts. If point is not in a comment then return nil."
   (save-excursion
@@ -332,7 +330,7 @@ decoration and line feeds."
       (replace-match (concat (match-string 1) " <") t t))
 
      ;; If we're starting a C++ doxygen comment, then change "/// <" to "///<"
-     ((and (eq (car in-comment) 'cc)
+     ((and (eq (car in-comment) 'c++)
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "/// <\\=" nil t))))
       (replace-match "///< " t t))
 
@@ -368,17 +366,17 @@ decoration and line feeds."
      (arg nil)
 
      ;; If we just started a '//' comment then insert one space after the '//'
-     ((and (eq (car in-comment) 'cc)
+     ((and (eq (car in-comment) 'c++)
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "//\\=" nil t))))
       (replace-match "// " t t))
 
      ;; If we entered a third slash to get "// /" then swap the slash and space.
-     ((and (eq (car in-comment) 'cc)
+     ((and (eq (car in-comment) 'c++)
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "// /\\=" nil t))))
       (replace-match "/// " t t))
 
      ;; If we entered a fourth slash to get "/// /" then remove the space and fill the rest of the line with slashes.
-     ((and (eq (car in-comment) 'cc)
+     ((and (eq (car in-comment) 'c++)
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "/// /\\=" nil t))))
       (replace-match "////" t t)
       (let* ((right-margin 5)		; FIXME: right margin should be a configuration variable
@@ -438,7 +436,7 @@ decoration and line feeds."
 (defun pilf-electric-return (&optional arg)
   "Inserts a return and does other magic stuff."
   (interactive "P")
-  (pilf-normal-behavior [return] arg)
+  (pilf-normal-behavior "\r" arg)
 
   ;; remove trailing white space from previous line
   (if (re-search-backward "\\([^ \t]\\)[ \t]*\\(\n[ \t]*\\)\\=" nil t)
@@ -490,7 +488,7 @@ second space with a prefix argument (i.e., \C-u space), and then
 insert as many additional spaces you want by just hitting the space
 bar.  The \"Tab\" key also works to insert white space."
   (interactive "P")
-  (pilf-normal-behavior [space] arg)
+  (pilf-normal-behavior " " arg)
   (let ((in-comment (pilf-in-comment)))
     (cond
      (arg nil)
@@ -511,7 +509,7 @@ bar.  The \"Tab\" key also works to insert white space."
       (replace-match (concat "/*" (match-string 1) " ") t t))
 
      ;; When starting a C++ comment, keep only one space after the "//", "///", or "///<"
-     ((and (eq (car in-comment) 'cc)
+     ((and (eq (car in-comment) 'c++)
 	   (eq (cdr in-comment) (save-excursion (re-search-backward "\\(//\\|///\\|///<\\)  \\=" nil t))))
       (replace-match (concat (match-string 1) " ") t t)))))
    

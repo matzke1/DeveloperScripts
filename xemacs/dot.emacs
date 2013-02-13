@@ -1,90 +1,55 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Expert User .emacs File.
-;;; Copyright(C) 2002-2012 Robb Matzke.
-;;; GNU General Public License
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Adjust the load path. I keep all my personal emacs stuff here...
 (setq load-path (append load-path (list (expand-file-name "~/.xemacs"))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Enable some expert features
 (setq inhibit-startup-message t)        ;do not display startup message
 (setq enable-recursive-minibuffers t)   ;allow minibuffer use in minibuffer
 (put 'narrow-to-region 'disabled nil)   ;allow C-x n n
 (put 'eval-expression 'disabled nil)    ;allow M-:
 (put 'upcase-region 'disabled nil)      ;allow C-x C-u
 (put 'downcase-region 'disabled nil)    ;allow C-x C-l
-(put 'erase-buffer 'disabled nil)
 (setq enable-local-variables 'query)    ;ask about LISP in files
 (setq enable-local-eval 'query)         ;ask about `eval' in files
 (setq version-control t)                ;use backup version numbers
 (setq kept-old-versions 2)              ;keep first two original versions
 (setq kept-new-versions 10)             ;keep 10 most recent versions
-(setq trim-versions-without-asking t)   ;remove unneeded versions
-(load "saveplace")                      ;remember point location in each file
-(setq-default save-place t)             ;save places in all buffers
-(load "complete")                       ;Dave's partial completions
-(setq blink-matching-paren-distance 120000) ;increase default by 10x
 (setq visible-bell t)                   ;be quiet -- flash instead of beep
-(setq minibuffer-max-depth nil)         ;global max num minibuffers allowed
-(setq efs-ftp-program-name "pftp")      ;tell ftp to be passive for firewall reasons
-(setq minibuffer-confirm-incomplete t)  ;confirm incomplete entries
-(setq complex-buffers-menu-p t)         ;buffers menu contains several subcommands
 (setq next-line-add-newlines nil)       ;do not add lines at end of buffer
-(setq buffers-menu-max-size nil)        ;max size of buffer menu (unlimited)
-(font-lock-mode 1)                      ;turn on font lock mode, all buffers
-(setq font-lock-maximum-size 1000000)	;max buffer size for fontifying
 (setq line-number-mode t)		;turn on line numbers in mode line
 (setq column-number-mode t)		;turn on column numbers in mode line
-(display-time)				;display time and load average in mode line
+(tool-bar-mode 0)			;turn off the tool bar since it just wastes space
 
-;; background pixmaps
-;(set-face-background-pixmap 'default "/path/to/image.xpm")
-;(set-face-background-pixmap 'bold    "/path/to/another_image.xpm")
+(require 'icicles)
+(icy-mode)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Functions that change the width of the frame (a.k.a., X11 window). You can also change the
-;; size using the normal procedure for whatever window manager you use (e.g., dragging the resize
-;; handles with the mouse) but sometimes just hitting some key combination is much faster. The
-;; sizes here are arbitrary:
-;;   80-columns:  HDF5 source code, man pages, etc.
-;;   100-columns: most of Robb's own source code
-;;   132-columns: SAF-related source code
-;;   212-columns: Robbs almost full screen width
-;; When editing C sources with Robb's C mode (rpmc-mode) with automatic filling enabled you'll
-;; need to set the frame width before loading the source file. But if you forget, just save
-;; any changes and do a find-alternate-file (C-x C-v) to reload the source file. See doc for
-;; define-key for the keystroke format.
-(global-set-key 'f4           (lambda () (interactive) (set-frame-width (selected-frame)  80)))
-(global-set-key '(control f4) (lambda () (interactive) (set-frame-width (selected-frame) 100)))
-(global-set-key '(meta f4)    (lambda () (interactive) (set-frame-width (selected-frame) 132)))
-(global-set-key '(super f4)   (lambda () (interactive) (set-frame-width (selected-frame) 212)))
+(require 'egg)
 
-(set-frame-width (selected-frame) 132)
+(semantic-load-enable-minimum-features)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Additional key bindings. These can be whatever you want -- I use the function keys. Before
-;; making the binding you might want to check what's attached to that key sequence by running
-;; command-describe-key-briefly (C-h c) and pressing the key sequence in question.
-(global-set-key 'f2 'vm)                ; VM is an e-mail program (MUA)
-(global-set-key '(control f2) 'gnus)    ; gnus is a usenet newgroup reader
-(global-set-key 'f3 'goto-line)         ; go to a specific line (1-origin)
-(global-set-key '(control f3) 'goto-char) ; go to a specific character (1-origin)
-(global-set-key 'f5 'compile)           ; run `make' or other compile command
-(global-set-key '(control f5) 'grep)    ; grep like compile, use C-x ` to visit each match
-(global-set-key 'f6 'rpmc-set-style)    ; set C coding style for current buffer
-(global-set-key 'f7 'dictionary-lookup-definition)
-(global-set-key 'button4 (lambda () (interactive) (scroll-down 5)))
-(global-set-key 'button5 (lambda () (interactive) (scroll-up 5)))
+;; Frame width
+(global-set-key (kbd "<M-S-f4>") (lambda () (interactive) (set-frame-width (selected-frame) 133)))
+(global-set-key (kbd "<f4>")     (lambda () (interactive) (set-frame-width (selected-frame) 80)))
+(set-frame-width (selected-frame) 133)
+
+;; Additional key bindings
+(global-set-key (kbd "<f3>") 'goto-line)
+(global-set-key (kbd "<C-f3>") 'goto-char)
+(global-set-key (kbd "<f5>") 'compile)
+(global-set-key (kbd "<C-f5>") 'grep)
+
+;; Bindings to make Emacs more like XEmacs
+(global-set-key [?\C-x ?/] 'point-to-register)
+(global-set-key [?\C-x ?j] 'jump-to-register)
+
+;; Make mouse wheel to scroll a constant amount each click
+(global-set-key [mouse-4] (lambda () (interactive) (scroll-down 5)))
+(global-set-key [mouse-5] (lambda () (interactive) (scroll-up 5)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filladapt -- better filling functions. "Filling" is the process of moving new-line characters
 ;; within a "paragraph" in order to make the lines all approximately the same length.
-(require 'filladapt)
-(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
+;(require 'filladapt)
+;(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
 ;(add-hook 'c-mode-hook 'turn-off-filladapt-mode) ; except C source code
-(setq filladapt-mode-line-string nil)   ; and don't advertise the minor mode
+;(setq filladapt-mode-line-string nil)   ; and don't advertise the minor mode
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Insidious Big Brother Database (BBDB) -- keeps track of contact information for e-mail & news.
@@ -119,30 +84,19 @@
 
 ;; etags is an indexing system for source code (C, C++, Fortran, Perl, Python, etc.)
 ;; Do "M-x manual-entry RET etags" for more info.
-(setq tags-build-completion-table t)    ;always build, don't ask
-(setq tags-auto-read-changed-tag-files t) ;automatically reread TAGS files
-
-;; Changelogs -- a text file that has a specific format for recording changes to source code.
-;; Every time you make a change to source code do "C-x 4 a" and enter your changes. You might
-;; need to do "M-x add-change-log-entry" to create the initial Changelog file if you want only
-;; a single Changelog at the root of your source tree. Robb uses Changelog files to facilitate
-;; CVS checkin log messages.
-(setq add-log-time-format 'current-time-string)
+;(setq tags-build-completion-table t)    ;always build, don't ask
+;(setq tags-auto-read-changed-tag-files t) ;automatically reread TAGS files
 
 ;; Compiling -- the `compile' command bound to `f5' above.  This will compile something (usually
 ;; with make(1) and capture the output in a separate window. You can visit each error/warning
 ;; with next-error (C-x `) or visit a specific error by middle-clicking (or C-c C-c) on that
 ;; error line.
-(load "compile")
-(setq remote-shell-program "ssh")
+;(load "compile")
+;(setq remote-shell-program "ssh")
 (setq compilation-window-height 8)
-(setq remote-compile-prompt-for-host t)
-(setq remote-compile-prompt-for-user t)
-;(setq compilation-error-regexp-alist-alist ; run-time errors from SAF/SSlib
-;      (append compilation-error-regexp-alist-alist
-;	      '((sslib 
-;		 ("    In [a-z_A-Z][a-z_A-Z0-9]*() at \\([a-zA-Z]?:?[^:( \t\n]+\\) line \\([0-9]+\\)$" 1 2)))))
-(compilation-build-compilation-error-regexp-alist)
+;(setq remote-compile-prompt-for-host t)
+;(setq remote-compile-prompt-for-user t)
+;(compilation-build-compilation-error-regexp-alist)
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
 
 ;; Perl programming
@@ -275,12 +229,14 @@
   (setq compile-command "make ")
 
   (make-local-variable 'fill-column)
-  (setq fill-column (- (frame-width) 5))
-  (setq c-backslash-column (- (frame-width) 5))
+  (setq fill-column (- 132 5))		; use 132 instead of (frame-width)
+  (setq c-backslash-column (- 132 5))	; ditto
   (setq c-backslash-max-column c-backslash-column)
 
   (c-toggle-auto-hungry-state 1)	; Del and C-d eat white space aggressively
   (pilf-mode 1)				; Robb's program intra-line formatting mode (horizontal white space in a line)
+
+  (hide-ifdef-mode 1)
 
   ;; Any word ending in `_t' is a type
   ;(append font-lock-keywords '("\\<[a-z_A-Z][a-z_A-Z0-9]*_t\\>" (0 font-lock-type-face)))
@@ -303,37 +259,81 @@
 (add-hook 'c++-mode-hook 'rpm-c-mode-hook)
 
 ;; Function menu stuff (fume). This is for the `Functions' pulldown menu in the toolbar.
-(require 'func-menu)
-(define-key global-map 'f8 'function-menu)
-(add-hook 'find-file-hooks 'fume-add-menubar-entry)
-(define-key global-map "\C-cl" 'fume-list-functions)
-(define-key global-map "\C-cg" 'fume-prompt-function-goto)
-(define-key global-map '(shift button3) 'mouse-function-menu) ;note: conflicts with Hyperbole
-(setq fume-max-items 40
-      fume-fn-window-position 3
-      fume-auto-position-popup t
-      fume-display-in-modeline-p t
-      fume-menubar-menu-location nil	;right-most left justified
-      fume-buffer-name "*Function List*"
-      fume-no-prompt-on-valid-default nil)
+;(require 'func-menu)
+;(define-key global-map 'f8 'function-menu)
+;(add-hook 'find-file-hooks 'fume-add-menubar-entry)
+;(define-key global-map "\C-cl" 'fume-list-functions)
+;(define-key global-map "\C-cg" 'fume-prompt-function-goto)
+;(define-key global-map '(shift button3) 'mouse-function-menu) ;note: conflicts with Hyperbole
+;(setq fume-max-items 40
+;      fume-fn-window-position 3
+;      fume-auto-position-popup t
+;      fume-display-in-modeline-p t
+;      fume-menubar-menu-location nil	;right-most left justified
+;      fume-buffer-name "*Function List*"
+;      fume-no-prompt-on-valid-default nil)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Selectively hides C/C++ 'if' and 'ifdef' regions.
+(setq hide-ifdef-mode-hook
+      (lambda ()
+	(if (not hide-ifdef-define-alist)
+	    (setq hide-ifdef-define-alist
+		  '((rose ROSE_ENABLE_SIMULATOR)
+		    (list2 ONE TWO THREE))))
+	(hide-ifdef-use-define-alist 'rose) ; use this list by default
+	))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Fixes for dired. Dired on debian has //DIRED garbage at end of buffer.
 ;; See http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=399483
 ;; This will no longer be necessary when it's fixed up stream.
 ;; Added by RPM 2010-02-08, XEmacs 21.4 (patch 21)
-(add-hook 'dired-load-hook
-  (lambda ()
-    (set-variable 'dired-use-ls-dired
-      (and (string-match "gnu" system-configuration)
-           ;; Only supported for XEmacs >= 21.5 and GNU Emacs >= 21.4 (I think)
-           (if (featurep 'xemacs)
-               (and
-		(fboundp 'emacs-version>=)
-		(emacs-version>= 21 5))
-             (and (boundp 'emacs-major-version)
-                  (boundp 'emacs-minor-version)
-                  (or (> emacs-major-version 21)
-                      (and (= emacs-major-version 21)
-                           (>= emacs-minor-version 4)))))))))
+;(add-hook 'dired-load-hook
+;  (lambda ()
+;    (set-variable 'dired-use-ls-dired
+;      (and (string-match "gnu" system-configuration)
+;           ;; Only supported for XEmacs >= 21.5 and GNU Emacs >= 21.4 (I think)
+;           (if (featurep 'xemacs)
+;               (and
+;		(fboundp 'emacs-version>=)
+;		(emacs-version>= 21 5))
+;             (and (boundp 'emacs-major-version)
+;                  (boundp 'emacs-minor-version)
+;                  (or (> emacs-major-version 21)
+;                      (and (= emacs-major-version 21)
+;                           (>= emacs-minor-version 4)))))))))
+(custom-set-variables
+  ;; custom-set-variables was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(blink-matching-paren t)
+ '(column-number-mode t)
+ '(compilation-context-lines 0)
+ '(compilation-scroll-output t)
+ '(compilation-skip-threshold 0)
+ '(delete-old-versions t)
+ '(display-time-mode t)
+ '(ecb-auto-activate t)
+ '(ecb-options-version "2.32")
+ '(ecb-source-path (quote ("/home/matzke/GS-CAD/ROSE/sources/edg4x/src")))
+ '(global-linum-mode t)
+ '(hide-ifdef-initially t)
+ '(hide-ifdef-shadow t)
+ '(next-error-highlight t)
+ '(scroll-bar-mode (quote right))
+ '(show-paren-mode t)
+ '(show-paren-style (quote mixed))
+ '(text-mode-hook (quote (turn-on-auto-fill text-mode-hook-identify)))
+ '(transient-mark-mode nil)
+ '(vc-handled-backends (quote (RCS CVS SVN SCCS Bzr Hg Mtn Arch)))
+ '(which-function-mode t))
+(custom-set-faces
+  ;; custom-set-faces was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(default ((t (:inherit nil :stipple nil :background "white" :foreground "black" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 100 :width normal :foundry "unknown" :family "DejaVu Sans Mono"))))
+ '(font-lock-doc-face ((t (:inherit font-lock-string-face :background "#ffffdd" :foreground "black" :slant oblique))))
+ '(hide-ifdef-shadow ((t (:inherit shadow :foreground "#ccc")))))

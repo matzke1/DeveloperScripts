@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+use strict;
+my @switches;
+while ($ARGV[0] =~ /^-/) {
+    push @switches, shift;
+}
+
+my $nerrors;
+for my $name1 (@ARGV) {
+    my $name2 = lc $name1;
+    if ($name1 ne $name2) {
+	my @cmd = ('mv', @switches, $name1, $name2);
+	my $status = system @cmd;
+	$nerrors++ if $status;
+    }
+}
+
+exit $nerrors==0 ? 0 : 1;

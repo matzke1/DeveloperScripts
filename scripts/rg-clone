@@ -19,8 +19,10 @@ remote_gitdir () {
     [[ "$remote" =~ "[^a-zA-Z_0-9]" ]] && die "remote name is malformed: $remote"
     case "$remote" in
 	localhost) echo "$HOME/git" ;;
-	llnl) echo "tuxblue1.llnl.gov:/usr/casc/overture/ROSE/git" ;;
-        *) echo "$remote:git" ;;
+	llnl)      echo "tuxblue1.llnl.gov:/usr/casc/overture/ROSE/git" ;;
+        github)    echo "git@github.llnl.gov:matzke1/rose" ;;
+        edg4x)     echo "rose-dev@rosecompiler.llnl.gov:rose/edg4x/rose" ;;
+        *)         echo "$remote:git" ;;
     esac
 }
 

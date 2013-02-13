@@ -319,7 +319,7 @@ decoration and line feeds."
   (cond
    ((or arg (c-in-literal)))
    ((re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*\\(<[^\n]*>\\)\\=" nil t)
-    (replace-match (concat (match-string 1) " " (match-string 2) "\n") t t)
+    (replace-match (concat (match-string 1) " " (match-string 2)) t t)
     (c-indent-line))))
 
 (defun pilf-electric-slash (&optional arg)

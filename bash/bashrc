@@ -32,7 +32,7 @@ export MANPATH=$(manpath 2>/dev/null)
 # PROMPT
 ##############################################################################
 
-LOLA="arborea 10145"
+#LOLA="arborea 10145"
 
 if [ -n "$PS1" ]; then
     # Do something in the prompt if the last command takes more than N seconds.

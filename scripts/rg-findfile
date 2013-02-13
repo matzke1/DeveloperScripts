@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+# Given the base name of a file, return the full name.  The comparison is case insensitive. Only
+# files that are part of the Git repository are considered. Output looks like messages from a compiler
+# so that IDE's can quickly go to each file.
+use strict;
+
+# Emacs' grep tacks on an extra /dev/null, which we remove here
+pop @ARGV if @ARGV>1 && $ARGV[-1] eq '/dev/null';
+
+# Make sure we're in a git repo
+my $top_srcdir = `git rev-parse --show-toplevel`;
+chomp $top_srcdir;
+exit 1 unless $top_srcdir;
+chomp(my $cdup = `git rev-parse --show-cdup`);
+
+# Convert file names to patterns
+my @patterns;
+for my $filename (@ARGV) {
+  if ($filename !~ /[()[\]{}+*?^\$]/) {
+    $filename =~ s/\./\\./g;
+  }
+  push @patterns, $filename;
+}
+
+# Find patterns in file name listing
+for my $listed (`git ls-tree -r --name-only --full-tree HEAD`) {
+  chomp $listed;
+  if (grep { eval "\$listed =~ m($_)" } @patterns) {
+    print "$cdup$listed:1: found\n";
+  }
+}

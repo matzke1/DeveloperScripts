@@ -99,7 +99,7 @@ if [ -n "$PS1" ]; then
 	alias grep='grep --color=auto'
 	alias fgrep='fgrep --color=auto'
 	alias egrep='egrep --color=auto'
-	alias tuxblue='keepalive ssh -L 8080:hudson-rose-30:8080 -L 8081:github.llnl.gov:80 tuxblue1'
+	alias tuxblue='keepalive ssh -L 8080:hudson-rose-30:8080 -L 8081:github.llnl.gov:80 -L 3000:hudson-rose-30:3000 tuxblue1.llnl.gov'
     fi
 fi
 

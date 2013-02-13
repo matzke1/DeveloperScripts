@@ -1,0 +1,20 @@
+#!/bin/sh
+# Converts raw images from *.cr2 to *.ppm to *.jpg
+# Using settings for Canon EOS Digital Rebel XTi
+
+for raw in "$@"; do
+    jpg=${raw%.*}.jpg
+    jpg=$(basename "$jpg")
+    info=${raw%.*}.info
+    if [ ! -r $raw ]; then
+	echo "$raw: cannot read file" >&2
+	exit 1
+    fi
+    [ -f $jpg ] && continue;
+    #dcraw -v -w -k 256 -c $raw |cjpeg >$jpg
+    dcraw -v -w -W -c $raw |cjpeg >$jpg
+    # [ -f $info ] || dcraw -i -v $raw >$info
+done
+
+
+

@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+# usage: $0 --base=N FILES...
+# N is added to each number in file names
+
+# Parse command-line
+use strict;
+my($base,$fwidth,@switches);
+while ($ARGV[0] =~ /^-/) {
+    if ($ARGV[0]=~/^--base=(\d+)$/) {
+	$base = $1; shift;
+    } elsif ($ARGV[0] =~ /^--width=(\d+)$/) {
+	$fwidth = $1; shift;
+    } else {
+	push @switches, shift;
+    }
+}
+
+sub renumber {
+    my($d1) = @_;
+    return sprintf "%0${fwidth}d", $base + $d1;
+}
+
+sub change_name {
+    my($name1) = @_;
+    my(@parts) = split /\//, $name1;
+    my($notdir) = pop @parts;
+    my($base,$ext) = $notdir =~ /(.*?)(\..*)?$/;
+    $base =~ s/(\d+)(\D*)$/renumber($1).$2/e;
+    my($name2) = join("/", @parts, $base) . $ext;
+    return $name2;
+}
+
+my $nerrors;
+for my $name1 (@ARGV) {
+    my $name2 = change_name $name1;
+    if ($name1 ne $name2) {
+	my @cmd = ('mv', @switches, $name1, $name2);
+	my $status = system @cmd;
+	$nerrors++ if $status;
+    }
+}
+
+exit $nerrors==0 ? 0 : 1;

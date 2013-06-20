@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+use strict;
+
+sub cmd_make {
+  return "make $_[-1]" if @_>1 && $_[-1]=~/^[a-z]\w+/;
+  return "make"
+}
+
+
+
+sub command_name {
+  my($s) = join " ", @_;
+
+  # Strip off leading parentheses
+  $s =~ s/^\(+//;
+
+  # Replace full path names with base names everywhere in the command
+  $s =~ s(([^/\s]*/)+)()g;
+
+  # Strip away environment variable settings from the beginning of the string
+  $s =~ s/^([_a-zA-Z]\w*=\S*\s*)+//;
+  #print STDERR "s=\"$s\"\n";
+
+  # Strip off certain words from the beginning
+  $s =~ s/^(nice|rg-env|rosegit-env)\s+//;
+
+  my @words = split /\s+/, $s;
+  #print STDERR join(" ", map {"[$_]"} @words), "\n";
+
+  # Long-running commands for which we need no verbal report
+  return "" if $words[0] eq 'less' || $words[0] eq 'man';
+
+  # Translations
+  return cmd_make @words if $words[0] =~ /^(rg-|rosegit-)?make$/;
+  return "git command" if $words[0] =~ /^(sm)?git$/;
+  return "configure" if $words[0] eq 'rg-config' || $words[0] eq 'rosegit-configure';
+
+  # Final fallback
+  return $words[0];
+}
+
+print command_name(@ARGV), "\n";

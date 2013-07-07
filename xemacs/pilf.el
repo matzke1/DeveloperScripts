@@ -195,11 +195,11 @@ decoration and line feeds."
       (pilf-comment-delete-some "[ \t\n]")
       (insert "*/\n"))
 
-     ;; If comment opening is hanging then hang the closing. If the comment text is a single lower-case
-     ;; word then remove the white space around it and do not advance point to the next line.
+     ;; If comment opening is hanging then hang the closing. If the comment text contains no internal white space
+     ;; then remove the white space around it and do not advance point to the next line.
      ((and hanging decoration)
       (pilf-comment-delete-some)
-      (if (re-search-backward "/\\*[ \t]*\\([a-z]+\\)\\=" nil t)
+      (if (re-search-backward "/\\*[ \t]*\\([^ \t]+\\)\\=" nil t)
 	  (replace-match (concat "/*" (match-string 1) "*/"))
 	(insert (concat decor-trail decor-lead "*/\n"))))
 

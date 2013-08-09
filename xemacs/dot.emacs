@@ -22,7 +22,7 @@
 
 (require 'egg)
 
-(semantic-load-enable-minimum-features)
+;(semantic-load-enable-minimum-features)
 
 ;; Frame width
 (global-set-key (kbd "<M-S-f4>") (lambda () (interactive) (set-frame-width (selected-frame) 133)))

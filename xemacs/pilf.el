@@ -175,7 +175,7 @@ asterisks, and horizontal and vertical white space."
     (let ((in-comment (pilf-in-comment)))
       (if (eq (car in-comment) 'c)
 	  (while (re-search-backward (concat char-class "\\=") (+ 2 (cdr in-comment)) t)
-	    (delete-char))))))
+	    (delete-char 1))))))
 
 (defun pilf-close-comment ()
   "Closes a C comment.

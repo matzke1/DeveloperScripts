@@ -1,0 +1,143 @@
+#!/bin/bash
+# Clones ROSE and submodules and creates a work branch.
+#
+# Clones from the first specified REMOTE, then adds additional REMOTES.  If the repo is already cloned, then it simply adds all
+# the specified remotes (the remotes don't have to be reachable).  It's still necessary to do an "smgit fetch REMOTE" by hand.
+usage () {
+    echo "usage: $0 BRANCH REMOTES..." >&2
+    exit 1
+}
+
+die () {
+    echo "$@" >&2
+    exit 1
+}
+
+remote_gitdir () {
+    local remote="$1"
+    [ -n "$remote" ] || die "no remote specified";
+    [[ "$remote" =~ "[^a-zA-Z_0-9]" ]] && die "remote name is malformed: $remote"
+    case "$remote" in
+	localhost) echo "$HOME/git" ;;
+	llnl)      echo "tuxblue1.llnl.gov:/usr/casc/overture/ROSE/git" ;;
+        github)    echo "git@github.llnl.gov:matzke1/rose" ;;
+        edg4x)     echo "rose-dev@rosecompiler.llnl.gov:rose/edg4x/rose" ;;
+        *)         echo "$remote:git" ;;
+    esac
+}
+
+submodule_uri () {
+    local sm_path="$1"
+    case "$sm_path" in
+	src/frontend/CxxFrontend/EDG) echo "ROSE-EDG" ;;
+        *) basename "$sm_path" ;;
+    esac
+}
+
+
+clone () {
+    local remote="$1" branch="$2"
+    local gitdir="$(remote_gitdir "$remote")"
+    [ -n "$gitdir" ] || exit 1
+    [ -d "$branch" ] && die "directory exists: $branch"
+    git clone --origin "$remote" "$gitdir/ROSE" "$branch" || exit 1
+    (
+	cd "$branch" || exit 1
+	git submodule --quiet init || exit 1
+	git submodule update || exit 1
+	git submodule foreach "git remote rename origin $remote"
+
+        # Create feature branch if necessary
+	if ! git rev-parse "$branch" >/dev/null 2>&1; then
+	    if git rev-parse "$remote/$branch" >/dev/null 2>&1; then
+		git branch "$branch" "$remote/$branch" || exit 1
+	    else
+		git branch --no-track "$branch" "$remote/master" || exit 1
+	    fi
+	fi
+
+	# Check out feature branch
+	smgit checkout "$branch"
+    )
+}
+
+
+[ "$#" -lt 2 ] && usage;
+branch="$1"; shift
+[ -n "$branch" ] || die "no branch specified"
+
+if [ ! -d "$branch" ]; then
+    remote="$1"; shift
+    clone "$remote" "$branch"
+fi
+
+for remote in "$@"; do
+    gitdir="$(remote_gitdir "$remote")"
+    [ -n "$gitdir" ] || exit 1
+    (
+	cd "$branch" || exit 1
+	git remote add "$remote" "$gitdir/ROSE" || exit 1
+	for sm_path in $(git submodule foreach --quiet 'echo $path'); do
+	    sm_uri="$gitdir/$(submodule_uri "$sm_path")"
+	    (cd "$sm_path" && git remote add "$remote" "$sm_uri") || exit 1
+	done
+    )
+done
+
+exit 1
+
+##################################################################################################################################
+##################################################################################################################################
+##################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+feature="$1"; [ -n "$feature" ] || feature=master
+repo=matzke@wortheni:git/ROSE
+
+
+[ -n "$feature" ] || die "usage: $0 FEATURE"
+[ -d "$feature" ] && die "directory exists: $feature"
+
+
+git clone $repo $feature || exit 1
+
+
+(   set -e
+    cd $feature
+
+    # Get submodules (EDG, optional projects)
+    git submodule init
+    git submodule update
+
+    # Create feature branch if necessary
+    upstream=
+    if ! git rev-parse $feature >/dev/null 2>&1; then
+	if git rev-parse origin/$feature >/dev/null 2>&1; then
+	    upstream=origin/$feature
+	    git branch $feature $upstream
+	else
+	    upstream=origin/master
+	    git branch --no-track $feature $upstream
+	fi
+    fi
+
+    # Check out feature branch
+    ./scripts/smgit checkout $feature
+
+    # Make sure feature branch is up-to-date
+    if [ -f .git/refs/remotes/origin/$feature ]; then
+	./scripts/smgit merge origin/$feature
+    fi
+
+    # Add the "llnl" repo (OTOH, "origin" is a fast, local repo)
+    git remote add llnl tuxblue1:/usr/casc/overture/ROSE/git/ROSE.git
+    (cd src/frontend/CxxFrontend/EDG && git remote add llnl tuxblue1:/usr/casc/overture/ROSE/git/ROSE-EDG.git)
+)

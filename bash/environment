@@ -13,7 +13,7 @@ export LESS="RS"
 # Distcc and ccache
 ##############################################################################
 
-[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='localhost/12'
+[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='--localslots_cpp=10 localhost/5 wortheni/10,lzo'
 export DISTCC_HOSTS;
 export CCACHE_PREFIX=distcc
 
@@ -30,3 +30,10 @@ if [ -e $HOME/bin/rosegit-bin ]; then
     [ -n "$(type -p qgit4)" ] && alias qg='qgit4 --all'
     [ -f $HOME/GS-CAD/ROSE/zgrviewer/run.sh ] && alias zgrviewer="$HOME/GS-CAD/ROSE/zgrviewer/run.sh"
 fi
+
+
+##############################################################################
+# Doxygen 1.8
+##############################################################################
+
+[ -d $HOME/doxygen-1.8.2/bin ] && eval $(path-adjust insert --prepend $HOME/doxygen-1.8.2/bin)

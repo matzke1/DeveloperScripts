@@ -175,7 +175,7 @@ asterisks, and horizontal and vertical white space."
     (let ((in-comment (pilf-in-comment)))
       (if (eq (car in-comment) 'c)
 	  (while (re-search-backward (concat char-class "\\=") (+ 2 (cdr in-comment)) t)
-	    (delete-char))))))
+	    (delete-char 1))))))
 
 (defun pilf-close-comment ()
   "Closes a C comment.
@@ -346,7 +346,7 @@ decoration and line feeds."
   (cond
    ((or arg (c-in-literal)))
    ((re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*\\(<[^\n]*>\\)\\=" nil t)
-    (replace-match (concat (match-string 1) " " (match-string 2) "\n") t t)
+    (replace-match (concat (match-string 1) " " (match-string 2)) t t)
     (c-indent-line))))
 
 (defun pilf-electric-slash (&optional arg)

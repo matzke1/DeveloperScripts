@@ -53,7 +53,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CEDET
-;; Do not install Debian "ede" package
+;; Do not install Debian "ede" package. Use:
+;; bzr checkout bzr://cedet.bzr.sourceforge.net/bzrroot/cedet/code/trunk cedet
+;; See http://cedet.sourceforge.net/bzr-repo.shtml
 (load-file "~/cedet/cedet-devel-load.el")
 (setq semantic-default-submodes '(; enables global support for Semanticdb
 				  global-semanticdb-minor-mode

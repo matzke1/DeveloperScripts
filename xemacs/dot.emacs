@@ -34,6 +34,7 @@
 (global-set-key (kbd "<C-f3>") 'goto-char)
 (global-set-key (kbd "<f5>") 'compile)
 (global-set-key (kbd "<C-f5>") 'grep)
+(global-set-key [?\C-c ?, ?i] 'semantic-analyze-proto-impl-toggle)
 
 ;; Bindings to make Emacs more like XEmacs
 (global-set-key [?\C-x ?/] 'point-to-register)
@@ -57,6 +58,7 @@
 ;; bzr checkout bzr://cedet.bzr.sourceforge.net/bzrroot/cedet/code/trunk cedet
 ;; See http://cedet.sourceforge.net/bzr-repo.shtml
 (load-file "~/cedet/cedet-devel-load.el")
+(load-file "~/cedet/contrib/semantic-tag-folding.el")
 (setq semantic-default-submodes '(; enables global support for Semanticdb
 				  global-semanticdb-minor-mode
 				  ; automatic bookmarking of tags that you edited, so you can return to them later with the
@@ -77,16 +79,22 @@
 				  global-semantic-idle-scheduler-mode
 				  ; activates displaying of possible name completions in the idle time. Requires that
 				  ; global-semantic-idle-schedule-mode was enabled.
-				  ;global-semantic-idle-completions-mode
+				  ;       global-semantic-idle-completions-mode
 				  ; ?
+				  global-semantic-tag-folding-mode
 				  global-semantic-minor-mode))
 (semantic-mode 1)
 (require 'semantic/ia)			; advanced features
 (require 'semantic/bovine/gcc)		; system header file locations for GCC
+(require 'semantic/mru-bookmark)	; automatic bookmark tracking
+(require 'semantic-tag-folding)		; see cedet/contrib/semantic-tag-folding.el
 (semantic-add-system-include "~/boost/boost_1_47_0/include" 'c++-mode)
 (semantic-load-enable-code-helpers)
 
 ;; Integrate cedet with imenu: creates a menu item that lists things in the buffer
+(setq imenu-sort-function 'imenu--sort-by-name)
+(setq imenu-max-items 100)		;maximum number of elements in a mouse menu
+;(setq imenu-after-jump-hook (lambda () (recenter 3)))
 (defun robb-semantic-hook ()
   (imenu-add-to-menubar "TAGS"))
 (add-hook 'semantic-init-hooks 'robb-semantic-hook)
@@ -102,8 +110,178 @@
 ;; Support for projects
 (global-ede-mode t)
 
+;; Rose src directories that contain *.h or *.hpp files, relative to the "src" directory.
+(setq rose-src-include-directories
+      '("/3rdPartyLibraries/MSTL"
+	"/3rdPartyLibraries/POET"
+	"/3rdPartyLibraries/UPR/examples/cuda/test-cuda-runtime.hpp"
+	"/3rdPartyLibraries/UPR/examples/opencl/test-opencl-runtime.hpp"
+	"/3rdPartyLibraries/UPR/examples/xomp/test-xomp-runtime.hpp"
+	"/3rdPartyLibraries/UPR/include/UPR/cuda-runtime.hpp"
+	"/3rdPartyLibraries/UPR/include/UPR/opencl-runtime.hpp"
+	"/3rdPartyLibraries/UPR/include/UPR/runtime.hpp"
+	"/3rdPartyLibraries/UPR/include/UPR/xomp-runtime.hpp"
+	"/3rdPartyLibraries/checkPointLibrary"
+	"/3rdPartyLibraries/ckpt"
+	"/3rdPartyLibraries/libharu-2.1.0/demo"
+	"/3rdPartyLibraries/libharu-2.1.0/include"
+	"/3rdPartyLibraries/libharu-2.1.0/win32/include"
+	"/3rdPartyLibraries/qrose/Components/Common"
+	"/3rdPartyLibraries/qrose/Components/QueryBox"
+	"/3rdPartyLibraries/qrose/Components/SourceBox"
+	"/3rdPartyLibraries/qrose/Components/TreeBox"
+	"/3rdPartyLibraries/qrose/Framework"
+	"/3rdPartyLibraries/qrose/Widgets"
+	"/ROSETTA/src"
+	"/backend/asmUnparser"
+	"/backend/unparser"
+	"/backend/unparser/CxxCodeGeneration"
+	"/backend/unparser/FortranCodeGeneration"
+	"/backend/unparser/JavaCodeGeneration"
+	"/backend/unparser/PHPCodeGeneration"
+	"/backend/unparser/PythonCodeGeneration"
+	"/backend/unparser/X10CodeGeneration"
+	"/backend/unparser/formatSupport"
+	"/backend/unparser/languageIndependenceSupport"
+	"/frontend/BinaryDisassembly"
+	"/frontend/BinaryFormats"
+	"/frontend/BinaryLoader"
+	"/frontend/Disassemblers"
+	"/frontend/ECJ_ROSE_Connection"
+	"/frontend/OpenFortranParser_SAGE_Connection"
+	"/frontend/PHPFrontend"
+	"/frontend/PythonFrontend"
+	"/frontend/SageIII"
+	"/frontend/SageIII/astFileIO"
+	"/frontend/SageIII/astFixup"
+	"/frontend/SageIII/astFromString"
+	"/frontend/SageIII/astFromString/ParserBuilder.hpp"
+	"/frontend/SageIII/astHiddenTypeAndDeclarationLists"
+	"/frontend/SageIII/astMerge"
+	"/frontend/SageIII/astPostProcessing"
+	"/frontend/SageIII/astTokenStream"
+	"/frontend/SageIII/astVisualization"
+	"/frontend/SageIII/includeDirectivesProcessing"
+	"/frontend/SageIII/sageInterface"
+	"/frontend/SageIII/sage_support"
+	"/frontend/SageIII/virtualCFG"
+	"/frontend/X10_ROSE_Connection"
+	"/midend/abstractHandle"
+	"/midend/abstractMemoryObject"
+	"/midend/astDiagnostics"
+	"/midend/astProcessing"
+	"/midend/astQuery"
+	"/midend/astRewriteMechanism"
+	"/midend/astUtil/annotation"
+	"/midend/astUtil/astInterface"
+	"/midend/astUtil/astSupport"
+	"/midend/astUtil/symbolicVal"
+	"/midend/binaryAnalyses"
+	"/midend/binaryAnalyses/dataflowanalyses"
+	"/midend/binaryAnalyses/instructionSemantics"
+	"/midend/binaryAnalyses/libraryIdentification"
+	"/midend/programAnalysis/CFG"
+	"/midend/programAnalysis/CallGraphAnalysis"
+	"/midend/programAnalysis/CallGraphAnalysisMySQL"
+	"/midend/programAnalysis/OAWrap"
+	"/midend/programAnalysis/OpenAnalysis/CFG"
+	"/midend/programAnalysis/OpenAnalysis/CallGraph"
+	"/midend/programAnalysis/OpenAnalysis/Interface"
+	"/midend/programAnalysis/OpenAnalysis/SSA"
+	"/midend/programAnalysis/OpenAnalysis/Utils"
+	"/midend/programAnalysis/VirtualFunctionAnalysis"
+	"/midend/programAnalysis/annotationLanguageParser"
+	"/midend/programAnalysis/bitvectorDataflow"
+	"/midend/programAnalysis/dataflowAnalysis"
+	"/midend/programAnalysis/defUseAnalysis"
+	"/midend/programAnalysis/distributedMemoryAnalysis"
+	"/midend/programAnalysis/distributedMemoryAnalysis/distributedVerificationExample"
+	"/midend/programAnalysis/dominanceAnalysis"
+	"/midend/programAnalysis/dominatorTreesAndDominanceFrontiers"
+	"/midend/programAnalysis/genericDataflow"
+	"/midend/programAnalysis/genericDataflow/analysis"
+	"/midend/programAnalysis/genericDataflow/arrIndexLabeler"
+	"/midend/programAnalysis/genericDataflow/cfgUtils"
+	"/midend/programAnalysis/genericDataflow/lattice"
+	"/midend/programAnalysis/genericDataflow/rwAccessLabeler"
+	"/midend/programAnalysis/genericDataflow/simpleAnalyses"
+	"/midend/programAnalysis/genericDataflow/state"
+	"/midend/programAnalysis/genericDataflow/variables"
+	"/midend/programAnalysis/graphAnalysis"
+	"/midend/programAnalysis/pointerAnal"
+	"/midend/programAnalysis/proceduralSlicing"
+	"/midend/programAnalysis/proceduralSlicing/test"
+	"/midend/programAnalysis/sideEffectAnalysis"
+	"/midend/programAnalysis/ssaUnfilteredCfg"
+	"/midend/programAnalysis/staticInterproceduralSlicing"
+	"/midend/programAnalysis/staticSingleAssignment"
+	"/midend/programAnalysis/systemDependenceGraph"
+	"/midend/programAnalysis/valuePropagation"
+	"/midend/programAnalysis/variableRenaming"
+	"/midend/programTransformation/astInlining"
+	"/midend/programTransformation/constantFolding"
+	"/midend/programTransformation/extractFunctionArgumentsNormalization"
+	"/midend/programTransformation/finiteDifferencing"
+	"/midend/programTransformation/functionCallNormalization"
+	"/midend/programTransformation/implicitCodeGeneration"
+	"/midend/programTransformation/loopProcessing/computation"
+	"/midend/programTransformation/loopProcessing/depGraph"
+	"/midend/programTransformation/loopProcessing/depInfo"
+	"/midend/programTransformation/loopProcessing/driver"
+	"/midend/programTransformation/loopProcessing/outsideInterface"
+	"/midend/programTransformation/loopProcessing/prepostTransformation"
+	"/midend/programTransformation/loopProcessing/slicing"
+	"/midend/programTransformation/ompLowering"
+	"/midend/programTransformation/partialRedundancyElimination"
+	"/roseExtensions/dataStructureTraversal"
+	"/roseExtensions/qtWidgets/AsmInstructionBar"
+	"/roseExtensions/qtWidgets/AsmView"
+	"/roseExtensions/qtWidgets/AstBrowserWidget"
+	"/roseExtensions/qtWidgets/AstGraphWidget"
+	"/roseExtensions/qtWidgets/AstProcessing"
+	"/roseExtensions/qtWidgets/BeautifiedAst"
+	"/roseExtensions/qtWidgets/FlopCounter"
+	"/roseExtensions/qtWidgets/InstructionCountAnnotator"
+	"/roseExtensions/qtWidgets/KiviatView"
+	"/roseExtensions/qtWidgets/MetricFilter"
+	"/roseExtensions/qtWidgets/MetricsConfig"
+	"/roseExtensions/qtWidgets/MetricsKiviat"
+	"/roseExtensions/qtWidgets/NodeInfoWidget"
+	"/roseExtensions/qtWidgets/ProjectManager"
+	"/roseExtensions/qtWidgets/PropertyTreeWidget"
+	"/roseExtensions/qtWidgets/QCodeEditWidget"
+	"/roseExtensions/qtWidgets/QCodeEditWidget/QCodeEdit"
+	"/roseExtensions/qtWidgets/QCodeEditWidget/QCodeEdit/document"
+	"/roseExtensions/qtWidgets/QCodeEditWidget/QCodeEdit/qnfa"
+	"/roseExtensions/qtWidgets/QCodeEditWidget/QCodeEdit/widgets"
+	"/roseExtensions/qtWidgets/QtGradientEditor"
+	"/roseExtensions/qtWidgets/RoseCodeEdit"
+	"/roseExtensions/qtWidgets/RoseFileSelector"
+	"/roseExtensions/qtWidgets/SrcBinView"
+	"/roseExtensions/qtWidgets/TaskSystem"
+	"/roseExtensions/qtWidgets/TreeModel"
+	"/roseExtensions/qtWidgets/WidgetCreator"
+	"/roseExtensions/qtWidgets/util"
+	"/roseExtensions/sqlite3x"
+	"/roseIndependentSupport/dot2gml"
+	"/roseIndependentSupport/graphics"
+	"/roseIndependentSupport/visualization"
+	"/roseSupport"
+	"/util"
+	"/util/commandlineProcessing"
+	"/util/graphs"
+	"/util/stringSupport"
+	"/util/support"))
+(setq rose-include-directories (mapcar (lambda (x) (concat "/src" x)) rose-src-include-directories))
+
 ;; Parsing ROSE automake files doesn't work, so use this instead
-(ede-cpp-root-project "rose" :file "/home/matzke/rose/src/dummyCppFileForLibrose.C")
+;(ede-cpp-root-project "rose" :file "/home/matzke/rose/src/dummyCppFileForLibrose.C")
+(ede-cpp-root-project "rose-semantics2-src"
+		      :file "/home/matzke/GS-CAD/ROSE/sources/semantics2/src/roseInternal.h"
+		      :include-path rose-src-include-directories)
+(ede-cpp-root-project "rose-simulator"
+		      :file "/home/matzke/GS-CAD/ROSE/sources/edg4x-simulator/rose_config.h.in"
+		      :include-path rose-include-directories)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filladapt -- better filling functions. "Filling" is the process of moving new-line characters
@@ -313,7 +491,7 @@
   (filladapt-mode 1)
   (auto-fill-mode 1)
 
-  ;; Show completions when "." or ">" (as in "->") is pressed
+  ;; Show completions when "." or ">" (as in "->") is pressed (not applicable when using auto-complete)
 ;  (local-set-key "." 'semantic-complete-self-insert)
 ;  (local-set-key ">" 'semantic-complete-self-insert)
 
@@ -393,6 +571,7 @@
  '(hide-ifdef-initially t)
  '(hide-ifdef-shadow t)
  '(next-error-highlight t)
+ '(save-place t nil (saveplace))
  '(scroll-bar-mode (quote right))
  '(show-paren-mode t)
  '(show-paren-style (quote mixed))
@@ -405,6 +584,6 @@
   ;; If you edit it by hand, you could mess it up, so be careful.
   ;; Your init file should contain only one such instance.
   ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "white" :foreground "black" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 100 :width normal :foundry "unknown" :family "DejaVu Sans Mono"))))
+ '(default ((t (:inherit nil :stipple nil :background "white" :foreground "black" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 78 :width normal :foundry "unknown" :family "DejaVu Sans Mono"))))
  '(font-lock-doc-face ((t (:inherit font-lock-string-face :background "#ffffdd" :foreground "black" :slant oblique))))
  '(hide-ifdef-shadow ((t (:inherit shadow :foreground "#ccc")))))

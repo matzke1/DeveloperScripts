@@ -73,7 +73,7 @@
 				  global-semantic-stickyfunc-mode
 				  ; activates use of separate styles for tags decoration (depending on tag's class). These styles
 				  ; are defined in the semantic-decoration-styles list.
-				  global-semantic-decoration-mode
+				  ;global-semantic-decoration-mode
 				  ; activates highlighting of local names that are the same as name of tag under cursor
 				  global-semantic-idle-local-symbol-highlight-mode
 				  ; activates automatic parsing of source code in the idle time

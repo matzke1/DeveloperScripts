@@ -18,6 +18,7 @@
 (setq line-number-mode t)		;turn on line numbers in mode line
 (setq column-number-mode t)		;turn on column numbers in mode line
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes space
+(setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
 
 ;(require 'icicles)
 ;(icy-mode)

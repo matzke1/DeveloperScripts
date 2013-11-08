@@ -13,11 +13,21 @@ export LESS="RS"
 # Distcc and ccache
 ##############################################################################
 
-[ -n "$DISTCC_HOSTS" ] || DISTCC_HOSTS='--localslots_cpp=10 localhost/5 wortheni/10,lzo'
-export DISTCC_HOSTS;
-export CCACHE_PREFIX=distcc
+if [ "$DISTCC_HOSTS" = "" ]; then
+    NPROCS=$(sed -n '/^processor[ \t]*:/p' /proc/cpuinfo |wc -l)
+    [ -n "$NPROCS" ] || NPROCS=1
+    CPPSLOTS=$[2*NPROCS]
 
-[ -d /usr/lib/ccache ] && eval $(path-adjust insert --prepend /usr/lib/ccache)
+    DISTCC_HOSTS="--localslots_cpp=$CPPSLOTS localhost/$NPROCS"
+
+    if [ $(hostname) != "wortheni" ]; then
+	DISTCC_HOSTS="$DISTCC_HOSTS wortheni/10,lzo"
+    fi
+fi
+
+if [ -d /usr/lib/ccache ]; then
+    eval $(path-adjust insert --prepend /usr/lib/ccache)
+fi
 
 ##############################################################################
 # ROSE CONFIGURATION

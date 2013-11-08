@@ -84,13 +84,14 @@
 				  ; ?
 				  global-semantic-tag-folding-mode
 				  global-semantic-minor-mode))
-(semantic-mode 1)
+
+;(semantic-mode 1)                      ; COMMENTED OUT BECAUSE IT CAUSES "Wrong type argument: stringp, 1" when loading C++ files
 (require 'semantic/ia)			; advanced features
 (require 'semantic/bovine/gcc)		; system header file locations for GCC
 (require 'semantic/mru-bookmark)	; automatic bookmark tracking
 (require 'semantic-tag-folding)		; see cedet/contrib/semantic-tag-folding.el
 (semantic-add-system-include "~/boost/boost_1_47_0/include" 'c++-mode)
-(semantic-load-enable-code-helpers)
+;(semantic-load-enable-code-helpers)    ; COMMENTED OUT BECAUSE IT CAUSES "Wrong type argument: stringp, 1" when loading C++ files
 
 ;; Integrate cedet with imenu: creates a menu item that lists things in the buffer
 (setq imenu-sort-function 'imenu--sort-by-name)

@@ -35,9 +35,19 @@ export MANPATH=$(manpath 2>/dev/null)
 #LOLA="arborea 10145"
 
 if [ -n "$PS1" ]; then
+
+    # Should the prompt be colorized?
+    PROMPT_USE_COLOR=
+    if [ -n "$(type -p tput)" ] && tput setaf 1 >&/dev/null; then
+	# We have color support; assume it's compliant with Ecma-48
+	# (ISO/IEC-6429).  Lack of such support is extremely rare, and such a
+	# case would tend to support setf rather than setaf.)
+	PROMPT_USE_COLOR=yes
+    fi
+    
     # Do something in the prompt if the last command takes more than N seconds.
     command_prompt () {
-	local status=$?
+	status=$?
 
 	local old_histtimeformat="$HISTTIMEFORMAT"
 	HISTTIMEFORMAT="%s "
@@ -69,19 +79,33 @@ if [ -n "$PS1" ]; then
 
     }
 
+    prompt_git_info() {
+	local branchname=$(git branch --no-color 2>/dev/null |sed -n 's/^\* *//p')
+	[ -n "$branchname" ] && echo -n "$branchname "
+    }
+
+    prompt_color() {
+	local string="$1" color="$2"
+	[ -n "$color" ] && echo -n '\[\e['"$color"'m\]'
+	echo -n "$string"
+	[ -n "$color" ] && echo -n '\[\e[0m\]'
+    }
+
+
     if (echo "$PS1" |grep command_prompt >/dev/null 2>&1); then
 	: already set
-    elif [ -n "$(type -p tput)" ] && tput setaf 1 >&/dev/null; then
-	# We have color support; assume it's compliant with Ecma-48
-	# (ISO/IEC-6429).  Lack of such support is extremely rare, and such a
-	# case would tend to support setf rather than setaf.)
-	PS1='$(command_prompt)\[\033[01;31m\]$PS1_STACK\[\033[0m\]\[\033[00;32m\]\u@\h:\W $\[\033[0m\] '
     else
-	PS1='$(command_prompt)$PS1_STACK\u@\h:\W $ '
+	PS1=
+	PS1="$PS1"'$(command_prompt)'
+	PS1="$PS1$(prompt_color '\u@\h:\W '          32)"
+	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
+	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"
+	PS1="$PS1"'\n'"$(prompt_color '$ '           32)"
+
     fi
 
 
-    # If we're running under "screen" then set the prompt
+    # If we're running under "screen" then set the prompt stack
     [ -n "$STY" ] && PS1_STACK="screen $PS1_STACK"
 fi
 

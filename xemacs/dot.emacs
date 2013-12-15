@@ -1,6 +1,7 @@
 ;; Robb's emacs startup file                                                                           -*- lisp -*-
 
-(setq load-path (append load-path (list (expand-file-name "~/.xemacs"))))
+(add-to-list 'load-path (expand-file-name "~/.emacs.d"))
+(add-to-list 'load-path (expand-file-name "~/.emacs.d/cc-mode"))
 
 (setq inhibit-startup-message t)        ;do not display startup message
 (setq enable-recursive-minibuffers t)   ;allow minibuffer use in minibuffer

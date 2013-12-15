@@ -263,7 +263,7 @@ decoration and line feeds."
    ;; symbol followed by left paren should be separated by a space for keywords; no space otherwise
    ((re-search-backward
      (concat "\\([^a-zA-Z_0-9]\\)"		; at a word boundary
-	     "\\([a-zA-Z_][a-zA-Z_0-9]*\\)"	        ; symbol
+	     "\\([a-zA-Z_][a-zA-Z_0-9]*\\)"     ; symbol
 	     "[ \t]*"			        ; optional horizontal white space
 	     "(\\=")				; point after lt paren
      nil t)

@@ -97,7 +97,8 @@ if [ -n "$PS1" ]; then
     else
 	PS1=
 	PS1="$PS1"'$(command_prompt)'
-	PS1="$PS1$(prompt_color '\u@\h:\W '          32)"
+	PS1="$PS1$(prompt_color '\u@\h '             32)"
+	PS1="$PS1$(prompt_color '\W '                33)"
 	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
 	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"
 	PS1="$PS1"'\n'"$(prompt_color '$ '           32)"

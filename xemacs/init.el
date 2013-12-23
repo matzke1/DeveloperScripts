@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Expert User .emacs File.
-;;; Copyright(C) 2002-2012 Robb Matzke.
+;;; Copyright(C) 2002-2013 Robb Matzke.
 ;;; GNU General Public License
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -39,10 +39,6 @@
 (setq column-number-mode t)		;turn on column numbers in mode line
 (display-time)				;display time and load average in mode line
 
-;; background pixmaps
-;(set-face-background-pixmap 'default "/path/to/image.xpm")
-;(set-face-background-pixmap 'bold    "/path/to/another_image.xpm")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions that change the width of the frame (a.k.a., X11 window). You can also change the
 ;; size using the normal procedure for whatever window manager you use (e.g., dragging the resize
@@ -67,14 +63,10 @@
 ;; Additional key bindings. These can be whatever you want -- I use the function keys. Before
 ;; making the binding you might want to check what's attached to that key sequence by running
 ;; command-describe-key-briefly (C-h c) and pressing the key sequence in question.
-(global-set-key 'f2 'vm)                ; VM is an e-mail program (MUA)
-(global-set-key '(control f2) 'gnus)    ; gnus is a usenet newgroup reader
 (global-set-key 'f3 'goto-line)         ; go to a specific line (1-origin)
 (global-set-key '(control f3) 'goto-char) ; go to a specific character (1-origin)
 (global-set-key 'f5 'compile)           ; run `make' or other compile command
 (global-set-key '(control f5) 'grep)    ; grep like compile, use C-x ` to visit each match
-(global-set-key 'f6 'rpmc-set-style)    ; set C coding style for current buffer
-(global-set-key 'f7 'dictionary-lookup-definition)
 (global-set-key 'button4 (lambda () (interactive) (scroll-down 5)))
 (global-set-key 'button5 (lambda () (interactive) (scroll-up 5)))
 
@@ -87,47 +79,12 @@
 (setq filladapt-mode-line-string nil)   ; and don't advertise the minor mode
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Insidious Big Brother Database (BBDB) -- keeps track of contact information for e-mail & news.
-;(require 'bbdb)
-;(bbdb-initialize 'vm 'message 'sc)
-;(bbdb-insinuate-sc)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; supercite -- citations in e-mail.
-;(add-hook 'mail-citation-hook 'sc-cite-original)
-;(setq sc-citation-leader "")
-;(setq sc-auto-fill-region-p nil)        ;I like to fill manually with M-q
-;(setq sc-preferred-attribution-list
-;      '("sc-lastchoice" "x-attribution" "sc-consult"
-;        "initials" "firstname" "lastname" "emailname"))
-;(setq sc-attrib-selection-list          ;This is BBDB stuff for supercite
-;      '(("sc-from-address"
-;         ((".*" (bbdb/sc-consult-attr (sc-mail-field "sc-from-address")))))))
-;(setq sc-mail-glom-frame                ;This is BBDB stuff for supercite
-;      '((begin				(setq sc-mail-headers-start (point)))
-;        ("^x-attribution:[ 	]+.*$"  (sc-mail-fetch-field t) nil t)
-;        ("^\\$ +:.*$"                   (sc-mail-fetch-field) nil t)
-;        ("^$"                           (progn
-;                                          (bbdb/sc-default)
-;                                          (list 'abort '(step . 0))))
-;        ("^[ 	]+"                     (sc-mail-append-field))
-;        (sc-mail-warn-if-non-rfc822-p   (sc-mail-error-in-mail-field))
-;        (end                            (setq sc-mail-headers-end (point)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Programming stuff follows...
 
 ;; etags is an indexing system for source code (C, C++, Fortran, Perl, Python, etc.)
 ;; Do "M-x manual-entry RET etags" for more info.
 (setq tags-build-completion-table t)    ;always build, don't ask
 (setq tags-auto-read-changed-tag-files t) ;automatically reread TAGS files
-
-;; Changelogs -- a text file that has a specific format for recording changes to source code.
-;; Every time you make a change to source code do "C-x 4 a" and enter your changes. You might
-;; need to do "M-x add-change-log-entry" to create the initial Changelog file if you want only
-;; a single Changelog at the root of your source tree. Robb uses Changelog files to facilitate
-;; CVS checkin log messages.
-(setq add-log-time-format 'current-time-string)
 
 ;; Compiling -- the `compile' command bound to `f5' above.  This will compile something (usually
 ;; with make(1) and capture the output in a separate window. You can visit each error/warning
@@ -138,10 +95,6 @@
 (setq compilation-window-height 8)
 (setq remote-compile-prompt-for-host t)
 (setq remote-compile-prompt-for-user t)
-;(setq compilation-error-regexp-alist-alist ; run-time errors from SAF/SSlib
-;      (append compilation-error-regexp-alist-alist
-;	      '((sslib 
-;		 ("    In [a-z_A-Z][a-z_A-Z0-9]*() at \\([a-zA-Z]?:?[^:( \t\n]+\\) line \\([0-9]+\\)$" 1 2)))))
 (compilation-build-compilation-error-regexp-alist)
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
 

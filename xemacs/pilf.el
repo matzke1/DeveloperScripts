@@ -7,26 +7,78 @@
 
 (defconst pilf-author-name (user-full-name))
 
+;(defvar pilf-configuration-alist
+
+(setq pilf-configuration-alist
+  '((author-name . user-full-name)
+
+    ;; Comment text to insert after a '}' and on the same line.  For instance, it's useful to add the comment "namespace" to
+    ;; the closing brace of a namespace, especially when the contents of the namespace is not indented and the opening of the
+    ;; namespace is far away.  Beware that it can be a hindrance to add comments that contain the name of the thing being
+    ;; closed since programers don't typically know that they need to update that far-away comment if they change the name.
+    ;;
+    ;; The value is one of the following:
+    ;;   + A single-line string that will serve as the text of a comment (excludes comment delimiters).
+    ;;   + A function or function symbol that returns the value. The function is called with one argument: a symbol
+    ;;     returned from pilf-at-closing-brace that describes the language construct being closed.
+    ;;   + An association list whose keys are language constructs returned by pilf-at-closing-brace and whose values
+    ;;     are either strings or functions like above.
+    ;; The default is nil, which prevents a comment from being produced (empty string does the same).
+    (closing-brace-annotation (namespace . "namespace"))
+
+    ;; String to replace the white space that appears before a '{' when the brace is not the only non-space on the line.
+    ;; The value is the same as for the "closing-brace-annotation" property.  The default, nil, prevents any changes from
+    ;; being made to the white space.
+    (hanging-brace-pre-space . " ")
+
+    ;; White space to insert between a keyword and a left paren, such as after 'for', 'if', 'while', etc.  The value is
+    ;; the same as for the "closing-brace-annotation" property.  The default, nil, prevents any changes from being made
+    ;; to the white space.
+    (keyword-paren-pre-space . " ")
+
+    ;; White space to insert after a left paren after a keyword, such as after 'for', 'if', 'while', etc.  The value is
+    ;; the same as for the "closing-brace-annotation" property.  The default, nil, prevents any changes from being made
+    ;; to the white space.
+    (keyword-paren-post-space . "")
+
+    ;; White space to insert between a function name and the '(' of its argument list in a function call.  The value is
+    ;; nil (the default, indicates no change to white space), or a string of white space, or a function or function symbol
+    ;; that will be invoked with one argument (the function name string) to produce a string or nil.
+    (function-paren-pre-space . "")
+
+    ;; White space to insert after the left paren of a function name. The value is nil (the default, indicates no change
+    ;; to white space), or a string of white space, or a function or function symbol that will be invoked with one argument
+    ;; (the function name string) to produce a string or nil.
+    (function-paren-post-space . "")
+
+    ;; White space to place after commas.
+    (comma-post-space . " ")
+
+    ;; White space before semicolons
+    (semicolon-pre-space . "")
+
+    ;; White space after semicolons in the middle of a line.
+    (semicolon-post-space . " ")
+
+    ;; Maximum width for code, comments, etc.  E.g., the ROSE style guide says on line should be wider than 132 columns, so
+    ;; we could set this appropriately.  Code often looks better (and is easier to edit) if one stays slightly below the
+    ;; maximum allowed by the style guide.
+    (maximum-line-width . 128)
+
+    ;; Column number for comments that are at the end of a line with other stuff
+    (trailing-comment-column . 72)
+
+    ;; Determines when a whole-line comment should be moved to the end of the previous line.  This property is only consulted
+    ;; when it's already been determined that the comment could be moved.
+    (hoist-trailing-comment . pilf-previous-line-ends-with-semicolon-p)
+
+    ))
+
+(defvar pilf-fixups-alist nil
+  "Maps keys to the list of fixup functions that need to be called for that key.")
+
 (defvar pilf-mode-map nil
   "Keymap used in pilf minor mode overrides the cc-mode key map.")
-(if pilf-mode-map
-    ()
-  (setq pilf-mode-map (make-sparse-keymap "pilf-mode-map"))
-  (define-key pilf-mode-map (kbd "SPC") 'pilf-electric-space)
-  (define-key pilf-mode-map [return] 'pilf-electric-return)
-  (define-key pilf-mode-map [?{] 'pilf-electric-ltcurly)
-  (define-key pilf-mode-map [?}] 'pilf-electric-rtcurly)
-  (define-key pilf-mode-map [?\(] 'pilf-electric-ltparen)
-  (define-key pilf-mode-map [?\)] 'pilf-electric-rtparen)
-  (define-key pilf-mode-map [?<] 'pilf-electric-ltangle)
-  (define-key pilf-mode-map [?>] 'pilf-electric-rtangle)
-  (define-key pilf-mode-map [?,] 'pilf-electric-comma)
-  (define-key pilf-mode-map [?\;] 'pilf-electric-semi)
-  (define-key pilf-mode-map [?/] 'pilf-electric-slash)
-  (define-key pilf-mode-map [?\"] 'pilf-electric-dquote)
-  (define-key pilf-mode-map [?*] 'pilf-electric-star)
-  (define-key pilf-mode-map [?~] 'pilf-electric-tilde)
-  )
 
 (defun pilf-mode (&optional arg)
   "Minor mode under cc-mode for formatting C/C++ source code.
@@ -50,489 +102,905 @@ specified by the string."
   ;; Add the minor mode name to the mode line.
 ;  (setq minor-mode-alist '(pilf-mode " Pilf"))
 
+  ;; Build the minor-mode keymap
+  (when (not pilf-mode-map)
+    (setq pilf-mode-map (make-sparse-keymap "pilf-mode-map"))
+    (define-key pilf-mode-map [return] 'pilf-electric-return)
+    (mapcar (lambda (key-fixups)
+	      (define-key pilf-mode-map (vector (car key-fixups)) 'pilf-electric-key))
+	    pilf-fixups-alist))
+
   ;; Add the minor-mode key map if not done already.
   (or (assq 'pilf-mode minor-mode-map-alist)
       (setq minor-mode-map-alist
 	    (cons (cons 'pilf-mode pilf-mode-map) minor-mode-map-alist))))
 
-(defun pilf-cite-author ()
-  "Returns an author citation.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Configuration functions
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-The citation consists of the author name or nickname followed by a date, all enclosed in square brackets."
-  (concat "[" pilf-author-name " " (format-time-string "%Y-%m-%d") "]"))
+
+(defun pilf-get-config (property-name &rest args)
+  "Returns the configuration value associated with the specified name, or nil.
+
+If the value is a function symbol or a lambda then the function is invoked with the given arguments and that value is returned."
+  (let* ((value (cdr (assoc property-name pilf-configuration-alist)))
+	 (function (indirect-function value t)))
+    (if (functionp function)
+	(setq value (apply function args)))
+    value))
+
+
+(defun pilf-get-config-nonlist (property-name alist-key default)
+  "Returns a configuration value by recursive function invocation and alist lookups.
+
+Looks up PROPERTY-NAME in the configuration settings. If the value is a function or a function symbol then the function is
+invoked with ALIST-KEY as its argument and the return value is used; if the value is a list then it is treated as an association
+list and the value associated with ALIST-KEY is returned.  The previous step repeats until the value is is neither a function,
+function symbol, or list. This function returns either the final value, or DEFAULT if the final value is nil."
+  (let* ((value (cdr (assoc property-name pilf-configuration-alist)))
+	 (keep-going t))
+    (while keep-going
+      (cond ((null value)
+	     (setq keep-going nil))
+	    ((functionp value)
+	     (setq value (funcall value alist-key)))
+	    ((listp value)
+	     (setq value (cdr (assoc alist-key value))))
+	    (t
+	     (setq keep-going nil))))
+    (or value default)))
+
+	    
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Language syntax queries
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defun pilf-nonliteral-p ()
+  "Returns t if point is not in a comment, string, or other literal element."
+  (not (c-in-literal)))
+
+
+(defun pilf-at-opening-brace ()
+  "Returns non-nil if point is at (left of) an opening brace.
+
+The return value is a symbol indicating the language construct that is being opened, and is one of the following:
+   namespace
+   do
+   else
+   for        'for', 'foreach', 'BOOST_FOREACH'
+   if
+   while
+   t          anything else"
+  (condition-case nil
+      (save-excursion
+	(if (or (c-in-literal) (not (looking-at "{")))
+	    nil
+	  (cond ((looking-back "\\bnamespace[ \t\n\r]+\\sw+[ \t\n\r]*") 'namespace)
+		((looking-back "\\bdo[ \t\n\r]*")                       'do)
+		((looking-back "\\belse[ \t\n\r]*")                     'else)
+		((looking-back ")[ \t\n\r]*")
+		 (backward-sexp)	;back to the matching '(' or error
+		 (cond ((looking-back "\\bfor[ \t\n\r]*")     	    	'for)
+		       ((looking-back "\\bforeach[ \t\n\r]*") 	    	'for)
+		       ((looking-back "\\bBOOST_FOREACH[ \t\n\r]*") 	'for)
+		       ((looking-back "\\bif[ \t\n\r]*")      	    	'if)
+		       ((looking-back "\\bwhile[ \t\n\r]*")   	    	'while)
+		       (t t)))
+		(t t))))))
+
+
+(defun pilf-after-opening-brace ()
+  "Returns non-nil if point is after an opening brace.
+
+White space may appear between the opening brace and point. The return value is the same as for pilf-at-opening-brace."
+  (condition-case nil
+      (save-excursion
+	(if (or (c-in-literal) (not (re-search-backward "{[ \t\n\r]*" nil t)))
+	    nil
+	  (pilf-at-opening-brace)))))
+
+
+(defun pilf-after-closing-brace ()
+  "Returns non-nil if point is after a closing brace.
+
+White space may appear between the closing brace and point. The return value is the same as for pilf-at-opening-brace."
+  (condition-case nil
+      (save-excursion
+	(if (or (c-in-literal) (not (looking-back "}[ \t\n\r]*")))
+	    nil
+	  (backward-sexp)		;back to the matching '{' or error
+	  (pilf-at-opening-brace)))))
+
+
+(defun pilf-in-trailing-comment-p ()
+  "Returns t if there's something to the left of the start of this comment."
+  (let* ((in-comment (pilf-in-comment)))
+    (and in-comment
+	 (save-excursion
+	   (goto-char (cdr in-comment))
+	   (not (looking-back "^[ \t]*")))
+	 t)))
+
+
+(defun pilf-line-ends-with-comment-p ()
+  "Returns non-nil if the current line ends with a comment.
+
+The return value is the same as for pilf-in-comment: a list containing the type of comment and the starting position."
+  (save-excursion
+    (end-of-line)
+    (or (pilf-in-comment)
+	(and (looking-back "\\*/[ \t]*")
+	     (progn (backward-char 2) (pilf-in-comment))))))
+
+
+(defun pilf-previous-line-ends-with-comment-p ()
+  "Returns t if the previous line ends with a comment."
+  (condition-case nil
+      (save-excursion
+	(previous-line)
+	(pilf-line-ends-with-comment-p))
+    (beginning-of-buffer nil)))
+
+
+(defun pilf-previous-line-blank-p ()
+  "Returns t if the previous line exists and contains only white space."
+  (condition-case nil
+      (save-excursion
+	(previous-line)
+	(end-of-line)
+	(looking-back "^[ \t]*"))
+    (beginning-of-buffer nil)))
+
+
+(defun pilf-previous-line-ends-with-semicolon-p ()
+  "Returns true if the previous line ends with a semicolon."
+  (condition-case nil
+      (save-excursion
+	(previous-line)
+	(end-of-line)
+	(looking-back ";[ \t]*"))
+    (beginning-of-buffer nil)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Buffer-altering utility functions
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defun pilf-insert-line ()
+  "Move point to the indented position of a newly inserted line."
+  (cond ((pilf-in-comment)
+	 (pilf-comment-insert-line))
+	(t
+	 (delete-horizontal-space)
+	 (insert "\n")
+	 (c-indent-line))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Comment query functions (do not alter buffer)
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun pilf-beginning-of-comment ()
   "Moves point backward to the slash that begins the current comment.
 
-When called from inside a comment, point is moved to the slash that
-starts the C or C++ style comment and the function returns the symbol
-c for C-style comments and c++ for c++ style comments. When called from
-outside a comment, point is unmoved and the function returns nil. The
-determination of whether this function was called from inside or
-outside a comment is made by c-in-literal. Specifically, we are not
-considered to be in a comment until point is after the \"/*\" or
-\"//\", and the comment continues until we are after the \"*/\" or
-line feed."
+When called from inside a comment, point is moved to the slash that starts the C or C++ style comment and the function returns
+the symbol c for C-style comments and c++ for c++ style comments. When called from outside a comment, point is unmoved
+and the function returns nil."
   (save-match-data
-    (let ((was-in-comment (or (eq (c-in-literal) 'c) (eq (c-in-literal) 'c++))))
-      (while (and (or (eq (c-in-literal) 'c) (eq (c-in-literal) 'c++))
-		  (re-search-backward "//\\|/\\*" nil t)))
-      (cond
-       ((not was-in-comment) nil)
-       ((looking-at "/\\*") 'c)
-       ((looking-at "//")
-	(while (re-search-backward "/\\=" nil t))
-	'c++)))))
+    (let* ((comment-type (c-in-literal))
+	   (retval comment-type))
+      (cond ((eq comment-type 'c++)
+	     (while (eq comment-type 'c++)
+	       (re-search-backward "/" nil t)
+	       (skip-chars-backward "/")
+	       (setq comment-type (c-in-literal))))
+	    ((eq comment-type 'c) (when (and (looking-back "/") (looking-at "\\*")) (forward-char))
+	     (while (eq comment-type 'c)
+	       (re-search-backward "/\\*" nil t)
+	       (setq comment-type (c-in-literal))))
+	    ((and (null comment-type) (looking-at "//"))
+	     (setq retval 'c++))
+	    ((and (null comment-type) (looking-at "/\\*"))
+	     (setq retval 'c)))
+      retval)))
 
+(defun pilf-end-of-comment ()
+  "Moves point to the end of the current comment (if any).
+
+For C++ comments, moves point to the end of the current line; for C comments moves point after the '*/'."
+  (let ((comment-type (pilf-beginning-of-comment)))
+    (cond ((eq comment-type 'c)
+	   (re-search-forward "\\*/" nil 'eof))
+	  ((eq comment-type 'c++)
+	   (end-of-line)))))
+	  
 (defun pilf-in-comment ()
-  "Returns information about the current comment.
+  "Returns information about the current comment (if any).
 
-If point is inside a comment (as defined by c-in-literal) then return
-a cons cell whose car is either the symbol c for a C comment or c++ for
-a C++ comment and whose cdr is the buffer position where the comment
-starts. If point is not in a comment then return nil."
+If point is inside a comment (as defined by c-in-literal) then return a cons cell whose car is either the symbol c for a C
+comment or c++ for a C++ comment and whose cdr is the buffer position where the comment starts. If point is not in a comment
+then return nil.  A comment starts when point is at the beginning of the comment start token."
   (save-excursion
     (let ((comment-type (pilf-beginning-of-comment)))
       (and comment-type (cons comment-type (point))))))
 
+(defun pilf-comment-text-hanging-p ()
+  "Returns t if the comment text hangs on the same line as the comment opening token."
+  (save-excursion
+    (let ((in-comment (pilf-beginning-of-comment)))
+      (cond (in-comment
+	     (looking-at "/[*/].*?[[:alnum:]]"))))))
+
+(defun pilf-comment-forward-over-doxygen ()
+  "If point is at the beginning of a C or C++ comment, then move over the comment start token and doxygen stuff."
+  (cond ((or (looking-at "/\\*[*!]<$")
+	     (looking-at "//[/!]<$")
+	     (looking-at "/\\*[*!]<[ \t]*[\\@[:alnum:]\n\r]")
+	     (looking-at "//[/!]<[ \t]*[\\@[:alnum:]\n\r]"))
+	 (forward-char 4))
+
+	((or (looking-at "/\\*[*!]$")
+	     (looking-at "/\\*[*!][ \t]*[\\@[:alnum:]\n\r]")
+	     (looking-at "//[/!]$")
+	     (looking-at "//[/!][ \t]*[\\@[:alnum:]\n\r]"))
+	 (forward-char 3))
+
+	((looking-at "/[*/]")
+	 (forward-char 2))))
+
 (defun pilf-comment-open-decoration ()
-  "Returns a string representing the comment decoration.
+  "Returns a string representing the comment opening decoration.
 
-Comment decoration is defined as any non-alpha-numeric characters that
-follow the \"/*\" and are on the same line, but not including the
-\"*/\" if it's also on the same line.  The decoration includes
-trailing white space.  Returns nil if point is not inside a C-like
-comment.
-
-Doxygen comments are special.  If the comment starts with \"/**\"
-followed by horizontal or vertical white space then the decoration is
-only the horizontal white space.  Similarly if the comment starts with
-\"/**<\" followed by white space."
+Comment opening decoration will be used when closing the comment.  It's only meaningful for C comments since C++ comments
+aren't explicitly closed (so C++ comment decoration is always the empty string). Comment decoration is defined as any
+non-alpha-numeric characters that follow the '/*' and are on the same line, but never includes '*/' if the comment happens
+to be closed on the same line where it is opened."
   (save-excursion
     (save-match-data
-      (let ((in-comment (pilf-in-comment)))
-	(goto-char (cdr in-comment))	;goto beginning of comment
-	(cond
+      (let* ((end-of-comment (save-excursion (pilf-end-of-comment) (- (point) 2)))
+	     (comment-type (pilf-beginning-of-comment))
+	     (decoration))
+	(cond ((eq comment-type 'c++)
+	       (setq decoration ""))
 
-	 ;; This must be a C++ comment. We don't handle them here.
-	 ((not (eq (car in-comment) 'c))
-	  nil)
+	      ((eq comment-type 'c)
+	       (pilf-comment-forward-over-doxygen)
+	       (re-search-forward "\\=[^\\@[:alnum:]\n\r]*" end-of-comment t)
+	       (setq decoration (match-string 0))))
 
-	 ;; C doxygen comment like "/**" followed by horizontal or vertical space.
-	 ;; Return the horizontal space, if any.
-	 ((looking-at "/\\*\\*[ \t\n]")
-	  (re-search-forward "\\=/\\*\\*\\([ \t]*\\)") ; should never fail
-	  (match-string 1))
+	decoration))))
 
-	 ;; C doxygen comment like "/**<" followed by horizontal or vertical space.
-	 ;; Return the horizontal space, if any.
-	 ((looking-at "/\\*\\*<[ \t\n]")
-	  (re-search-forward "\\=/\\*\\*<\\([ \t]*\\)") ; should never fail
-	  (match-string 1))
-
-	 ;; Default is to return non alpha-numeric stuff after the "/*" and on the same line.
-	 (t
-	  (re-search-forward "\\=/\\*\\([^_a-zA-Z0-9\n]*\\)" nil t)
-	  (match-string 1)))))))
-
-(defun pilf-comment-open-hangs ()
-  "Returns t if the first line of comment text is on the same line as
-the beginning of the comment.
-
-Returns nil if there is no first line of text, if we're not in a
-comment, or the first line of text is not on the same line as the
-opening of the comment."
+(defun pilf-comment-empty-p ()
+  "Determines if a comment contains any text."
   (save-excursion
     (save-match-data
-      (let ((in-comment (pilf-in-comment)))
-	(and (eq (car in-comment) 'c)
-	     (goto-char (cdr in-comment))
-	     (re-search-forward "\\=/\\*[^\n]*[_a-zA-Z0-9]" nil t)
+      (let ((comment-type (pilf-beginning-of-comment))
+	    (end-of-comment (save-excursion (pilf-end-of-comment) (point))))
+	(and comment-type
+	     (not (re-search-forward "[[:alnum:]]" end-of-comment t))
 	     t)))))
 
-(defun pilf-comment-emptyp ()
-  "Determines if a comment contains anything useful.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Comment editing functions (that change the buffer)
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Returns t if the current comment has no text before point. Returns nil
-if point is not in a comment."
-  (save-excursion
-    (save-match-data
-      (let ((in-comment (pilf-in-comment)))
-	(and (eq (car in-comment) 'c)
-	     (not (re-search-backward "[_a-zA-Z0-9]" (cdr in-comment) t)))))))
+(defun pilf-comment-maybe-hoist ()
+  "Maybe attach comment to end of previous line.
 
-(defun pilf-comment-delete-some (&optional char-class)
+If we are sitting after '//' or '/*' that opens a comment and the previous line is non-blank and not ending with a comment
+and the hoist-trailing-comment property returns true then move the comment to the end of the previous line. Returns t if
+the comment was moved."
+  (let* ((in-comment (pilf-in-comment))	                                  ;are we in a comment right now?
+	 (start-of-comment (cdr in-comment))                              ;where does this comment start?
+	 (at-start-of-comment (and in-comment				  ;are we at the start of a whole-line comment?
+				   (eq (+ start-of-comment 2) (point))
+				   (looking-back "^[ \t]*//\\|/\\*")))
+	 (prev-blank (condition-case nil                                  ;is the previous line blank (and existing)
+			 (save-excursion
+			   (previous-line)
+			   (beginning-of-line)
+			   (looking-at "[ \t]*$"))
+		       (beginning-of-buffer nil)))
+	 (prev-comment (pilf-previous-line-ends-with-comment-p)))         ;does the previous line end with a comment?
+
+    (if (and at-start-of-comment
+	     (not (pilf-previous-line-blank-p))
+	     (not (pilf-previous-line-ends-with-comment-p))
+	     (or (pilf-get-config 'hoist-trailing-comment) (pilf-previous-line-ends-with-semicolon-p)))
+	(condition-case nil
+	    (progn
+	      (previous-line)
+	      (end-of-line)
+	      (kill-line 1)
+	      (delete-horizontal-space)
+	      (forward-char 2)		;over "//" or "/*"
+	      t)
+	  (beginning-of-buffer nil))
+      nil)))
+
+(defun pilf-comment-indent-to (column)
+  "Move the comment to the target column.
+
+Point should be immediately after the '//' or '/*'. If column is not a number then nothing happens."
+  (let* ((in-comment (pilf-in-comment))                              	;are we in a comment right now?
+	 (start-of-comment (cdr in-comment))				;where does this comment start?
+	 (at-start-of-comment (and in-comment				;are we at the start of the comment
+				   (eq (+ start-of-comment 2) (point)))))
+    (when (and at-start-of-comment (numberp column))
+      (backward-char 2)
+      (indent-to column)
+      (forward-char 2))))
+
+(defun pilf-comment-delete-decoration-backward (&optional char-class)
   "Deletes backward from point over comment noise.
 
-Noise is defined as horizontal and vertial white space and decorative
-characters. The deletion stops before we hit the comment opening
-token.  CHAR-CLASS should be a regular expression that will be
-repeatedly matched and deleted (it should not contain the \\=
-anchor). The default CHAR-CLASS matches hyphens, equal signs,
-asterisks, and horizontal and vertical white space."
+Noise is defined as horizontal and vertial white space and decorative characters. The deletion stops before we hit the comment
+opening token.  CHAR-CLASS should be a regular expression that will be repeatedly matched and deleted. The default CHAR-CLASS
+matches hyphens, equal signs, asterisks, and horizontal and vertical white space."
   (if (null char-class) (setq char-class "[-=\\* \t\n]"))
   (save-match-data
     (let ((in-comment (pilf-in-comment)))
       (if (eq (car in-comment) 'c)
-	  (while (re-search-backward (concat char-class "\\=") (+ 2 (cdr in-comment)) t)
-	    (delete-char 1))))))
+	  (while (looking-back char-class (+ 2 (cdr in-comment)) t)
+	    (delete-char -1))))))
 
-(defun pilf-close-comment ()
-  "Closes a C comment.
 
-This should be called when point is inside a comment.  It will look at
-how the comment was opened and then close the comment with appropriate
-decoration and line feeds."
-  (let* ((in-comment (pilf-in-comment))
-	 (decoration (pilf-comment-open-decoration))                                ;entire decoration
-	 (decor-lead (substring decoration 0 (string-match "[ \t]*$" decoration)))  ;decor w/o trailing space
-	 (decor-trail (substring decoration (string-match "[ \t]*$" decoration)))   ;decor trailing space
-	 (empty (pilf-comment-emptyp))
-	 (hanging (pilf-comment-open-hangs)))
+(defun pilf-comment-insert-line ()
+  "Insert a linefeed in a comment, indenting to the next line."
+  (let ((in-comment (pilf-in-comment)))
+    (cond ((not (eq (car in-comment) 'c))
+	   (delete-horizontal-space)
+	   (insert "\n")
+	   (c-indent-line))
+
+	  (t
+	   (let* ((comment-start-column (save-excursion (goto-char (cdr in-comment)) (current-column)))
+		  (orig-point (point))
+		  ;;character class for stuff that should be considered comment text (backslash and @ are for doxygen)
+		  (significant-text      "[[:alnum:]\\@]")
+		  (non-significant-text "[^[:alnum:]\\@]")
+		  ;; t if point is on the first line of the comment
+		  (first-line (save-excursion
+				(goto-char (cdr in-comment))
+				(not (re-search-forward "\n" orig-point t))))
+		  ;;position of first non-space character right of comment start column and left of (point), or nil if none
+		  (non-space-position (save-excursion
+				     (beginning-of-line)
+				     (while (and (< (current-column) comment-start-column) (not (looking-at "\n\r")))
+				       (forward-char))
+				     (and (re-search-forward "[^[:space:]]" orig-point t)
+					  (- (point) 1))))
+		  ;;column for non-space-position or nil
+		  (non-space-column (if non-space-position
+					(save-excursion
+					  (goto-char non-space-position)
+					  (current-column))))
+		  ;;decoration between non-space-start and (point)
+		  (decoration (if non-space-position
+				  (save-excursion
+				    (goto-char non-space-position)
+				    (and (re-search-forward (concat "\\=" non-significant-text "*") orig-point t)
+					 (setq s (match-string 0))))))
+		  ;;column of first alpha-numeric or nil
+		  (text-start-column (save-excursion
+				       (beginning-of-line)
+				       (goto-char (max (point) (cdr in-comment)))
+				       (and (re-search-forward significant-text orig-point t) (- (current-column) 1)))))
+	     (message "comment-start-column=%s non-space=(%s.%s) decoration=\"%s\" text-start-column=%s"
+		      comment-start-column non-space-position non-space-column decoration text-start-column)
+
+	     ;; If the decoration includes doxygen stuff then replace it with something else
+	     (cond ((or (not first-line) (not decoration)))
+		   ((string-match "^/\\*[*!][ \t]*$" decoration)
+		    (aset decoration 2 ?\s))
+		   ((string-match "^/\\*[*!]<[ \t]*$" decoration)
+		    (aset decoration 2 ?\s)
+		    (aset decoration 3 ?\s)))
+
+	     ;; Make sure decoration doesn't accidentally insert another "/*" token
+	     (when (and (>= (length decoration) 2) (eq (aref decoration 0) ?/) (eq (aref decoration 1) ?*))
+	       (aset decoration 0 ?\s))
+
+	     ;; Advance to beginning of next line
+	     (delete-horizontal-space)
+	     (insert "\n")
+	     (cond
+	      ;; New line tries to replicate the decoration of the previous line.
+	      ((and non-space-column decoration (or (not first-line) text-start-column))
+	       (indent-to non-space-column)
+	       (insert decoration)
+	       (when text-start-column (indent-to text-start-column))
+	       (when (not (looking-back "[ \t]")) (insert " ")))
+	      ;; New line doesn't replicate decoration, just indents to previous text (if any)
+	      (t
+	       (indent-to comment-start-column)
+	       (insert " * ")
+	       (when text-start-column (indent-to text-start-column)))))))))
+
+
+(defun pilf-comment-close ()
+  "Close a C comment.
+
+Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C comment."
+  (let ((in-comment (pilf-in-comment)))
+    (when (eq (car in-comment) 'c)
+      (insert "*/")
+      (backward-char 2)
+      (let* ((decoration (pilf-comment-open-decoration))
+	     (orig-point (point))
+	     (comment-start-column (save-excursion (goto-char (cdr in-comment)) (current-column)))
+	     (one-line (save-excursion
+			 (goto-char (cdr in-comment))
+			 (not (re-search-forward "[\n\r]" orig-point t))))
+	     (empty (pilf-comment-empty-p))
+	     (text-hangs (pilf-comment-text-hanging-p))
+	     (trim-last-star))
+
+	(message "decoration=%s orig-point=%s one-line=%s empty=%s" decoration orig-point one-line empty)
+
+	(cond
+	 ;; One-line comment with only decoration: just add "*/" without any adjustments
+	 ((and one-line empty))
+	 
+	 ;; Multi-line comment that's empty: 
+	 (empty
+	  (pilf-delete-backward-to-column comment-start-column t)
+	  (insert " *")
+	  (insert (pilf-reflect-string decoration))
+	  (setq trim-last-star t))
+
+	 ;; One-line text with no spaces or decorations: remove white space from each end, like "/*void*/"
+	 ((and one-line (looking-back "/\\*[ \t]*[[:alnum:]][^ \t\n\r]*[ \t]*" (cdr in-comment)))
+	  (save-excursion (goto-char (cdr in-comment)) (forward-char 2) (delete-horizontal-space))
+	  (delete-horizontal-space))
+
+	 ;; One-line with text: use reflected decoration, like "/*--[-- hello --]--*/
+	 ((and one-line)
+	  (pilf-comment-delete-decoration-backward)
+	  (insert (pilf-reflect-string decoration)))
+
+	 ;; Multiline, first line is hanging: just add "*/" (separated by one space).
+	 (text-hangs
+	  (pilf-comment-delete-decoration-backward)
+	  (insert " "))
+
+	 ;; Multiline, first line doesn't hang: end comment on next line with decoration
+	 (t
+	  (pilf-comment-delete-decoration-backward)
+	  (insert "\n")
+	  (indent-to comment-start-column)
+	  (insert " *")
+	  (insert decoration)
+	  (setq trim-last-star t)))
+
+	;; Skip back over the closing token again
+	(re-search-forward "\\*/" nil t)
+
+	;; Replace "**/" with "*/", but only if the first star is not part of the opening "/*" token.
+	(when (and trim-last-star (looking-back "\\*\\*/") (> (point) (+ (cdr in-comment) 3)))
+	  (replace-match "*/" t t))))))
+	
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Point-local adjustments
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun pilf-register-fixup (fixup &rest keys)
+  "Appends FIXUP to the list of fixups that need to be called for each of the KEYS."
+  (mapcar (lambda (key)
+	    (let* ((fixups (cdr (assoc key pilf-fixups-alist)))
+		   (newfixups (append fixups (list fixup))))
+	      (setq pilf-fixups-alist
+		    (cons (cons key newfixups) (assq-delete-all key pilf-fixups-alist)))))
+	  keys))
+
+(defun pilf-run-fixups-for-key (key)
+  "Calls all fixups registered for the specified key."
+  (pilf-run-fixups (cdr (assoc key pilf-fixups-alist))))
+
+(defun pilf-run-fixups (fixups)
+  "Calls each of the specified fixups."
+  (mapc (lambda (fixup)
+	  (message "running fixup: %s" fixup)
+	  (funcall fixup))
+	fixups))
+
+(pilf-register-fixup 'pilf-fixup-c++-comments ?/ ?* ?< ?! ?- ?= ?> ?<)
+(defun pilf-fixup-c++-comments ()
+  "Various fixups for C++ comments."
+  (let ((in-comment (pilf-in-comment))
+	(decoration-char-class "[-~!@#$%^&*_+=|\\;:,.'\"{}()<>]"))
     (cond
-     ;; If the comment is empty then just close it
-     (empty
-      (pilf-comment-delete-some "[ \t\n]")
-      (insert "*/\n"))
+     ((not (eq (car in-comment) 'c++)) nil)
 
-     ;; If comment opening is hanging then hang the closing. If the comment text contains no internal white space
-     ;; then remove the white space around it and do not advance point to the next line.
-     ((and hanging decoration)
-      (pilf-comment-delete-some)
-      (if (re-search-backward "/\\*[ \t]*\\([^ \t]+\\)\\=" nil t)
-	  (replace-match (concat "/*" (match-string 1) "*/"))
-	(insert (concat decor-trail decor-lead "*/\n"))))
+     ;; When we start a C++ comment, optionally hoist it to the end of the previous line (as a trailing comment) and/or indent
+     ;; it to the comment column.  Insert a space after the '//' token.
+     ((and (looking-back "//")
+	   (eq (+ (cdr in-comment) 2) (point)))
+      (pilf-comment-maybe-hoist)
+      (when (pilf-in-trailing-comment-p)
+	(pilf-comment-indent-to (pilf-get-config 'trailing-comment-column)))
+      (insert " "))
 
-     ;; If comment opening is not hanging then don't hang the closing
-     (decoration
-      (pilf-comment-delete-some)
-      (insert (concat "\n" decoration "*/"))
-      (c-indent-line)
-      (pilf-electric-return)))))
+     ;; If we started a C++ comment with "// /" or "// !" (space probably inserted above) then swap the last to characters
+     ((and (looking-back "// \\([!/]\\)")
+	   (eq (+ (cdr in-comment) 4) (point)))
+      (replace-match (concat "//" (match-string 1) " ") t t))
 
-(defun pilf-normal-behavior (&optional key arg)
-  "Does the normal thing that would happen without pilf-mode."
+     ;; If we started a C++ comment with "/// /" then fill the whole line with slashes and go to the next line, but only
+     ;; if there's nothing else on this line.
+     ((and (looking-at "[ \t]*$")
+	   (looking-back "/// /")
+	   (eq (+ (cdr in-comment) 5) (point)))
+      (replace-match "////" t t)
+      (let* ((max-width (or (pilf-get-config 'maximum-line-width) (- (frame-width) 5)))
+	     (nchars (- max-width (current-column))))
+	(when (> nchars 0)
+	  (insert (make-string nchars ?/))
+	  (delete-horizontal-space)
+	  (insert "\n")
+	  (c-indent-line))))
 
-  (if (not key) (setq key last-command-event))
-  (let ((binding (let ((pilf-mode nil))
-		   (key-binding key t))))
-    (if (and (symbolp binding)
-	     (commandp binding))
-	(call-interactively binding))))
-
-(defun pilf-electric-ltcurly (&optional arg)
-  "Inserts a left curly brace and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?{] arg)
-
-  ;; Allow cc-mode to determine whether the brace should be hanging. If we then see that the brace is hanging, make sure
-  ;; there's one space separating it from anything else on the line.  Watch out for left braces that are by themselves
-  ;; on the line.
-  (cond
-   (arg nil)
-   ((c-in-literal) nil)
-
-   ((re-search-backward "\\([^ \t\n]\\)[ \t]*{\\([ \t\n]*\\)\\=" nil t)
-    (replace-match (concat (match-string 1) " {" (match-string 2)) t t))))
-
-(defun pilf-electric-rtcurly (&optional arg)
-  "Inserts a right curly brace and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?}] arg)
-
-  (cond
-   (arg nil)
-
-   ;; If this is the end of a "namespace" then append "// namespace" to the curly brace before advancing to the next line
-   ((condition-case nil
-	(save-excursion
-	  (backward-sexp)
-	  (re-search-backward "namespace\\s-+\\sw+\\s-*\\=" nil t))
-      (error nil))
-    (re-search-backward "}[ \t\n]*\\=" nil nil)
-    (replace-match "} // namespace\n" t t)
-    (c-indent-line))))
-
-(defun pilf-electric-ltparen (&optional arg)
-  "Inserts a left parenthesis and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?\(] arg)
-
-  (cond
-   ((or arg (c-in-literal)))
-   ;; symbol followed by left paren should be separated by a space for keywords; no space otherwise
-   ((re-search-backward
-     (concat "\\([^a-zA-Z_0-9]\\)"		; at a word boundary
-	     "\\([a-zA-Z_][a-zA-Z_0-9]*\\)"     ; symbol
-	     "[ \t]*"			        ; optional horizontal white space
-	     "(\\=")				; point after lt paren
-     nil t)
-    (if (or (equal (match-string 2) "catch")
-	    (equal (match-string 2) "for")
-	    (equal (match-string 2) "foreach")
-	    (equal (match-string 2) "if")
-	    (equal (match-string 2) "return")
-	    (equal (match-string 2) "switch")
-	    (equal (match-string 2) "while"))
-	(replace-match (concat (match-string 1) (match-string 2) " (") t t)
-      (replace-match (concat (match-string 1) (match-string 2) "(") t t)))
-
-   ;; adjacent left parens have no intervening white space
-   ((re-search-backward "(\\([ \t\n]+\\)(\\=" nil t)
-    (replace-match "((" t t))))
-
-(defun pilf-electric-rtparen (&optional arg)
-  "Inserts a right parenthesis and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?\)] arg)
-  (cond
-   ((or arg (c-in-literal)))
-   ;; No space before a right paren -- they nestle up
-   ((re-search-backward "\\([^ \t\n]\\)[ \t\n]*)\\=" nil t)
-    (replace-match (concat (match-string 1) ")") t t))))
-
-(defun pilf-electric-comma (&optional arg)
-  "Inserts a comma and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?,] arg)
-  (cond
-   ((or arg (c-in-literal)))
-   ((re-search-backward "\\([^ \t\n]\\)[ \t\n]*,[ \t\n]*\\=" nil t)
-    (replace-match (concat (match-string 1) ", ") t t))))
-
-(defun pilf-electric-semi (&optional arg)
-  "Inserts a semicolon and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?\;] arg)
-  (cond
-   ((or arg (c-in-literal)))
-   ((re-search-backward ";[ \t]*\\=" nil t)
-    (replace-match "; " t t))))
-
-(defun pilf-electric-ltangle (&optional arg)
-  "Inserts a left angle bracket and does other magic stuff.
-
-* When inserting an angle bracket in a #include statement, this
-  function ensures that there is exactly one space before the angle
-  bracket.
-
-* When starting a doxygen comment (C or C++ style), pressing a left
-  angle bracket after the start-of-comment will make sure that the
-  angle bracket nestles up against the start-of-comment."
-  (interactive "P") (pilf-normal-behavior [?<] arg) (let ((in-comment
-  (pilf-in-comment)))
-    (cond
-     (arg nil)
-
-     ;; Make sure there's one space in "#include <"
-     ((and (not (c-in-literal))
-	   (re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*<\\=" nil t))
-      (replace-match (concat (match-string 1) " <") t t))
-
-     ;; If we're starting a C++ doxygen comment, then change "/// <" to "///<"
-     ((and (eq (car in-comment) 'c++)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/// <\\=" nil t))))
+     ;; If the "<" is the first character of a C++ comment with three slashes then treat it as a doxygen comment.
+     ((and (looking-back "/// <")
+	   (eq (+ (cdr in-comment) 5) (point)))
+      (message "HERE")
       (replace-match "///< " t t))
 
-     ;; If we're starting a C doxygen comment, then change "/** <" to "/**< "
-     ((and (eq (car in-comment) 'c)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/\\*\\* <\\=" nil t))))
-      (replace-match "/**< " t t)))))
+     ;; Remove space before some decoration characters. These don't all have to appear in the pilf-register-fixup.
+     ((and (looking-back (concat "\\(//" decoration-char-class "*\\) \\(" decoration-char-class "\\)"))
+	   (= (+ (cdr in-comment) (length (match-string 0))) (point)))
+      (replace-match (concat (match-string 1) (match-string 2) " ")))
 
-(defun pilf-electric-rtangle (&optional arg)
-  "Inserts a right angle bracket and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?>] arg)
-  (cond
-   ((or arg (c-in-literal)))
-   ((re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*\\(<[^\n]*>\\)\\=" nil t)
-    (replace-match (concat (match-string 1) " " (match-string 2)) t t)
-    (c-indent-line))))
+     ;;DEBUGGING
+     (t
+      (message "looking-back=%s (= (+ %s %s) %s)"
+	       (looking-back (concat "\\(//" decoration-char-class "*\\) \\(" decoration-char-class "\\)"))
+	       (cdr in-comment)
+	       (length (match-string 0))
+	       (point))))))
 
-(defun pilf-electric-slash (&optional arg)
-  "Inserts a slash and does other magic stuff.
 
-* Typing two slashes to start a C++ comment will also insert a space.
-
-* Typing three slashes to start a C++ doxygen comment will also insert
-  a space.
-
-* Typing four slashes to start a C++ comment will fill the line to the
-  right margin"
-  (interactive "P")
-  (pilf-normal-behavior [?/] arg)
-  (let ((in-comment (pilf-in-comment)))
+(pilf-register-fixup 'pilf-fixup-c-comments ?/ ?* ?< ?! ?- ?= ?> ?<)
+(defun pilf-fixup-c-comments ()
+  "Various fixups for C comments."
+  (let ((in-comment (pilf-in-comment))
+	(decoration-char-class "[-~!@#$%^&*_+=|\\;:,.'\"{}()<>]"))
     (cond
-     (arg nil)
-
-     ;; If we just started a '//' comment then insert one space after the '//'
-     ((and (eq (car in-comment) 'c++)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "//\\=" nil t))))
-      (replace-match "// " t t))
-
-     ;; If we entered a third slash to get "// /" then swap the slash and space.
-     ((and (eq (car in-comment) 'c++)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "// /\\=" nil t))))
-      (replace-match "/// " t t))
-
-     ;; If we entered a fourth slash to get "/// /" then remove the space and fill the rest of the line with slashes.
-     ((and (eq (car in-comment) 'c++)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/// /\\=" nil t))))
-      (replace-match "////" t t)
-      (let* ((right-margin 5)		; FIXME: right margin should be a configuration variable
-	     (nchars (- (frame-width) (current-column) right-margin)))
-	(if (> nchars 0)
-	    (insert (make-string nchars ?/))))
-      (pilf-electric-return))
-
-     ;; If we just ended a C-style comment then insert and indent a new line.
+     ;; If we just ended a C-style comment then advance to the next line
      ((and (not in-comment)
-	   (re-search-backward "\\*/[ \t\n]*\\=" nil t)
-	   (eq (car (pilf-in-comment)) 'c))
+	   (save-excursion
+	     (re-search-backward "\\*/[ \t]*\\=" nil t)
+	     (eq (car (pilf-in-comment)) 'c)))
+      (looking-back "\\*/[ \t]*")
       (replace-match "" t t)
-      (pilf-close-comment)
+      (pilf-comment-close)
+      (when (looking-back "/")
+	(pilf-insert-line))
       (c-indent-line))
 
-     ;; If we are in a C-style comment and just typed "* /" (with any amount of white space) then remove the space and advance
-     ;; to the next line.
-     ((and (eq (car in-comment) 'c)
-	   (re-search-backward "\\([^/]\\)\\*[ \t]+/\\=" nil t))
-      (replace-match (match-string 1) t t)
-      (pilf-close-comment)
-      (c-indent-line)))))
+     ;; Not in comment
+     ((not (eq (car in-comment) 'c)) nil)
+
+     ;; Are we trying to close a comment but there's white space in between?
+     ((and (looking-back "\\*[ \t]+/")
+	   (< (+ (cdr in-comment) 2 (length (match-string 0))) (point)))
+      (replace-match "" t t)
+      (pilf-comment-close)
+      (when (looking-back "/")
+	(pilf-insert-line))
+      (c-indent-line))
+
+     ;; If we just started a "/*" comment then change it to "/* ". Also, if we're at the end of a line and there's something
+     ;; to the left of the comment, optionally indent the comment to the trailing-comment-column.
+     ((and (looking-back "/\\*")
+	   (eq (+ (cdr in-comment) 2) (point)))
+      (pilf-comment-maybe-hoist)
+      (when (pilf-in-trailing-comment-p)
+	(pilf-comment-indent-to (pilf-get-config 'trailing-comment-column)))
+      (insert " "))
+
+     ;; Change beginning of C comment "/* *" to "/** " and change "/* !" to "/*! " doxygen comment
+     ((and (looking-back "/\\* \\([*!]\\)")
+	   (eq (+ (cdr in-comment) 4) (point)))
+      (replace-match (concat "/*" (match-string 1) " ") t t))
+
+     ;; Change beginning of C comment "/** *" by filling the whole line with stars
+     ((and (looking-at "[ \t]*$")
+	   (looking-back "/\\*\\* \\*")
+	   (eq (+ (cdr in-comment) 5) (point)))
+      (replace-match "/***" t t)
+      (let* ((max-width (or (pilf-get-config 'maximum-line-width) (- (frame-width) 5)))
+	     (nchars (- max-width (current-column))))
+	(when (> nchars 0)
+	  (insert (make-string nchars ?*))
+	  (pilf-insert-line))))
+
+     ;; Look out for doxygen comments like "/***<"
+     ((and (looking-back "/\\*\\* <")
+	   (eq (+ (cdr in-comment) 5) (point)))
+      (replace-match "/**< " t t))
+
+     ;; Remove space before some decoration characters. These don't all have to appear in the pilf-register-fixup.
+     ((and (looking-back (concat "\\(/\\*" decoration-char-class "*\\) \\(" decoration-char-class "\\)"))
+	   (= (+ (cdr in-comment) (length (match-string 0))) (point)))
+      (replace-match (concat (match-string 1) (match-string 2) " "))))))
 
 
+(pilf-register-fixup 'pilf-fixup-ltbrace ?{)
+(defun pilf-fixup-ltbrace ()
+  "Various fixups for left curly braces."
+  ;; A curly brace at the end of an otherwise non-blank line should be preceded by a certain amount of white space. Our pattern
+  ;; needs to match the curly brace even if cc-mode has already indented us to the next line.
+  (let* ((language-construct (pilf-after-opening-brace))
+	 (white-space (pilf-get-config-nonlist 'hanging-brace-pre-space language-construct nil)))
+    (when (and (stringp white-space)
+	       (not (looking-back "^[ \t]*{[ \t\n\r]*"))
+	       (looking-back "[ \t]*{\\([ \t\n\r]*\\)" nil t))
+      (replace-match (concat white-space "{" (match-string 1))))))
 
 
+(pilf-register-fixup 'pilf-fixup-rtbrace ?})
+(defun pilf-fixup-rtbrace ()
+  "Various fixups for right curly braces."
+  ;; Annotate a closing brace with a comment, but only if cc-mode has moved us to the next line.
+  (let* ((language-construct (pilf-after-closing-brace))
+	 (annotation (pilf-get-config-nonlist 'closing-brace-annotation language-construct "")))
+    (when (and (stringp annotation) (not (string= annotation "")) (looking-back "}[ \t]*\\([\n\r]+[ \t]*\\)"))
+      (replace-match (concat "} // " annotation (match-string 1)) t t))))
 
-(defun pilf-electric-star (&optional arg)
-  "Inserts and asterisk and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?*] arg)
+
+(pilf-register-fixup 'pilf-fixup-ltparen ?\()
+(defun pilf-fixup-ltparen ()
+  "Various fixups for left parentheses."
+  (cond
+   ;; Do not adjust white space in string literals or comments
+   ((c-in-literal) nil)
+
+   ;; Do not adjust white space in a #define directive after the symbol being defined.
+   ((looking-back "^[ \t]*#[ \t]*define[ \t]+\\w+[ \t]*(") nil)
+
+   ;; Insert white space before and/or after a parenthesis that follows a keyword.
+   ((looking-back "\\b\\(catch\\|for\\|foreach\\|BOOST_FOREACH\\|if\\|while\\)[ \t]*(")
+    (let* ((language-construct (make-symbol (match-string 1)))
+	   (pre-white-space (pilf-get-config-nonlist 'keyword-paren-pre-space language-construct nil))
+	   (post-white-space (pilf-get-config-nonlist 'keyword-paren-post-space language-construct nil)))
+      (when (looking-back "[ \t]*(" nil t)
+	(when (stringp pre-white-space)
+	  (replace-match (concat pre-white-space "(") t t))
+	(when (stringp post-white-space)
+	  (looking-at "[ \t]*")
+	  (replace-match post-white-space t t)))))
+
+   ;; Insert white space before and/or after a function paren
+   ((looking-back "\\(\\sw+\\)[ \t]*(" nil t)
+    (let* ((pre-white-space (pilf-get-config 'function-paren-pre-space (match-string 1)))
+	   (post-white-space (pilf-get-config 'function-paren-post-space (match-string 1))))
+      (when (stringp pre-white-space)
+	(replace-match (concat (match-string 1) pre-white-space "(") t t))
+      (when (stringp post-white-space)
+	(looking-at "[ \t]*")
+	(replace-match post-white-space t t))))
+
+   ;; Consecutive parentheses should not have intervening white space
+   ((looking-back "([ \t]+(")
+    (replace-match "((" t t))))
+
+
+(pilf-register-fixup 'pilf-fixup-rtparen ?\))
+(defun pilf-fixup-rtparen ()
+  "Various fixups for right parentheses."
+  (cond
+   ;; Consecutive parentheses should not have intervening white space
+   ((and (looking-back ")[ \t]+)") (pilf-nonliteral-p))
+    (replace-match "))" t t))))
+
+
+(pilf-register-fixup 'pilf-fixup-comma ?,)
+(defun pilf-fixup-comma ()
+  "Various fixups for commas."
+  (cond
+   ((and (looking-back ",[ \t]*") (pilf-nonliteral-p))
+    (let ((white-space (pilf-get-config 'comma-post-space)))
+      (when (stringp white-space)
+	(replace-match (concat "," white-space) t t))))))
+
+
+(pilf-register-fixup 'pilf-fixup-semicolon ?\;)
+(defun pilf-fixup-semicolon ()
+  "Various fixups for semicolons."
+  (cond
+   ((c-in-literal) nil)
+
+   ;; If cc-mode has left us on the same line as the semicolon, then its probably because the line is not just a statement
+   ;; (e.g., in a "for" statement)
+   ((looking-back "\\([ \t]*\\);\\([ \t]*\\)" nil t)
+    (let* ((pre-white-space (pilf-get-config 'semicolon-pre-space)) 
+	   (post-white-space (pilf-get-config 'semicolon-post-space))
+	   (replacement (concat (or pre-white-space (match-string 1)) ";" (or post-white-space (match-string 2)))))
+      (replace-match replacement t t)))
+
+   ;; If cc-mode has put us on the next line then only add the semicolon-pre-space
+   ((looking-back "\\([ \t]*\\);[ \t]*\\([\n\r][ \t]*\\)" nil t)
+    (let* ((pre-white-space (pilf-get-config 'semicolon-pre-space))
+	   (replacement (concat (or pre-white-space (match-string 1)) ";" (match-string 2))))
+      (replace-match replacement t t)))))
+
+
+(pilf-register-fixup 'pilf-fixup-tilde ?~)
+(defun pilf-fixup-tilde ()	 
   (let ((in-comment (pilf-in-comment)))
     (cond
-     (arg nil)
+     ;; Replace "~~~" in a comment with the author citation
+     ((and in-comment
+	   (looking-back "~~~")
+	   (not (looking-back "~~~~")))
+      (replace-match (pilf-cite-author) t t))
 
-     ;; If we just started a '/*' comment then insert one space after the '/*'
-     ((and (eq (car in-comment) 'c)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/\\*\\=" nil t))))
-      (replace-match "/* " t t))
+     ;; Replace "#~~~" at the beginning of a line with "#if 1 /*DEBUGGING [citation]*/ and advance to the next line
+     ((and (looking-at "[ \t]*$") (looking-back "^#~~~"))
+      (replace-match (concat "#if 1 /*DEBUGGING " (pilf-cite-author) "*/") t t)
+      (pilf-insert-line)
+      (pilf-insert-line)
+      (delete-horizontal-space)
+      (insert "#endif")
+      (previous-line)
+      (c-indent-line)))))
 
-     ;; If we entered a second star to get "/* *" then swap the space and star in order to start a doxygen comment.
-     ((and (eq (car in-comment) 'c)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/\\* \\*\\=" nil t))))
-      (replace-match "/** " t t))
+(pilf-register-fixup 'pilf-fixup-comment-abbrevs '?e ?E)
+(defun pilf-fixup-comment-abbrevs ()
+  "Fixup certain things that might be typed in comments."
+  (cond
+   ((not (pilf-in-comment)))
+   ((looking-back "\\b\\(fixme\\|todo\\)") 
+    (replace-match (concat (upcase (match-string 0)) (pilf-cite-author) ":")))))
 
-     ;; If we entered a third star to get "/** *" then remove the space and fill the rest of the line with stars.
-     ((and (eq (car in-comment) 'c)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/\\*\\* \\*\\=" nil t))))
-      (replace-match "/***" t t)
-      (let* ((right-margin 5)		; FIXME: right margin should be a configuration variable
-	     (nchars (- (frame-width) (current-column) right-margin)))
-	(if (> nchars 0)
-	    (insert (make-string nchars ?*))))
-      (pilf-electric-return)))))
 
+(pilf-register-fixup 'pilf-fixup-cpp-directives ?d ?e ?f ?n ?\" ?< ?> ?0)
+(defun pilf-fixup-cpp-directives ()
+  "Fixup CPP directives."
+  (cond
+   ((c-in-literal))
+
+   ;; Add space after directives that have arguments
+   ((looking-back "^[ \t]*#[ \t]*\\(if\\|ifn?def\\|include\\|define\\|undef\\)")
+    (insert " "))
+
+   ;; Start a new line after directives that don't have arguments
+   ((looking-back "^[ \t]*#[ \t]*\\(else\\|endif\\)")
+    (pilf-insert-line))
+
+   ;; Remove space from "#if d" or "#if n" since we're probably typing "#ifdef" or "#ifndef"
+   ((looking-back "^\\([ \t]*#[ \t]*if\\) \\([dn]\\)")
+    (replace-match (concat (match-string 1) (match-string 2)) t t))
+
+   ;; Insert a single space before the quote or '<' for an #include directive
+   ((looking-back "^\\([ \t]*#[ \t]*include\\)[ \t]*\\([<\"]\\)")
+    (replace-match (concat (match-string 1) " " (match-string 2)) t t))
+
+   ;; Start a new line after the closing quote or '>' for an include statement
+   ((or (looking-back "^[ \t]*#[ \t]*include[ \t]*\"[^\"\n]+\"")
+	(looking-back "^[ \t]*#[ \t]*include[ \t]*<[^\"\n]+>"))
+    (pilf-insert-line))
+
+   ;; Using "#if 0" to comment out code is a bit annoying, so help the user to delete it later by citing the author.
+   ((looking-back "^[ \t]*#[ \t]*if[ \t]+0")
+    (insert (concat " /* " (pilf-cite-author) " */"))
+    (pilf-insert-line))))
+
+;(pilf-register-fixup 'pilf-fixup-operators ?! ?% ?^ ?& ?* ?- ?+ ?= ?| ?< ?>)
+;(defun pilf-fixup-operators ()
+;  "Add space left and right of operators."
+;  (let* ((operator-letters "-^!%&*+=|<>/") ; make sure these can be added to a RE character class: "[....]"
+;	 (compacted))
+;    (cond
+;     ((c-in-literal nil))
+;     ((looking-back (concat "[" operator-letters " \t]+") nil t)
+;      (setq compacted (mapconcat (lambda (char) (if (= char ?\s) "" (make-string 1 char))) (match-string 0) ""))
+;      (replace-match (concat " " compacted " ") t t)))))
+
+
+(pilf-register-fixup 'pilf-fixup-extra-space '?\ )
+(defun pilf-fixup-extra-space ()
+  "Remove double spaces."
+  (cond
+   ((c-in-literal) nil)
+   ((looking-back "\\([^ ] \\) ") (replace-match (match-string 1) t t))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;
+;;;;;                                        Miscellaneous
+;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun pilf-cite-author ()
+  "Returns an author citation.
+
+The citation consists of the author name or nickname followed by a date, all enclosed in square brackets."
+  (let* ((author-name (or (pilf-get-config 'author-name) ""))
+	 (author-nonempty (not (string= author-name "")))
+	 (time-stamp (format-time-string "%Y-%m-%d"))
+	 (separator (if author-nonempty " " "")))
+    (concat "[" author-name separator time-stamp "]")))
+
+
+(defun pilf-reverse-string (s)
+  "Reverse the characters of a string."
+  (concat (reverse (append s nil))))
+
+
+(defun pilf-reflect-string (s)
+  "Makes a mirror image of a string, reversing the string and replacing perentheses, etc. with their counterparts."
+  (let ((retval (pilf-reverse-string s))
+	(char))
+    (dotimes (i (length retval))
+      (setq char (aref retval i))
+      (cond ((eq char ?\() (aset retval i ?\)))
+	    ((eq char ?\)) (aset retval i ?\())
+	    ((eq char ?<) (aset retval i ?>))
+	    ((eq char ?>) (aset retval i ?<))
+	    ((eq char ?[) (aset retval i ?]))
+	    ((eq char ?]) (aset retval i ?[))
+	    ((eq char ?{) (aset retval i ?}))
+	    ((eq char ?}) (aset retval i ?{))))
+    retval))
+
+(defun pilf-delete-backward-to-column (column &optional then-indent)
+  "Delete characters backward from point until point is less than or equal to column.
+
+If THEN-INDENT is true, call indent-to-column to make sure point is not left of the target COLUMN."
+  (while (> (current-column) column)
+    (delete-char -1))
+  (when (and then-indent (< (current-column) column))
+    (indent-to column)))
+
+(defun pilf-normal-behavior ()
+  "Does the normal thing that would happen without pilf-mode."
+  (let* ((keys (this-command-keys))
+	 (binding (let ((pilf-mode nil)) (key-binding keys t))))
+    (when (and (symbolp binding) (commandp binding))
+      (call-interactively binding))))
+
+(defun pilf-electric-key (&optional arg)
+  "Interactive command called in place of self-insert-command."
+  (interactive "P")
+  (pilf-normal-behavior)
+  (pilf-run-fixups-for-key last-command-event))
+    
 (defun pilf-electric-return (&optional arg)
   "Inserts a return and does other magic stuff."
   (interactive "P")
-  (pilf-normal-behavior "\r" arg)
-
-  ;; remove trailing white space from previous line
-  (if (re-search-backward "\\([^ \t]\\)[ \t]*\\(\n[ \t]*\\)\\=" nil t)
-      (replace-match (concat (match-string 1) (match-string 2)) t t))
-
-  ;; if we're inside a comment then insert the comment prefix. We'll indent it in a sec.
-  (if (eq (c-in-literal) 'c)
-     (insert " * "))
-
-  (c-indent-line))
-
-(defun pilf-electric-dquote (&optional arg)
-  "Inserts a double quote and does other magic stuff."
-  (interactive "P")
-  (pilf-normal-behavior [?\"] arg)
-  (cond
-   (arg nil)
-   ((save-excursion (and (eq (c-in-literal) 'string)
-			 (condition-case nil (progn (backward-char) t) (beginning-of-buffer nil))
-			 (not (eq (c-in-literal) 'string))))
-    ;; OPENING QUOTE CONDITIONS
-    (cond
-     ;; first quote in #include directive
-     ((re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*\"\\=" nil t)
-      (replace-match (concat (match-string 1) " \"") t t))))
-
-   ((eq (c-in-literal) 'string)
-    ;; INTERNAL QUOTE CONDITIONS
-    (cond))
-
-   (t
-    ;; CLOSING QUOTE CONDITIONS
-    (cond
-     ;; closing quote in #include directive
-     ((re-search-backward "^\\([ \t]*#[ \t]*include\\)[ \t]*\\(\"[^\n]*\"\\)\\=" nil t)
-      (replace-match (concat (match-string 1) " " (match-string 2) "\n") t t)
-      (c-indent-line))))))
-
-(defun pilf-electric-space (&optional arg)
-  "Inserts a space and does other magic stuff.
-
-One of the important magic things this function does is make sure
-there's only one space after commas and the start of comments.  This
-is because a space is automatically inserted at those locations, and
-if an author isn't used to that they will probably hit another space
-without realizing what has happened. If you really want more than one
-space, then allow pilf to insert the first space, then insert the
-second space with a prefix argument (i.e., \C-u space), and then
-insert as many additional spaces you want by just hitting the space
-bar.  The \"Tab\" key also works to insert white space."
-  (interactive "P")
-  (pilf-normal-behavior " " arg)
-  (let ((in-comment (pilf-in-comment)))
-    (cond
-     (arg nil)
-
-     ;; Keep only one space after a comma
-     ((and (not (c-in-literal))
-	   (re-search-backward ",  \\=" nil t))
-      (replace-match ", " t t))
-
-     ;; Delete space after a left paren
-     ((and (not (c-in-literal))
-	   (re-search-backward "( \\=" nil t))
-      (replace-match "(" t t))
-
-     ;; When starting a C comment, keep only one space after the "/*", "/**", or "/**<".
-     ((and (eq (car in-comment) 'c)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "/\\*\\(\\|\\*\\|\\*<\\)  \\=" nil t))))
-      (replace-match (concat "/*" (match-string 1) " ") t t))
-
-     ;; When starting a C++ comment, keep only one space after the "//", "///", or "///<"
-     ((and (eq (car in-comment) 'c++)
-	   (eq (cdr in-comment) (save-excursion (re-search-backward "\\(//\\|///\\|///<\\)  \\=" nil t))))
-      (replace-match (concat (match-string 1) " ") t t)))))
-   
-(defun pilf-electric-tilde (&optional arg)
-  "Inserts author name and date.
-
-Cites an author by inserting the author name and date in square brackets when three tilde's appear in a row in a comment."
-  (interactive "P")
-  (pilf-normal-behavior [?~] arg)
-  (cond
-   (arg nil)
-
-   ;; If this is the third tilde in a row in a comment and there are not four tildes in a row, replace the three with an
-   ;; author citation.
-   ((and (pilf-in-comment)
-	 (save-excursion (not (re-search-backward "~~~~\\=" nil t)))
-	 (save-excursion (re-search-backward "~~~\\=" nil t)))
-    (replace-match (pilf-cite-author) t t))
-
-   ;; If this is the third tilde and the line contains "#~~~" then replace it with '#if 1 /*DEBUGGING [citation]*/ and
-   ;; advance to the next line.
-   ((save-excursion (re-search-backward "^#~~~\\=" nil t))
-    (replace-match (concat "#if 1 /*DEBUGGING " (pilf-cite-author) "*/\n") t t)
-    (save-excursion (insert "\n#endif"))
-    (c-indent-line))))
-
+  (if (null arg)
+      (pilf-insert-line)
+    (pilf-normal-behavior)))

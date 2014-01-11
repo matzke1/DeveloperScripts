@@ -18,13 +18,12 @@
 (setq next-line-add-newlines nil)       ;do not add lines at end of buffer
 (setq line-number-mode t)		;turn on line numbers in mode line
 (setq column-number-mode t)		;turn on column numbers in mode line
-(tool-bar-mode 0)			;turn off the tool bar since it just wastes space
+(tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
 
 ;(require 'icicles)
 ;(icy-mode)
 ;(require 'egg)
-
 
 ;; Frame width
 (global-set-key (kbd "<M-S-f4>") (lambda () (interactive) (set-frame-width (selected-frame) 133)))
@@ -158,6 +157,8 @@
 				   (extern-lang-close before after)
 				   (namespace-open after)
 				   (namespace-close before after)
+				   (statement-case-open after)
+				   (statement-case-close before after)
 				   ))
 
     ;; Linefeeds before and/or after colons?

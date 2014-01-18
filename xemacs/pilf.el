@@ -362,6 +362,17 @@ then return nil.  A comment starts when point is at the beginning of the comment
     (let ((comment-type (pilf-beginning-of-comment)))
       (and comment-type (cons comment-type (point))))))
 
+(defun pilf-in-doxygen-comment ()
+  "Like pilf-in-comment, but return non-nill only for doxygen comments."
+  (save-excursion
+    (let ((comment-type (pilf-beginning-of-comment)))
+      (cond ((and (eq comment-type 'c) (looking-at "/\\*\\*[ \t\n\r]"))
+	     (cons comment-type (point)))
+	    ((and (eq comment-type 'c) (looking-at "/\\*!"))
+	     (cons comment-type (point)))
+	    ((and (eq comment-type 'c++) (looking-at "//!"))
+	     (cons comment-type (point)))))))
+
 (defun pilf-comment-text-hanging-p ()
   "Returns t if the comment text hangs on the same line as the comment opening token."
   (save-excursion
@@ -703,10 +714,11 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
       (replace-match (concat (match-string 1) (match-string 2) " "))))))
 
 
-(pilf-register-fixup 'pilf-fixup-c-comments ?/ ?* ?< ?! ?- ?= ?> ?<)
+(pilf-register-fixup 'pilf-fixup-c-comments ?/ ?* ?< ?! ?- ?= ?> ?< ?{ ?} )
 (defun pilf-fixup-c-comments ()
   "Various fixups for C comments."
   (let ((in-comment (pilf-in-comment))
+	(in-doxygen (pilf-in-doxygen-comment))
 	(decoration-char-class "[-~!@#$%^&*_+=|\\;:,.'\"{}()<>]"))
     (cond
      ;; If we just ended a C-style comment then advance to the next line. However, if the comment is a single word, like
@@ -769,6 +781,17 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
      ((and (looking-back "/\\*\\* <")
 	   (eq (+ (cdr in-comment) 5) (point)))
       (replace-match "/**< " t t))
+
+     ;; If we just typed "@{" in a doxygen comment, then close the comment, add a closing "@}" comment, and position
+     ;; point on a blank, indented line between them.
+     ((and (eq (car in-doxygen) 'c) (looking-back "^[ \t*]*@{"))
+      (insert " */")
+      (pilf-insert-line)
+      (pilf-insert-line)
+      (insert "/** @} */")
+      (previous-line)
+      (delete-horizontal-space)
+      (c-indent-line))
 
      ;; Remove space before some decoration characters. These don't all have to appear in the pilf-register-fixup.
      ((and (looking-back (concat "\\(/\\*" decoration-char-class "*\\) \\(" decoration-char-class "\\)"))

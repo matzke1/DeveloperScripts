@@ -258,6 +258,7 @@
 
   (c-toggle-auto-hungry-state 1)	; Del and C-d eat white space aggressively
   (pilf-mode 1)				; Robb's program intra-line formatting mode (horizontal white space in a line)
+  (setq comment-column (or (pilf-get-config 'trailing-comment-column) 64))
 
   (hide-ifdef-mode 1)
 

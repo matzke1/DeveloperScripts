@@ -926,9 +926,9 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
 	   (not (looking-back "~~~~")))
       (replace-match (pilf-cite-author) t t))
 
-     ;; Replace "#~~~" at the beginning of a line with "#if 1 /*DEBUGGING [citation]*/ and advance to the next line
+     ;; Replace "#~~~" at the beginning of a line with "#if 1 // DEBUGGING [citation]" and advance to the next line
      ((and (looking-at "[ \t]*$") (looking-back "^#~~~"))
-      (replace-match (concat "#if 1 /*DEBUGGING " (pilf-cite-author) "*/") t t)
+      (replace-match (concat "#if 1 // DEBUGGING " (pilf-cite-author)) t t)
       (pilf-insert-line)
       (pilf-insert-line)
       (delete-horizontal-space)
@@ -979,7 +979,7 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
    ;; Using "#if 0" to comment out code is a bit annoying, so help the user to delete it later by citing the author.
    ((and (looking-back "^[ \t]*#[ \t]*if[ \t]+0")
 	 (not (looking-at "[ \t]*/[*/]")))
-    (insert (concat " /* " (pilf-cite-author) " */"))
+    (insert (concat " // " (pilf-cite-author)))
     (when (pilf-get-config 'terminate-cpp-directive) (pilf-insert-line)))))
 
 (pilf-register-fixup 'pilf-fixup-extra-space '?\ )

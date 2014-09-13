@@ -47,3 +47,16 @@ fi
 ##############################################################################
 
 [ -d $HOME/doxygen-1.8.2/bin ] && eval $(path-adjust insert --prepend $HOME/doxygen-1.8.2/bin)
+
+##############################################################################
+# firmware mod kit
+##############################################################################
+
+[ -d $HOME/GS-CAD/firmware-mod-kit/fmk ] && eval $(path-adjust insert --append $HOME/GS-CAD/firmware-mod-kit/fmk)
+
+##############################################################################
+# GCC versions locally installed
+##############################################################################
+
+[ -d $HOME/GS-CAD/gcc-4.2.4/installed/bin ] && eval $(path-adjust insert --append $HOME/GS-CAD/gcc-4.2.4/installed/bin)
+

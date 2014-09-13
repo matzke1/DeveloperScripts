@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Configures sources for building:
+#    1. Runs "build" in the source tree if it looks like it needs it
+#    2. Runs whatever configure command was set in the rosegit configuration files for this user and branch
+#
+# You may run this script from any directory in the build tree.
+
+source rosegit-functions.sh || exit 1
+rosegit_preamble
+
+if [ -n "$RG_USE_CMAKE" ]; then
+    (cd $RG_BLD && eval cmake $RG_CMAKE $* $RG_SRC) || exit 1
+else
+    # Run "build" if there's no configure file or there's a Makefile.am that's newer than configure
+    if [ ! -f $RG_SRC/configure ] || [ $(find $RG_SRC -name Makefile.am -newer $RG_SRC/configure |wc -l) -gt 0 ]; then
+	(cd $RG_SRC && ./build --srcpath=$RG_SRC) || exit 1
+    fi
+
+    # Always run configure
+    (cd $RG_BLD && eval $RG_SRC/configure $RG_CONFIGURE $*) || exit 1
+fi

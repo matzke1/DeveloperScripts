@@ -117,6 +117,7 @@ fi
 if [ -n "$PS1" ]; then
     alias ll='ls -lhF '
     alias scr='screen -D -R -e^Hh'
+    alias idea='env IDEA_JDK=/usr/lib/jvm/java-6-sun ~/idea-IC-133.696/bin/idea.sh'
 
     if [ -x /usr/bin/dircolors ]; then
 	eval "`dircolors -b`"

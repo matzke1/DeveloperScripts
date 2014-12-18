@@ -949,9 +949,9 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
 	   (not (looking-back "~~~~")))
       (replace-match (pilf-cite-author) t t))
 
-     ;; Replace "#~~~" at the beginning of a line with "#if 1 /*DEBUGGING [citation]*/ and advance to the next line
+     ;; Replace "#~~~" at the beginning of a line with "#if 1 // DEBUGGING [citation]" and advance to the next line
      ((and (looking-at "[ \t]*$") (looking-back "^#~~~"))
-      (replace-match (concat "#if 1 /*DEBUGGING " (pilf-cite-author) "*/") t t)
+      (replace-match (concat "#if 1 // DEBUGGING " (pilf-cite-author)) t t)
       (pilf-insert-line)
       (pilf-insert-line)
       (delete-horizontal-space)

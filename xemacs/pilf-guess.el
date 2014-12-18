@@ -54,14 +54,6 @@ amount that is a multiple of i+1."
       (when (>= (/ (float (aref indentation-mods i)) nlines) threshold)
 	(setq best (+ i 1)))
       (setq i (- i 1)))
-
-;    ;;debugging
-;    (let* ((i 1))
-;      (while (< i 8)
-;	(aset indentation-mods i (/ (float (aref indentation-mods i)) (aref indentation-mods 0)))
-;	(setq i (+ 1 i))))
-;    indentation-mods))
-
     best))
 
 
@@ -72,8 +64,7 @@ This function tries to guess everything we need in a single pass through the buf
 
   (save-excursion
     (let* ((indentation-mods (make-vector 8 0)); elmt #i is number of important lines with non-zero indentation modulo i+1
-	   (braces-alist '(
-			   (block-open after)
+	   (braces-alist '((block-open after)
 			   (block-close before after)      ;probably should be c-snug-do-while
 			   (brace-list-intro)              ;things like 'int **x = {{'
 			   (brace-list-close)
@@ -88,8 +79,6 @@ This function tries to guess everything we need in a single pass through the buf
 			   (substatement-open after)	   ;that follow 'if', 'for', etc.
 
 			   (brace-list-open)               ;?
-
-
 
 			   (brace-entry-open)              ;?
 			   (module-open after)		   ;?

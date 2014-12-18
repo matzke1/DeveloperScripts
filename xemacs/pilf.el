@@ -302,12 +302,15 @@ The return value is the same as for pilf-in-comment: a list containing the type 
 
 (defun pilf-insert-line ()
   "Move point to the indented position of a newly inserted line."
-  (cond ((pilf-in-comment)
-	 (pilf-comment-insert-line))
-	(t
-	 (delete-horizontal-space)
-	 (insert "\n")
-	 (c-indent-line))))
+  (let* ((in-comment (pilf-in-comment))
+	 (at-start-of-comment (and in-comment (= (point) (cdr in-comment)))))
+    ;;FIXME: This behaves oddly when point is in the "/*" or "//" token
+    (cond ((and in-comment (not at-start-of-comment))
+	   (pilf-comment-insert-line))
+	  (t
+	   (delete-horizontal-space)
+	   (insert "\n")
+	   (c-indent-line)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -734,7 +737,7 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
 		 (looking-back "\\([^[:space:]]\\)[ \t]*\\(/\\*[^[:space:]]+\\*/\\)"
 			       (save-excursion (beginning-of-line) (point))))
 	     (replace-match (concat (match-string 1)
-				    (if (string-match-p "[[:alnum:]]" (match-string 1)) " " "")
+				    (if (string-match-p "[;)}[:alnum:]]" (match-string 1)) " " "")
 				    (match-string 2))))
 	    ((looking-back "/")
 	     (pilf-insert-line)))
@@ -824,6 +827,26 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
 (pilf-register-fixup 'pilf-fixup-rtbrace ?})
 (defun pilf-fixup-rtbrace ()
   "Various fixups for right curly braces."
+
+  ;; If the opening brace is on the previous line and is followed by something that isn't a comment, then make the
+  ;; closing brace hang regardless of the brace hanging setting.  Note that cc-mode might have already moved point
+  ;; to the line after the closing brace.  This is intended to handle situations like the following:
+  ;;    void getMember() const { return member_; }
+  (let* ((end (point))
+	 (begin (save-excursion (c-backward-sexp) (point)))
+	 (text-follows (save-excursion (goto-char begin) (looking-at "{[ \t]*[^ \t\n\r]")))
+	 (comment-follows (save-excursion (goto-char begin) (looking-at "{[ \t]*/[*/]")))
+	 (white-space (save-excursion (goto-char begin) (looking-at "{\\([ \t]*\\)") (match-string 1)))
+	 (nlines (count-lines begin end))
+	 (in-comment (pilf-in-comment)))
+    ;(message "begin=%s end=%s text-follows=%s comment-follows=%s white-space=\"%s\" nlines=%s in-comment=%s"
+    ;         begin end text-follows comment-follows white-space nlines in-comment)
+    (when (and (not in-comment) text-follows (not comment-follows)
+	       (or (and (= 2 nlines) (looking-back "}"))
+		   (and (= 3 nlines) (looking-back "}\r?\n[ \t]*"))))
+      (looking-back "[ \t\n\r]*\\(}[ \t\n\r]*\\)" begin t)
+      (replace-match (concat white-space (match-string 1)))))
+
   ;; Annotate a closing brace with a comment, but only if cc-mode has moved us to the next line.
   (let* ((language-construct (pilf-after-closing-brace))
 	 (annotation (pilf-get-config-nonlist 'closing-brace-annotation language-construct "")))
@@ -979,7 +1002,7 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
    ;; Using "#if 0" to comment out code is a bit annoying, so help the user to delete it later by citing the author.
    ((and (looking-back "^[ \t]*#[ \t]*if[ \t]+0")
 	 (not (looking-at "[ \t]*/[*/]")))
-    (insert (concat " /* " (pilf-cite-author) " */"))
+    (insert (concat " // " (pilf-cite-author)))
     (when (pilf-get-config 'terminate-cpp-directive) (pilf-insert-line)))))
 
 (pilf-register-fixup 'pilf-fixup-extra-space '?\ )

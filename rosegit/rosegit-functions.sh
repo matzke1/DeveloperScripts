@@ -96,9 +96,9 @@ rosegit_find_directories () {
     [ -n "$RG_SRC" ] || RG_SRC=$(rosegit_find_sources $RG_BLD)
 
     # Sanity checks
-    [ -d "$RG_BLD" ] || rosegit_die "built tree is not a directory: $RG_BLD"
-    [ -d "$RG_BLD/.git" ] && rosegit_die "build tree appears to be a repository: $RG_BLD"
-    [ -d "$RG_SRC" ] || rosegit_die "no such directory: $RG_SRC"
+    [ -d "$RG_BLD" ] || rosegit_die "build tree is not a directory: '$RG_BLD'"
+    [ -d "$RG_BLD/.git" ] && rosegit_die "build tree appears to be a repository: '$RG_BLD'"
+    [ -d "$RG_SRC" ] || rosegit_die "no such directory: '$RG_SRC'"
     [ "$RG_SRC" = "$RG_BLD" ] && rosegit_die "build directory and source directory should not be the same: $RG_SRC"
 
     # Make sure directory names are absolute and exported
@@ -353,9 +353,10 @@ rosegit_show_environment () {
     echo "Software:"
     echo "    $(make --version |head -n1)"
     echo "    $(cmake --version)"
-    echo "    $(gcc --version |head -n1)"
-    echo "    $(g++ --version |head -n1)"
+    echo "    $(${CC-gcc} --version |head -n1)"
+    echo "    $(${CXX-g++} --version |head -n1)"
     echo "    $(bison --version |head -n1)"
+    echo "    python (${PYTHON-python}) $(${PYTHON-python} --version 2>&1 |cut -d' ' -f2-)"
     echo "    doxygen $(doxygen --version 2>/dev/null || echo NOT INSTALLED)"
     echo "    $(dot -V 2>&1 |grep version || echo dot NOT INSTALLED)"
     echo "    libtool $((libtool --version || libtool -V) 2>/dev/null |head -n1)"

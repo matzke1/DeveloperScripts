@@ -37,7 +37,7 @@
     (keyword-paren-pre-space
      (and . " ") (bitand . " ") (bitor . " ") (catch . " ") (compl . " ") (delete . " ") (for . " ") (foreach . " ")
      (if . " ") (new . " ") (not . " ") (not_eq . " ") (or . " ") (return . " ") (sizeof . "") (switch . " ") (throw . " ")
-     (typeid . "") (while . " ") (xor . " ") (BOOST_FOREACH . " "))
+     (typeid . "") (while . " ") (xor . " ") (BOOST_FOREACH . " ") (BOOST_REVERSE_FOREACH . " "))
 
     ;; White space to insert after a left paren after a keyword, such as after 'for', 'if', 'while', etc.  The value is
     ;; the same as for the "closing-brace-annotation" property.  The default, nil, prevents any changes from being made

@@ -1,0 +1,4 @@
+* Compiling with cmake on Wheezy
+
+*** cmake -DBOOST_ROOT=$HOME/GS-CAD/boost1.47 -DCMAKE_INSTALL_PREFIX:PATH=$HOME/rose -DJAVA_INCLUDE_PATH=/usr/lib/jvm/java-7-openjdk-amd64/include -DJAVA_JVM_LIBRARY=/usr/lib/jvm/java-7-openjdk-amd64/lib/amd64 -DJAVA_AWT_LIBRARY=/usr/lib/jvm/java-7-openjdk-amd64/jre/lib ..
+

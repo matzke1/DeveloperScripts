@@ -154,7 +154,8 @@ rosegit_load_config () {
 	local ltstr="${config%%:*}"
 	if [ "$ltstr" = "" ]; then
 	    : extraneous colon
-	elif [ -d "$ltstr/." ]; then
+	elif [ -d "$ltstr/." -a "${ltstr%%*/}" != "$ltstr" ]; then
+	    # A configuration directory must have at least one "/" in its name.
 	    confdirs="$confdirs:$ltstr"
 	else
 	    conffiles="$conffiles:$ltstr"

@@ -1,0 +1,81 @@
+#!/bin/bash
+
+interactive=yes
+filter_config=/dev/null
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+	--) shift; break ;;
+	-b|--batch) interactive=; shift ;;
+	-i|--interactive) interactive=yes; shift ;;
+	--filter=*) filter_config="${1#--filter=}"; shift ;;
+	-*) echo "$0: unrecognized switch: $1" >&2; exit 1 ;;
+	*) break ;;
+    esac
+done
+
+yes_or_no() {
+    local prompt="$1"
+    local response=
+    while true; do
+	read -p "$prompt [Y/n] " response
+	case "$response" in
+	    ''|y*|Y*) return 0 ;;
+	    n*|N*) return 1 ;;
+	    *) echo "please respond with 'y' or 'n'" ;;
+	esac
+    done
+}
+
+# Some header info for the beginning of each file being compared since we don't otherwise have their names
+header() {
+    local answer="$1" failure="$2"
+    if [ "$filter_config" != "/dev/null" ]; then
+	echo "# This is filtered output. The answer will be the original unfiltered output."
+	echo "# Filter config:    $filter_config"
+    fi
+    echo "# Output file was:  $failure"
+    echo "# Answer file is:   $answer"
+}
+
+# Snip the input at the == CUT == lines and return only the first part
+snip() {
+    sed -n '1,/^======== CUT ========$/ p' | head --lines=-1
+}
+
+# Read process input through the 'filter=' lines in the specified file
+filter() {
+    local configfile="$1"
+    local cmd="$(sed -n 's/^[ \t]*filter[ \t]*=//p' <$configfile |tr '\n' '|') cat"
+    eval "$cmd"
+}
+
+for failure in "$@"; do
+    if [ "${failure%.failed}" = "$failure" ]; then
+	echo "$failure: skipped: does not end with .failed" >&2
+	continue
+    fi
+
+    answer="$(rg-src)/${failure%.failed}.ans"
+    if [ ! -f "$answer" ]; then
+	echo "$failure: corresponding answer does not exist yet."
+	yes_or_no "Would you like to review and possibly add it?" || continue
+	less "$failure";
+	yes_or_no "Is the output good to use as an answer?" || continue
+    elif [ -n "$interactive" ]; then
+
+	compare_file_a=$(tempfile).answer
+	compare_file_b=$(tempfile).failure
+	header "$answer" "$failure" >$compare_file_a;
+	header "$answer" "$failure" >$compare_file_b;
+	filter $filter_config <"$answer" >>$compare_file_a;
+	snip <"$failure" |filter $filter_config >>$compare_file_b;
+	meld $compare_file_a $compare_file_b
+	rm -f $compare_file_a $compare_file_b;
+	yes_or_no "accept output as the answer?" || continue
+    fi
+
+    snip <"$failure" >"$answer"
+    rm "$failure"
+    echo "$failure -> $answer"
+done
+exit 0

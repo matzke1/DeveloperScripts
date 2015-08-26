@@ -1,0 +1,135 @@
+#!/bin/bash
+# Install versions of boost
+arg0="${0##*/}"
+
+VERSIONS="1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
+BOOST_BASE="$HOME/GS-CAD/boost"
+COMPILER=g++
+TEMPDIR="$HOME/junk"
+LIBRARIES="date_time chrono filesystem iostreams program_options regex system thread wave"
+
+# Most people disable zlib and bzip2 compressions support because
+# the libraries are often not installed. Unfortunately, the way
+# to disable this changes over time. zlib is autodetected after 1.53.
+IOSTREAM_FLAGS_1_47_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_48_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_49_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_50_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_51_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_52_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_53_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_54_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_55_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_56_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_58_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_59_0="-sNO_BZIP2=1"
+
+iostream_flags() {
+    local vs="$1"
+    eval 'echo $IOSTREAM_FLAGS_'$vs
+}
+
+# Copied from rmc script
+RMC_CXX="$COMPILER"
+RMC_CXX_VERSION=
+RMC_CXX_BASENAME=
+resolve_compiler() {
+    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
+
+    local real_name=$(realpath $(which "$RMC_CXX"))
+    if [ "$real_name" = "" ]; then
+	echo "$arg0: cannot find compiler: $RMC_CXX" >&2
+	exit 1
+    fi
+
+    local vers=$("$RMC_CXX" --version |\
+                        head -n1 |\
+                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
+    if [ "$vers" = "" ]; then
+        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
+        exit 1
+    fi
+    RMC_CXX_VERSION="$vers"
+}
+
+# Boost version string. Converts "1.50" -> "1_50_0"
+boost_version_string() {
+    perl -e '$_=shift;s/\./_/g; 1==/_/ and $_.="_0"; print' "$1"
+}
+
+# Download source tarball into current working directory
+get_source() {
+    local version="$1" destination="$2"
+    local vs=$(boost_version_string "$version")
+    ln -sf "$HOME/Downloads/boost_$vs.tar.bz2" "$destination"
+}
+
+is_installed() {
+    local prefix="$1"
+    local hdr="$prefix/include/boost/version.hpp"
+    if [ ! -r "$hdr" ]; then
+	echo "$arg0: failed to install (missing $hdr)" >&2
+	return 1
+    fi
+    for f in $LIBRARIES; do
+	lib="$prefix/lib/libboost_$f.so"
+	if [ ! -r "$lib" ]; then
+	    echo "$arg0: failed to install (missing $lib)" >&2
+	    return 1
+	fi
+    done
+    return 0
+}
+
+resolve_compiler
+for version in $VERSIONS; do
+    (figlet -c "$version" || banner "$version") 2>/dev/null
+    prefix="$BOOST_BASE/$version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
+    vs=$(boost_version_string "$version")
+    logfile="boost_$vs.log"
+    date >"$logfile"
+    echo "boost-$version ($vs) for $prefix"
+    echo "log file is " $(realpath -e "$logfile")
+    if is_installed "$prefix" 2>/dev/null; then
+	echo "already installed; skipping"
+	echo "already installed; skipping" >>"$logfile"
+	continue
+    fi
+
+    mkdir -p "$TEMPDIR"
+    (
+	set -e
+	cd "$TEMPDIR"
+
+	echo "downloading boost-$version..." >&2
+	tarball="boost_$vs.tar.bz2"
+	get_source "$version" "$tarball"
+	if [ ! -f "$tarball" ]; then
+	    echo "$arg0: couldn't download $tarball" >&2
+	    exit 1
+	fi
+
+	builddir="boost_$vs"
+	echo "unpacking into $builddir..." >&2
+	rm -rf "$builddir"
+	tar xf "$tarball"
+	if [ ! -d "$builddir" ]; then
+	    echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+	    exit 1
+	fi
+	cd "$builddir"
+
+	echo "bootstrap..." >&2
+	commalibs=$(echo "$LIBRARIES" |tr ' ' ,)
+	(set -x; ./bootstrap.sh --prefix="$prefix" --with-libraries="$commalibs")
+
+	echo "building..." >&2
+	iosflags=$(iostream_flags "$vs")
+	(set -x; ./b2 --prefix="$prefix" $iosflags)
+
+	echo "installing..." >&2
+	(set -x; ./b2 --prefix="$prefix" $iosflags install)
+	is_installed $prefix || exit 1
+    ) >>"$logfile"
+done

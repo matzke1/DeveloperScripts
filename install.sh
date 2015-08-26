@@ -22,7 +22,18 @@ mkdir -p $HOME/bin
 )
 
 #
-# ROSE tools
+# ROSE development tools
+#
+mkdir -p $HOME/bin
+(
+    cd $HOME/bin
+    ln -sf $DEV_ROOT/rose-devel-tools/rmc .
+    ln -sf $DEV_ROOT/rose-devel-tools/install-boost .
+    ln -sf $DEV_ROOT/rose-devel-tools/install-yaml .
+)
+
+#
+# ROSE tools (old versions)
 #
 mkdir -p $HOME/bin/rosegit-bin
 (

@@ -67,6 +67,10 @@ boost_version_string() {
 get_source() {
     local version="$1" destination="$2"
     local vs=$(boost_version_string "$version")
+    if [ ! -f "$HOME/Downloads/boost_$vs.tar.bz2" ]; then
+	wget -O "$HOME/Downloads/boost_$vs.tar.bz2" \
+	    "http://sourceforge.net/projects/boost/files/boost/$version/boost_$vs.tar.bz2/download"
+    fi
     ln -sf "$HOME/Downloads/boost_$vs.tar.bz2" "$destination"
 }
 

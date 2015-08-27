@@ -2,11 +2,16 @@
 # Install versions of boost
 arg0="${0##*/}"
 
-VERSIONS="1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
+# boost-1.54 has known bugs that prevent building boost without zlib.
+VERSIONS="1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.55 1.56 1.57 1.58 1.59"
 BOOST_BASE="$HOME/GS-CAD/boost"
 COMPILER=g++
 TEMPDIR="$HOME/junk"
-LIBRARIES="date_time chrono filesystem iostreams program_options regex system thread wave"
+
+# chrono is needed by date_time
+# random and signals are needed by Wt
+# the remaining are needed by ROSE
+LIBRARIES="date_time chrono filesystem iostreams program_options random regex signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way
@@ -18,7 +23,7 @@ IOSTREAM_FLAGS_1_50_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_51_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_52_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_53_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
-IOSTREAM_FLAGS_1_54_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_54_0="-sNO_BZIP2=1" # known bugs
 IOSTREAM_FLAGS_1_55_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_56_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
@@ -90,7 +95,7 @@ for version in $VERSIONS; do
     logfile="boost_$vs.log"
     date >"$logfile"
     echo "boost-$version ($vs) for $prefix"
-    echo "log file is " $(realpath -e "$logfile")
+    echo "log file is " $(realpath "$logfile")
     if is_installed "$prefix" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"

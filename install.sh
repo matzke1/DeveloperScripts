@@ -29,6 +29,7 @@ mkdir -p $HOME/bin
     cd $HOME/bin
     ln -sf $DEV_ROOT/rose-devel-tools/rmc .
     ln -sf $DEV_ROOT/rose-devel-tools/install-boost .
+    ln -sf $DEV_ROOT/rose-devel-tools/install-wt .
     ln -sf $DEV_ROOT/rose-devel-tools/install-yaml .
 )
 

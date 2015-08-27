@@ -1,9 +1,9 @@
 #!/bin/bash
-# Install versions of the C++ YAML library
+# Install versions of the Wt web toolkit
 arg0="${0##*/}"
 
-YAML_VERSIONS="0.5.1"
-YAML_BASE="$HOME/GS-CAD/yaml"
+WT_VERSIONS="3.3.3"
+WT_BASE="$HOME/GS-CAD/wt"
 
 BOOST_VERSIONS="all"
 BOOST_BASE="$HOME/GS-CAD/boost"
@@ -37,17 +37,17 @@ resolve_compiler() {
 # Download source tarball into current working directory
 get_source() {
     local version="$1" destination="$2"
-    ln -sf "$HOME/Downloads/yaml-cpp-$version.tar.gz" "$destination"
+    ln -sf "$HOME/Downloads/wt-$version.tar.gz" "$destination"
 }
 
 is_installed() {
     local prefix="$1"
-    local hdr="$prefix/include/yaml-cpp/yaml.h"
+    local hdr="$prefix/include/Wt/WConfig.h"
     if [ ! -r "$hdr" ]; then
 	echo "$arg0: failed to install (missing $hdr)" >&2
 	return 1
     fi
-    local lib="$prefix/lib/libyaml-cpp.a"
+    local lib="$prefix/lib/libwt.so"
     if [ ! -r "$lib" ]; then
 	echo "$arg0: failed to install (missing $lib)" >&2
 	return 1
@@ -67,14 +67,14 @@ if [ "$BOOST_VERSIONS" = "all" ]; then
 fi
 
 resolve_compiler
-for yaml_version in $YAML_VERSIONS; do
+for wt_version in $WT_VERSIONS; do
     for boost_version in $BOOST_VERSIONS; do
-	(figlet -c "$yaml_version w/boost-$boost_version" || \
+	(figlet -c "$wt_version w/boost-$boost_version" || \
 	 banner "$yaml_version w/boost-$boost_version") 2>/dev/null
-	prefix="$YAML_BASE/$yaml_version/boost-$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-	logfile="yaml-cpp-$yaml_version.log"
+	prefix="$WT_BASE/$wt_version/boost-$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
+	logfile="wt-$wt_version.log"
 	date >"$logfile"
-	echo "yaml-cpp-$yaml_version for $prefix"
+	echo "wt-$wt_version for $prefix"
 	echo "log file is " $(realpath "$logfile")
 	if is_installed "$prefix" 2>/dev/null; then
 	    echo "already installed; skipping"
@@ -84,37 +84,36 @@ for yaml_version in $YAML_VERSIONS; do
 
 	mkdir -p "$TEMPDIR"
 	(
-	    set -e
-	    cd "$TEMPDIR"
+	    cd "$TEMPDIR" || exit 1
 
-	    echo "downloading yaml-cpp-$yaml_version..." >&2
-	    tarball="yaml-cpp-$yaml_version.tar.gz"
-	    get_source "$yaml_version" "$tarball"
+	    echo "downloading wt-$wt_version..." >&2
+	    tarball="wt-$wt_version.tar.gz"
+	    get_source "$wt_version" "$tarball"
 	    if [ ! -f "$tarball" ]; then
 		echo "$arg0: couldn't download $tarball" >&2
-		exit 1
+	    else
+		builddir="wt-$wt_version"
+		echo "unpacking into $builddir..." >&2
+		rm -rf "$builddir"
+		tar xf "$tarball" || exit 1
+		if [ ! -d "$builddir" ]; then
+		    echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+		else
+		    mkdir "$builddir/_build" || exit 1
+		    cd "$builddir/_build" || exit 1
+
+		    boost_root="$BOOST_BASE/$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
+		    cmake .. \
+			  -DBOOST_ROOT="$boost_root" \
+			  -DWT_WRASTERIMAGE_IMPLEMENTATION=GraphicsMagick \
+			  -DCMAKE_INSTALL_PREFIX="$prefix" \
+			  -DCONFIGDIR="$prefix/etc/wt"
+
+		    make
+		    make install
+		    is_installed "$prefix" || exit 1
+		fi
 	    fi
-
-	    builddir="yaml-cpp-$yaml_version"
-	    echo "unpacking into $builddir..." >&2
-	    rm -rf "$builddir"
-	    tar xf "$tarball"
-	    if [ ! -d "$builddir" ]; then
-		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
-		exit 1
-	    fi
-
-	    mkdir "$builddir/_build"
-	    cd "$builddir/_build"
-
-	    boost_root="$BOOST_BASE/$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-	    cmake .. -DBOOST_ROOT="$boost_root" -DCMAKE_INSTALL_PREFIX="$prefix"
-
-	    make
-
-	    make install
-	    is_installed "$prefix" || exit 1
-
 	) |tee -a "$logfile"
     done
 done

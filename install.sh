@@ -54,12 +54,12 @@ mkdir -p $HOME/bin/rosegit-bin
 (
     cd $HOME
     ln -sf $DEV_ROOT/xemacs/dot.emacs .emacs
-    mkdir -p .emacs.d
-    cd .emacs.d
+    mkdir -p .emacs.d/lisp
+    cd .emacs.d/lisp
     ln -s $DEV_ROOT/xemacs/pilf.el .
     
     echo "Copy the following directories to this machine:"
-    echo "    $HOME/.emacs.d/cc-mode"
+    echo "    $HOME/.emacs.d/lisp/cc-mode"
     echo "    $HOME/cedet"
     read -p "Press ENTER when finished. "
 )

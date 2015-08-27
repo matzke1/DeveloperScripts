@@ -37,6 +37,10 @@ resolve_compiler() {
 # Download source tarball into current working directory
 get_source() {
     local version="$1" destination="$2"
+    if [ ! -f "$HOME/Downloads/wt-$version.tar.gz" ]; then
+	wget -O "$HOME/Downloads/wt-$version.tar.gz" \
+	    "http://prdownloads.sourceforge.net/witty/wt-$version.tar.gz?download"
+    fi
     ln -sf "$HOME/Downloads/wt-$version.tar.gz" "$destination"
 }
 

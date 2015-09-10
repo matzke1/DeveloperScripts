@@ -11,7 +11,7 @@ TEMPDIR="$HOME/junk"
 # chrono is needed by date_time
 # random and signals are needed by Wt
 # the remaining are needed by ROSE
-LIBRARIES="date_time chrono filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way

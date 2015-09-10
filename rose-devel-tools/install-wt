@@ -2,10 +2,10 @@
 # Install versions of the Wt web toolkit
 arg0="${0##*/}"
 
-WT_VERSIONS="3.3.3"
+WT_VERSIONS="3.3.3 3.3.4"
 WT_BASE="$HOME/GS-CAD/wt"
 
-BOOST_VERSIONS="all"
+BOOST_VERSIONS="1.50"
 BOOST_BASE="$HOME/GS-CAD/boost"
 
 COMPILER="g++"
@@ -113,7 +113,7 @@ for wt_version in $WT_VERSIONS; do
 			  -DCMAKE_INSTALL_PREFIX="$prefix" \
 			  -DCONFIGDIR="$prefix/etc/wt"
 
-		    make
+		    make -j4
 		    make install
 		    is_installed "$prefix" || exit 1
 		fi

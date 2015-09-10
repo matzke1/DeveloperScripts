@@ -186,6 +186,10 @@ root_yices() {
     local base="$1" vers="$2"
     echo "$base/$vers"
 }
+root_python() {
+    local base="$1" vers="$2"
+    echo "$base/$vers"
+}
 
 
 # Find the root directory for a package when given its version number.
@@ -235,7 +239,7 @@ load_configuration() {
 }
 
 with_root() {
-    local pkg="$1" name="$2"
+    local pkg="$1" name="$2" subname="$3"
     [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
     local root=$(eval echo '$RMC_'$pkg'_ROOT')
     case "$root" in
@@ -246,7 +250,16 @@ with_root() {
             : perhaps "--with-$name=no" or "--without-$name"
             ;;
         *)
-            echo "--with-$name='$root'"
+	    if [ "$subname" = "" ]; then
+		echo "--with-$name='$root'"
+	    elif [ -e "$root/$subname" ]; then
+		echo "--with-$name='$root/$subname'"
+	    elif [ -e "$root" -a ! -d "$root" ]; then
+		echo "--with-$name='$root'"
+	    else
+		echo "$arg0: no file found for $name: $root/$subname" >&2
+		echo "--with-$name=NOT_FOUND"
+	    fi
             ;;
     esac
 }
@@ -1094,35 +1107,39 @@ do_config() {
             fi
             
 
-            execute $dry_run \
-                    $RMC_SOURCE_DIR/configure \
-                    --enable-assertion-behavior=$RMC_ASSERTIONS \
-                    --enable-doxygen-developer-docs \
-                    --enable-edg_union_struct_debugging \
-                    --enable-rosehpc \
-                    --prefix="$RMC_PREFIX" \
-                    --with-CFLAGS=-fPIC \
-                    --with-CXXFLAGS=-fPIC \
-                    --with-CXX_DEBUG="$debug" \
-                    --with-CXX_OPTIMIZE="$optim" \
-                    --with-CXX_WARNINGS="$cxx_warn" \
-                    --with-C_DEBUG="$debug" \
-                    --with-C_OPTIMIZE="$optim" \
-                    --with-C_WARNINGS="$c_warn" \
-                    --with-ROSE_LONG_MAKE_CHECK_RULE=yes \
-                    --with-boost="$RMC_BOOST_ROOT" \
-                    $(with_root DLIB) \
-                    --with-edg_source_code=true \
-                    --with-java=/usr/lib/jvm/java-7-sun \
-                    $(with_root READLINE libreadline) \
-                    $(with_root MAGIC) \
-                    --with-pch \
-                    $(with_root PYTHON) \
-                    $qt_flags \
-                    $(with_root SQLITE sqlite3) \
-                    $(with_root WT) \
-                    $(with_root YAML) \
-                    $(with_root YICES)
+	    (
+		set -e
+		cd "$RMC_BUILD_DIR"
+		execute $dry_run \
+			$RMC_SOURCE_DIR/configure \
+			--enable-assertion-behavior=$RMC_ASSERTIONS \
+			--enable-doxygen-developer-docs \
+			--enable-edg_union_struct_debugging \
+			--enable-rosehpc \
+			--prefix="$RMC_PREFIX" \
+			--with-CFLAGS=-fPIC \
+			--with-CXXFLAGS=-fPIC \
+			--with-CXX_DEBUG="$debug" \
+			--with-CXX_OPTIMIZE="$optim" \
+			--with-CXX_WARNINGS="$cxx_warn" \
+			--with-C_DEBUG="$debug" \
+			--with-C_OPTIMIZE="$optim" \
+			--with-C_WARNINGS="$c_warn" \
+			--with-ROSE_LONG_MAKE_CHECK_RULE=yes \
+			--with-boost="$RMC_BOOST_ROOT" \
+			$(with_root DLIB) \
+			--with-edg_source_code=true \
+			--with-java=/usr/lib/jvm/java-7-sun \
+			$(with_root READLINE libreadline) \
+			$(with_root MAGIC) \
+			--with-pch \
+			$(with_root PYTHON python bin/python) \
+			$qt_flags \
+			$(with_root SQLITE sqlite3) \
+			$(with_root WT) \
+			$(with_root YAML) \
+			$(with_root YICES)
+	    )
             ;;
         cmake)
             echo "$arg0 $COMMAND: cmake is not implemented yet" >&2

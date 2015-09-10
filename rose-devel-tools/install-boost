@@ -69,7 +69,7 @@ get_source() {
     local vs=$(boost_version_string "$version")
     if [ ! -f "$HOME/Downloads/boost_$vs.tar.bz2" ]; then
 	wget -O "$HOME/Downloads/boost_$vs.tar.bz2" \
-	    "http://sourceforge.net/projects/boost/files/boost/$version/boost_$vs.tar.bz2/download"
+	    "http://sourceforge.net/projects/boost/files/boost/$version.0/boost_$vs.tar.bz2/download"
     fi
     ln -sf "$HOME/Downloads/boost_$vs.tar.bz2" "$destination"
 }

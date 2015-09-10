@@ -134,6 +134,11 @@ version_yaml() {
     local root="$1"
     perl -e '$ARGV[0] =~ /\byaml.*?(\d+(\.\d+)+)/ && print $1' "$root"
 }
+version_doxygen() {
+    local doxygen="$1"
+    local output=$("$doxygen" --version 2>&1 |head -n1)
+    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+/ && print $1' "$output"
+}
 
 # Find version number for a package.  The package has an upper-case name which
 # we use to find the root of its installation tree, and a printable name that
@@ -187,6 +192,10 @@ root_yices() {
     echo "$base/$vers"
 }
 root_python() {
+    local base="$1" vers="$2"
+    echo "$base/$vers"
+}
+root_doxygen() {
     local base="$1" vers="$2"
     echo "$base/$vers"
 }
@@ -573,6 +582,20 @@ rmc_dlib() {
     parse_version_or directory rmc_dlib DLIB "$@"
 }
 
+# doxygen executable
+#
+# usage: rmc_doxygen VERSION [BASE]
+#    or: rmc_doxygen DIRECTORY
+#    or: rmc_doxygen system (or "yes")
+#    or: rmc_doxygen no
+#
+export RMC_DOXYGEN_BASEDIR=
+export RMC_DOXYGEN_VERSION=
+export RMC_DOXYGEN_ROOT=
+rmc_doxygen() {
+    parse_version_or file rmc_doxygen DOXYGEN "$@"
+}
+
 # python executable
 #
 # usage: rmc_python VERSION [BASE]
@@ -668,6 +691,7 @@ resolve() {
     resolve_sqlite
     resolve_qt
     resolve_so_paths
+    resolve_doxygen
 }
 
 resolve_source_dir() {
@@ -812,6 +836,15 @@ resolve_yices() {
         RMC_YICES_ROOT=$(realpath "$RMC_YICES_ROOT")
     elif [ "$RMC_YICES_VERSION" != "" ]; then
         find_root YICES
+    fi
+}
+
+resolve_doxygen() {
+    if [ "$RMC_DOXYGEN_ROOT" != "" ]; then
+        find_version DOXYGEN
+        RMC_DOXYGEN_ROOT=$(realpath "$RMC_DOXYGEN_ROOT")
+    elif [ "$RMC_DOXYGEN_VERSION" != "" ]; then
+        find_root DOXYGEN
     fi
 }
 
@@ -1027,6 +1060,7 @@ do_init() {
         echo
         echo "rmc_boost        1.50"
         echo "rmc_dlib         18.10"
+	echo "rmc_doxygen      1.8.1"
         echo "rmc_magic        system"
         echo "rmc_python       /usr/bin/python3"
         echo "rmc_qt           no"

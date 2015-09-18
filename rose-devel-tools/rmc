@@ -137,7 +137,12 @@ version_yaml() {
 version_doxygen() {
     local doxygen="$1"
     local output=$("$doxygen" --version 2>&1 |head -n1)
-    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+/ && print $1' "$output"
+    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
+}
+version_cmake() {
+    local cmake="$1"
+    local output=$("$cmake" --version 2>&1 |head -n1)
+    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
 }
 
 # Find version number for a package.  The package has an upper-case name which
@@ -199,7 +204,10 @@ root_doxygen() {
     local base="$1" vers="$2"
     echo "$base/$vers"
 }
-
+root_cmake() {
+    local base="$1" vers="$2"
+    echo "$base/$vers"
+}
 
 # Find the root directory for a package when given its version number.
 find_root() {
@@ -247,7 +255,34 @@ load_configuration() {
     resolve
 }
 
-with_root() {
+# Find the prefix directory (or file if $subname isn't empty) for a package.
+find_prefix() {
+    local pkg"=$1" name="$2" subname="$3"
+    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
+    local root=$(eval echo '$RMC_'$pkg'_ROOT')
+    case "$root" in
+	system)
+	    echo "$name"
+	    ;;
+	""|no)
+	    ;;
+	*)
+	    if [ "$subname" = "" ]; then
+		echo "$root"
+	    elif [ -e "$root/$subname" ]; then
+		echo "$root/$subname"
+	    elif [ -e "$root" -a ! -d "$root" ]; then
+		echo "$root"
+	    else
+		echo "$arg0: no file found for $name: $root/$subname" >&2
+		echo "NOT_FOUND"
+	    fi
+            ;;
+    esac
+}
+
+# Generate an optional autotools "--with-..." argument for a package.
+configure_with() {
     local pkg="$1" name="$2" subname="$3"
     [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
     local root=$(eval echo '$RMC_'$pkg'_ROOT')
@@ -259,16 +294,21 @@ with_root() {
             : perhaps "--with-$name=no" or "--without-$name"
             ;;
         *)
-	    if [ "$subname" = "" ]; then
-		echo "--with-$name='$root'"
-	    elif [ -e "$root/$subname" ]; then
-		echo "--with-$name='$root/$subname'"
-	    elif [ -e "$root" -a ! -d "$root" ]; then
-		echo "--with-$name='$root'"
-	    else
-		echo "$arg0: no file found for $name: $root/$subname" >&2
-		echo "--with-$name=NOT_FOUND"
-	    fi
+	    echo "--with-$name=$(find_prefix "$pkg" "$name" "$subname")"
+            ;;
+    esac
+}
+
+# Generate optional cmake "-D..._ROOT=..." argument for a package.
+cmake_Droot() {
+    local pkg="$1" name="$2" subname="$3"
+    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
+    local root=$(eval echo '$RMC_'$pkg'_ROOT')
+    case "$root" in
+        system|""|no)
+            ;;
+        *)
+	    echo "-D${pkg}_ROOT=$(find_prefix "$pkg" "$name" "$subname")"
             ;;
     esac
 }
@@ -596,6 +636,20 @@ rmc_doxygen() {
     parse_version_or file rmc_doxygen DOXYGEN "$@"
 }
 
+# cmake executable
+#
+# usage: rmc_cmake VERSION [BASE]
+#    or: rmc_cmake DIRECTORY
+#    or: rmc_cmake system (or "yes")
+#    or: rmc_cmake no
+#
+export RMC_CMAKE_BASEDIR=
+export RMC_CMAKE_VERSION=
+export RMC_CMAKE_ROOT=
+rmc_cmake() {
+    parse_version_or file rmc_cmake CMAKE "$@"
+}
+
 # python executable
 #
 # usage: rmc_python VERSION [BASE]
@@ -678,6 +732,7 @@ resolve() {
     resolve_build_dir
     resolve_install
     resolve_parallelism
+    resolve_cmake
     resolve_compiler
     resolve_boost
     resolve_web_toolkit
@@ -845,6 +900,15 @@ resolve_doxygen() {
         RMC_DOXYGEN_ROOT=$(realpath "$RMC_DOXYGEN_ROOT")
     elif [ "$RMC_DOXYGEN_VERSION" != "" ]; then
         find_root DOXYGEN
+    fi
+}
+
+resolve_cmake() {
+    if [ "$RMC_CMAKE_ROOT" != "" ]; then
+        find_version CMAKE
+        RMC_CMAKE_ROOT=$(realpath "$RMC_CMAKE_ROOT")
+    elif [ "$RMC_CMAKE_VERSION" != "" ]; then
+        find_root CMAKE
     fi
 }
 
@@ -1059,6 +1123,7 @@ do_init() {
         echo "# configured consistently."
         echo
         echo "rmc_boost        1.50"
+	echo "rmc_cmake        system"
         echo "rmc_dlib         18.10"
 	echo "rmc_doxygen      1.8.1"
         echo "rmc_magic        system"
@@ -1135,7 +1200,7 @@ do_config() {
             esac
 
             # Qt detections is somewhat broken in ROSE's config system
-            qt_flags=$(with_root QT)
+            qt_flags=$(configure_with QT)
             if [ "$qt_flags" != "" ]; then
                 qt_flags="$qt_flags --with-qt-lib --with-roseQt"
             fi
@@ -1147,7 +1212,6 @@ do_config() {
 		execute $dry_run \
 			$RMC_SOURCE_DIR/configure \
 			--enable-assertion-behavior=$RMC_ASSERTIONS \
-			--enable-doxygen-developer-docs \
 			--enable-edg_union_struct_debugging \
 			--enable-rosehpc \
 			--prefix="$RMC_PREFIX" \
@@ -1161,24 +1225,55 @@ do_config() {
 			--with-C_WARNINGS="$c_warn" \
 			--with-ROSE_LONG_MAKE_CHECK_RULE=yes \
 			--with-boost="$RMC_BOOST_ROOT" \
-			$(with_root DLIB) \
+			$(configure_with DLIB) \
+		        $(configure_with DOXYGEN doxygen bin/doxygen) \
 			--with-edg_source_code=true \
 			--with-java=/usr/lib/jvm/java-7-sun \
-			$(with_root READLINE libreadline) \
-			$(with_root MAGIC) \
+			$(configure_with READLINE libreadline) \
+			$(configure_with MAGIC) \
 			--with-pch \
-			$(with_root PYTHON python bin/python) \
+			$(configure_with PYTHON python bin/python) \
 			$qt_flags \
-			$(with_root SQLITE sqlite3) \
-			$(with_root WT) \
-			$(with_root YAML) \
-			$(with_root YICES)
+			$(configure_with SQLITE sqlite3) \
+			$(configure_with WT) \
+			$(configure_with YAML) \
+			$(configure_with YICES)
 	    )
             ;;
         cmake)
-            echo "$arg0 $COMMAND: cmake is not implemented yet" >&2
-            exit 1
-            ;;
+	    local cmake_build_type
+	    if [ "$RMC_OPTIM" = "yes" ]; then
+		if [ "$RMC_DEBUG" = "yes" ]; then
+		    echo "$arg0: warning: cmake builds cannot handle optimize + debug (assuming only optimize)" >&2
+		fi
+		cmake_build_type="Release"
+	    elif [ "$RMC_DEBUG" = "yes" ]; then
+		cmake_build_type="Debug"
+	    else
+		echo "$arg0: warning: camek builds cannot handle non-optimize + non-debug (assuming only debug)" >&2
+		cmake_build_type="Debug"
+	    fi
+
+	    (
+		set -e
+		cd "$RMC_BUILD_DIR"
+		execute $dry_run $(find_prefix CMAKE cmake bin/cmake) "$RMC_SOURCE_DIR" \
+		    -DCMAKE_BUILD_TYPE="$cmake_build_type" \
+		    -DCMAKE_INSTALL_PREFIX="$RMC_PREFIX" \
+		    -DASSERTION_BEHAVIOR="$RMC_ASSERTIONS" \
+		    $(cmake_Droot BOOST) \
+		    $(cmake_Droot DLIB) \
+		    $(cmake_Droot DOXYGEN doxygen bin/doxygen) \
+		    $(cmake_Droot READLINE) \
+		    $(cmake_Droot MAGIC) \
+		    $(cmake_Droot SQLITE) \
+		    $(cmake_Droot YAML) \
+		    $(cmake_Droot YICES with-yices) \
+		    $(cmake_Droot WT) \
+		    -Denable-cuda:BOOL=OFF
+	    )
+	    ;;
+
         *)
             echo "$arg0 $COMMAND: unknown build system: $RMC_BUILD_SYSTEM'" >&2
             exit 1
@@ -1266,7 +1361,10 @@ do_make() {
         binary)
             dirs=("-C $RMC_BUILD_DIR/src"
                   "-C $RMC_BUILD_DIR/tests/roseTests/binaryTests"
-                  "-C $RMC_BUILD_DIR/projects/BinaryAnalysisTools")
+                  "-C $RMC_BUILD_DIR/projects/BinaryAnalysisTools"
+		  "-C $RMC_BUILD_DIR/projects/simulator2"
+		  "-C $RMC_BUILD_DIR/projects/BinaryCloneDetection"
+	    )
             ;;
         here)
             dirs=("")

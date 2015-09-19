@@ -465,8 +465,7 @@ rmc_assertions() {
 # C++ compiler
 #
 # usage: rmc_compiler NAME
-#
-# The NAME should be the name of the compiler command that is executed.
+#        rmc_compiler VERSION
 #
 export RMC_CXX=g++
 export RMC_CXX_VERSION=
@@ -477,7 +476,14 @@ rmc_compiler() {
         echo "rmc_compiler: no compiler specified" >&2
         exit 1
     fi
-    RMC_CXX="$cxx"
+
+    # Does the name look like a version number?
+    local version=$(perl -e '$ARGV[0] =~ /^(\d+(\.\d+)+)$/ and print "$1"' "$cxx")
+    if [ "$version" != "" ]; then
+	RMC_CXX_VERSION="$version"
+    else
+	RMC_CXX="$cxx"
+    fi
 }
 
 # Extensive checking (affects "check" command)
@@ -750,22 +756,36 @@ resolve_parallelism() {
 }
 
 resolve_compiler() {
-    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
+    # Figure out the compiler executable regardless of version required. Don't try to hard to follow symlinks, or
+    # we might end up invoking something like ccache directly (in which case version numbers will be wrong).
+    [ "$RMC_CXX" = "" ] && RMC_CXX="g++"
+    local cxx_realname=$(which "$RMC_CXX")
+    if [ "$cxx_realname" = "" ]; then
+	echo "$arg0: no such compiler command in path: $RMC_CXX" >&2
+	exit 1
+    fi
 
-    local real_name=$(realpath $(which "$RMC_CXX"))
-    if [ "$real_name" = "" ]; then
-        echo "$arg0: cannot find compiler: $RMC_CXX" >&2
+    # Get the compiler version number from its command
+    local have_version=$("$cxx_realname" --version |\
+				head -n1 |\
+				perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
+    if [ "$have_version" = "" ]; then
+        echo "$arg0: cannot obtain version number from $cxx_realname" >&2
         exit 1
     fi
 
-    local vers=$("$RMC_CXX" --version |\
-                        head -n1 |\
-                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-    if [ "$vers" = "" ]; then
-        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
-        exit 1
+    # If a version number was specified, then make sure it matches the one we found
+    if [ "$RMC_CXX_VERSION" != "" ]; then
+	if [ "$RMC_CXX_VERSION" != "$have_version" ]; then
+	    echo "$arg0: compiler version mismatch; have $have_version but need $RMC_CXX_VERSION" >&2
+	    exit 1
+	fi
     fi
-    RMC_CXX_VERSION="$vers"
+
+    # Update global variables
+    RMC_CXX="$cxx_realname"
+    RMC_CXX_BASENAME=$(basename "$cxx_realname" |perl -pe 's/-\d+(\.\d+)+//')
+    RMC_CXX_VERSION="$have_version"
 }
 
 resolve_boost() {
@@ -1146,6 +1166,7 @@ do_config() {
 		cd "$RMC_BUILD_DIR"
 		execute $dry_run \
 			$RMC_SOURCE_DIR/configure \
+			--disable-boost-version-check \
 			--enable-assertion-behavior=$RMC_ASSERTIONS \
 			--enable-doxygen-developer-docs \
 			--enable-edg_union_struct_debugging \

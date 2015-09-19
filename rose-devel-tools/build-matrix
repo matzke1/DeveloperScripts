@@ -1,0 +1,348 @@
+#!/bin/bash
+
+# User config
+DATABASE="matrix.db"
+WORKSPACE="$HOME/junk"
+ROSE_SRC="$HOME/GS-CAD/ROSE/sources/m68k"
+BUILD_COMMAND="make-binary clean all"
+SAVE_BUILD_DIR=yes
+
+# Other global variables
+OUTPUT_SECTION_SEPARATOR='=================#================='
+ROSE_VERSION=
+
+########################################################################################################################
+# Run an SQL command in the database
+query_database() {
+    local sql="$1"
+    #echo "SQL: $sql" >&2
+    sqlite3 "$DATABASE" "$sql"
+}
+
+########################################################################################################################
+create_database() {
+    rm -f "$DATABASE"
+    sqlite3 "$DATABASE" <<EOF
+create table dependencies (
+    name varchar(64),            -- last part of an "rmc_" function
+    version varchar(64)          -- argument(s) for the "rmc_" function
+);
+
+insert into dependencies values ('build_system', 'autoconf');
+insert into dependencies values ('compiler',     '4.8.4');
+insert into dependencies values ('debug',        'yes');
+insert into dependencies values ('optimize',     'no');
+insert into dependencies values ('warnings',     'yes');
+insert into dependencies values ('assertions',   'abort');
+
+--insert into dependencies values ('boost', 	 '1.47');
+--insert into dependencies values ('boost', 	 '1.48');
+--insert into dependencies values ('boost', 	 '1.49');
+insert into dependencies values ('boost', 	 '1.50');
+insert into dependencies values ('boost', 	 '1.51');
+insert into dependencies values ('boost', 	 '1.52');
+insert into dependencies values ('boost', 	 '1.53');
+--insert into dependencies values ('boost', 	 '1.54');
+insert into dependencies values ('boost', 	 '1.55');
+insert into dependencies values ('boost', 	 '1.56');
+insert into dependencies values ('boost', 	 '1.57');
+insert into dependencies values ('boost', 	 '1.58');
+insert into dependencies values ('boost', 	 '1.59');
+
+insert into dependencies values ('dlib',         '18.10');
+--insert into dependencies values ('dlib',         '18.11');
+--insert into dependencies values ('dlib',         '18.12');
+--insert into dependencies values ('dlib',         '18.13');
+--insert into dependencies values ('dlib',         '18.14');
+--insert into dependencies values ('dlib',         '18.15');
+--insert into dependencies values ('dlib',         '18.16');
+insert into dependencies values ('dlib',         '18.17');
+
+insert into dependencies values ('doxygen',      'no');
+insert into dependencies values ('magic',        'no');
+insert into dependencies values ('python',       '/usr/bin/python3');
+insert into dependencies values ('qt',           'no');
+insert into dependencies values ('readline',     'no');
+insert into dependencies values ('sqlite',       'no');
+insert into dependencies values ('web_toolkit',  'no');
+insert into dependencies values ('yaml',         'no');
+insert into dependencies values ('yices',        'no');
+
+create table tests (
+    id integer key not null,
+    started integer,             -- unix time when test started
+    duration integer,            -- time in seconds for test to run
+    status varchar(64),          -- 'running', 'passed', 'failed'
+    rose_version varchar(64),    -- SHA1 for the commit being tested
+
+    -- The following columns correspond to the dependency names
+    rmc_build_system varchar(64),
+    rmc_compiler varchar(64),
+    rmc_debug varchar(64),
+    rmc_optimize varchar(64),
+    rmc_warnings varchar(64),
+    rmc_assertions varchar(64),
+    rmc_boost varchar(64),
+    rmc_dlib varchar(64),
+    rmc_doxygen varchar(64),
+    rmc_magic varchar(64),
+    rmc_python varchar(64),
+    rmc_qt varchar(64),
+    rmc_readline varchar(64),
+    rmc_sqlite varchar(64),
+    rmc_web_toolkit varchar(64),
+    rmc_yaml varchar(64),
+    rmc_yices varchar(64)
+);
+    
+EOF
+}
+
+
+########################################################################################################################
+# Print the ROSE version number (commit SHA1).  If $1 is non-empty then an abbreviated SHA1 is echoed.
+rose_version() {
+    local abbr="$1"
+    [ "$ROSE_VERSION" = "" ] && ROSE_VERSION=$(cd "$ROSE_SRC" && git rev-parse HEAD)
+    if [ "$abbr" != "" ]; then
+	echo "$ROSE_VERSION" |cut -c1-8
+    else
+	echo "$ROSE_VERSION"
+    fi
+}    
+	
+
+########################################################################################################################
+# Return the list of dependency names.
+get_dependency_names() {
+    query_database 'select distinct name from dependencies order by name'
+}
+
+
+########################################################################################################################
+# Indicate how large the configuration space is.
+size_of_config_space() {
+    local size=1
+    for depname in $(get_dependency_names); do
+	local nchoices=$(query_database "select count(*) from dependencies where name = '$depname'")
+	size=$[ size * nchoices]
+    done
+    echo $size
+}
+
+
+########################################################################################################################
+# Given a dependency, choose one version at random.
+choose_dependency_version() {
+    local depname="$1"
+    local versions=($(query_database "select version from dependencies where name = '$depname'"))
+    local i=$[ $RANDOM % ${#versions[*]} ]
+    echo "${versions[$i]}"
+}
+
+
+########################################################################################################################
+# Build a random configuration. Emits a space separated list of DEPNAME=VERSION pairs.
+random_configuration() {
+    for depname in $(get_dependency_names); do
+	echo -n " $depname='$(choose_dependency_version "$depname")'"
+    done
+    echo
+}
+
+
+########################################################################################################################
+# Print a configuration in a human-readable format. The configuration is a list of DEPNAME=VERSION pairs.
+print_configuration() {
+    for pair in "$@"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	printf 'rmc_%-16s %s\n' "$depname" "$version"
+    done
+    echo
+    echo "RMC_SOURCE_DIR='$ROSE_SRC'"
+}
+
+
+########################################################################################################################
+# Find any tests that already exist with this configuration.  The configuration is specified as a space-separated list
+# of DEPNAME=VERSION pairs.
+find_tests_having_config() {
+    local config=("$@")
+    local query="select id from tests where rose_version = '$(rose_version)'"
+    for pair in "${config[@]}"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	query="$query and rmc_$depname = $version"
+    done
+    query_database "$query"
+}
+
+
+########################################################################################################################
+# Choose a configuration that hasn't been tested yet.
+choose_configuration() {
+    echo -n "searching configuration space " >&2
+    while true; do
+	local config=( $(random_configuration) )
+	local tests=( $(find_tests_having_config "${config[@]}") )
+	if [ "${#tests[*]}" -eq 0 ]; then
+	    echo >&2
+	    echo "${config[@]}"
+	    return 0
+	fi
+	echo -n '.' >&2
+    done
+}
+
+
+########################################################################################################################
+# Return the next available test ID number.
+next_test_id() {
+    query_database 'select coalesce(max(id),0)+1 from tests'
+}
+
+
+########################################################################################################################
+# Create a new test and set its status to running.
+create_test() {
+    local testid="$1"; shift
+    local config=("$@")
+    local columns="id, started, duration, status, rose_version"
+    local values="$testid, $(date '+%s'), 0, 'running', '$(rose_version)'"
+    for pair in "${config[@]}"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	columns="$columns, rmc_$depname"
+	values="$values, $version"
+    done
+    local query="insert into tests ($columns) values ($values)"
+    query_database "$query"
+}
+
+
+########################################################################################################################
+# Get the configuration for a test. The result is echoed as space-separated DEPNAME=VERSION pairs.
+get_test_config() {
+    local testid="$1"; shift
+    local depnames="$*"
+    [ "$depnames" = "" ] && depnames=$(get_dependency_names)
+    for depname in $depnames; do
+	local version=$(query_database "select rmc_$depname from tests where id = $testid")
+	echo "$depname='$version'"
+    done
+}
+
+
+########################################################################################################################
+# Run a test. The test must already have been created in the database.  All output is saved in a log file. This function
+# prints the final test status, one of the words:
+#    failure-setup  -- failed when setting up the test
+#    failure-config -- failed when configuring ROSE
+#    failure-build  -- failed during the build step
+#    success        -- ran to completion
+run_test() {
+    local testid="$1"
+    local worksubdir="test-$(rose_version abbr)-$testid"
+    local workspace="$WORKSPACE/$worksubdir"
+    local logfile="$WORKSPACE/$worksubdir.log"
+    echo "Output logged at $logfile" >&2
+
+    # Run the test
+    (
+	set -e
+	mkdir -p "$workspace"
+	cd "$workspace"
+
+	echo
+	echo "$OUTPUT_SECTION_SEPARATOR CONFIGURE $OUTPUT_SECTION_SEPARATOR"
+	print_configuration "${config[@]}" |tee .rmc-main.cfg
+	rmc config --dry-run
+	rmc config
+
+	echo
+	echo "$OUTPUT_SECTION_SEPARATOR BUILD $OUTPUT_SECTION_SEPARATOR"
+	echo "+ rmc make-binary clean all"
+	rmc $BUILD_COMMAND
+
+	echo "$OUTPUT_SECTION_SEPARATOR SUCCESS $OUTPUT_SECTION_SEPARATOR"
+    ) >"$logfile" 2>&1
+
+    # Figure out final status
+    local status
+    if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR SUCCESS $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
+	status="success"
+    elif grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR BUILD $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
+	status="failure-build"
+    elif grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR CONFIGURE $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
+	status="failure-config"
+    else
+	status="failure-setup"
+    fi
+
+    # Save the results in a compressed format
+    if [ "$SAVE_BUILD_DIR" = "yes" ]; then
+	local tarball="$WORKSPACE/$worksubdir.tar.gz"
+	tar -C "$WORKSPACE" cvzf "$tarball" "$worksubdir"
+	echo "build artifacts saved in $tarball" >&2
+    fi
+    rm -rf "$workspace"
+
+    # Results
+    (echo; echo "*** Final test status: $status ***"; echo) | tee -a "$logfile" >&2
+    echo "$status"
+}
+
+
+########################################################################################################################
+# Updates the test results in the database
+update_test_status() {
+    local testid="$1"
+    local status="$2"
+
+    local started=$(query_database "select started from tests where id = $testid")
+    local ended=$(date '+%s')
+    local duration=$[ ended - started ]
+    query_database "update tests set status = '$status', duration = $duration where id = $testid"
+}
+
+
+########################################################################################################################
+# Run one test with a randomly selected configuration. WARNING:  this function will enter an infinite loop if all
+# possible configurations have been tested already!
+run_one_test() {
+    local testid=$(next_test_id)
+    echo
+    echo
+    echo
+    echo
+    (figlet "Test $testid" || banner "Test $testid" || echo "Test $testid") 2>/dev/null
+    echo
+    config=( $(choose_configuration) )
+    print_configuration "${config[@]}"
+    echo
+    create_test "$testid" "${config[@]}"
+    status=$(run_test $testid)
+    update_test_status $testid "$status"
+}
+
+
+########################################################################################################################
+# Run all possible tests one at a time.
+run_all_tests() {
+    local ntests=$(size_of_config_space)
+    local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
+    if [ "$ntested" -ge "$ntests" ]; then
+	echo "nothing to test (all $ntests for $(rose_version abbr) have already been run)" >&2
+    else
+	local number_of_tests=$[ ntests - ntested ]
+	for i in $(seq 1 $number_of_tests); do
+	    run_one_test
+	done
+    fi
+}
+
+
+########################################################################################################################
+[ -e "$DATABASE" ] || create_database
+run_all_tests

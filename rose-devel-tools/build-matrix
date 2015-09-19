@@ -12,11 +12,18 @@ OUTPUT_SECTION_SEPARATOR='=================#================='
 ROSE_VERSION=
 
 ########################################################################################################################
-# Run an SQL command in the database
+# Run an SQL command in the database. The sqlite3 command doesn't have a way to turn off loading of ~/.sqliterc without
+# also producing noise on stderr, but we shouldn't load ~/.sqliterc because it might have commands that change the
+# output in a way that makes it impossible to reliably use it in a script.
 query_database() {
     local sql="$1"
-    #echo "SQL: $sql" >&2
-    sqlite3 "$DATABASE" "$sql"
+    local logfile=$(tempfile)
+    echo "sqlite3 -init /dev/null $DATABASE" >$logfile
+    echo "SQL> $sql" >>$logfile
+    if ! sqlite3 -init /dev/null "$DATABASE" "$sql" 2>>$logfile; then
+	cat $logfile >&2
+    fi
+    rm -f $logfile
 }
 
 ########################################################################################################################
@@ -34,6 +41,7 @@ insert into dependencies values ('debug',        'yes');
 insert into dependencies values ('optimize',     'no');
 insert into dependencies values ('warnings',     'yes');
 insert into dependencies values ('assertions',   'abort');
+insert into dependencies values ('languages',    'all');
 
 --insert into dependencies values ('boost', 	 '1.47');
 --insert into dependencies values ('boost', 	 '1.48');
@@ -75,13 +83,16 @@ create table tests (
     status varchar(64),          -- 'running', 'passed', 'failed'
     rose_version varchar(64),    -- SHA1 for the commit being tested
 
-    -- The following columns correspond to the dependency names
+    -- The following columns correspond to the dependency names. Each
+    -- dependency name in the "names" column of the "dependencies" table
+    -- must have a corresponding column in this table, prefixed with "rmc_".
     rmc_build_system varchar(64),
     rmc_compiler varchar(64),
     rmc_debug varchar(64),
     rmc_optimize varchar(64),
     rmc_warnings varchar(64),
     rmc_assertions varchar(64),
+    rmc_languages varchar(64),
     rmc_boost varchar(64),
     rmc_dlib varchar(64),
     rmc_doxygen varchar(64),
@@ -283,7 +294,7 @@ run_test() {
     # Save the results in a compressed format
     if [ "$SAVE_BUILD_DIR" = "yes" ]; then
 	local tarball="$WORKSPACE/$worksubdir.tar.gz"
-	tar -C "$WORKSPACE" cvzf "$tarball" "$worksubdir"
+	tar cvzf "$tarball" -C "$WORKSPACE" "$worksubdir"
 	echo "build artifacts saved in $tarball" >&2
     fi
     rm -rf "$workspace"

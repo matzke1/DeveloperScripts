@@ -421,6 +421,15 @@ rmc_parallelism() {
     esac
 }
 
+# What frontend languages to support
+#
+# usage: rmc_languages all|COMMA_SEPARATED_LIST
+#
+export RMC_LANGUAGES=all
+rmc_languages() {
+    RMC_LANGUAGES="$1"
+}
+
 # Debugging support
 #
 # usage: rmc_debug yes|no
@@ -734,6 +743,7 @@ resolve() {
     resolve_parallelism
     resolve_cmake
     resolve_compiler
+    resolve_languages
     resolve_boost
     resolve_web_toolkit
     resolve_magic
@@ -821,6 +831,12 @@ resolve_compiler() {
         exit 1
     fi
     RMC_CXX_VERSION="$vers"
+}
+
+resolve_languages() {
+    if [ "$RMC_LANGUAGES" = "" ]; then
+	echo "$arg0: warning: no frontend languages configured; ROSE will not be too useful" >&2
+    fi
 }
 
 resolve_boost() {
@@ -1072,6 +1088,12 @@ do_init() {
         echo "#   'system' (dflt) -- use number of compute cores as the limit"
         echo "#   'unlimited'     -- no hard limit on parallelism"
         echo "rmc_parallelism  system"
+	echo
+	echo "# Language frontends. The argument should be a comma-separated list"
+	echo "# of language names with no intervening white space.  Possible languages"
+	echo "# are 'all', 'non', 'binaries', 'c', 'c++', 'cuda', 'fortran', 'java'"
+	echo "# 'x10', 'opencl', 'php', 'matlab', and 'python'."
+	echo "rmc_languages    all"
         echo
         echo
         echo "#----------------------------------"
@@ -1213,6 +1235,7 @@ do_config() {
 			$RMC_SOURCE_DIR/configure \
 			--enable-assertion-behavior=$RMC_ASSERTIONS \
 			--enable-edg_union_struct_debugging \
+		        --enable-languages="$RMC_LANGUAGES" \
 			--enable-rosehpc \
 			--prefix="$RMC_PREFIX" \
 			--with-CFLAGS=-fPIC \

@@ -19,13 +19,12 @@
 #      ROSE makefiles and populate the subdirectories in the build
 #      tree.
 #
-#   make-WHAT [switches] [targets]
-#      Runs "make" for each of the targets sequentially. For instance,
-#      saying "make-here clean all" runs "make clean" and then "make
-#      all" in the current working directory.  The same make switches
-#      are passed to each invocation of make (e.g., "-k"). The WHAT
-#      values are defined in the command's source and might correspond
-#      to multiple directories.
+#   make[-WHAT] [SWITCHES] [TARGETS]
+#      Runs "make" for each of the TARGETS sequentially in directories
+#      specific to WHAT (or the CWD). For instance, saying "build-binary
+#      clean all" runs "make clean" in all directories associated with
+#      "binary", and then runs "make all" in those same directories.  The
+#      same make switches are passed to each invocation of make (e.g., "-k").
 #
 #   [shell] command
 #      Runs a shell command. The word "shell" is optional if the
@@ -291,7 +290,7 @@ configure_with() {
             echo "--with-$name"
             ;;
         ""|no)
-            : perhaps "--with-$name=no" or "--without-$name"
+	    echo "--without-$name"
             ;;
         *)
 	    echo "--with-$name=$(find_prefix "$pkg" "$name" "$subname")"
@@ -1241,9 +1240,12 @@ do_config() {
                     ;;
             esac
 
-            # Qt detections is somewhat broken in ROSE's config system
+            # Qt detections is somewhat broken in ROSE's config system. For one thing, it doesn't
+	    # understand "--without-qt"
             qt_flags=$(configure_with QT)
-            if [ "$qt_flags" != "" ]; then
+	    if [ "$qt_flags" = "--without-qt" ]; then
+		qt_flags=
+	    else
                 qt_flags="$qt_flags --with-qt-lib --with-roseQt"
             fi
             
@@ -1326,8 +1328,8 @@ do_config() {
 }
 
 do_make() {
-    load_configuration
     local where="$1"; shift
+    load_configuration
 
     # Parse "make" switches, keeping track of a couple special ones.
     local make_switches=()
@@ -1354,25 +1356,21 @@ do_make() {
             -j|--jobs)
                 case "$2" in
                     [0-9]*[0-9])
-                        make_switches=("${make_swithces[@]}" "$1" "$2")
                         have_j="$1 $2"
                         shift; shift
                         ;;
                     *)
-                        make_switches=("${make_switches[@]}" "$1")
                         have_j="$1"
                         shift
                         ;;
                 esac
                 ;;
             -j*)
-                make_switches=("${make_switches[@]}" "$1")
-                have_j="${1#-j}"
+                have_j="$1"
                 shift
                 ;;
             --jobs=*)
-                make_switches=("${make_switches[@]}" "$1")
-                have_j="${1##--jobs=}"
+                have_j="$1"
                 shift
                 ;;
             --debug|-f|--file|--makefile|-I|--include-dir|-l|--load-average|-o|--old-file|--assume-old|-O|--output-sync|-W|--what-if|--new-file|--assume-new)
@@ -1395,11 +1393,7 @@ do_make() {
         targets=(all)
     fi
 
-    # Choose the directories in which to run "make"
-    if [ "$have_C" != "" ]; then
-        echo "$arg0 $COMMAND: '$have_C' is incompatible with this command" >&2
-        exit 1
-    fi
+    # Choose the directories were we'll run "make"
     local dirs=()
     case "$where" in
         binary)
@@ -1412,6 +1406,7 @@ do_make() {
             ;;
         here)
             dirs=("")
+	    have_C=
             ;;
         lib)
             dirs=("-C $RMC_BUILD_DIR/src")
@@ -1421,6 +1416,10 @@ do_make() {
             exit 1
             ;;
     esac
+    if [ "$have_C" != "" ]; then
+        echo "$arg0 $COMMAND: '$have_C' is incompatible with this command" >&2
+        exit 1
+    fi
 
     # Figure out the parallelism.  The "-j" etc. switches will override
     # the values from our own configuration files.
@@ -1473,9 +1472,12 @@ case "$COMMAND" in
     config)
         do_config "$@"
         ;;
-    make-*)
-        do_make "${COMMAND#make-}" "$@"
+    make)
+        do_make "here" "$@"
         ;;
+    make-*)
+	do_make "${COMMAND#build-}" "$@"
+	;;
     shell)
         do_shell "$@"
         ;;

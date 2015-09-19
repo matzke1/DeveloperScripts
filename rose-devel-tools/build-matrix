@@ -1,14 +1,71 @@
 #!/bin/bash
 
-# User config
-DATABASE="matrix.db"
+########################################################################################################################
+# User configuration.     This section has settings that can be adjusted by the user.
+
+# The name of the database that stores the results.
+DATABASE="$HOME/ROSE-build-matrix.db"
+
+# The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
 WORKSPACE="$HOME/junk"
-ROSE_SRC="$HOME/GS-CAD/ROSE/sources/m68k"
-BUILD_COMMAND="make-binary clean all"
+
+# The directory containing the ROSE source code.  This should probably not be a directory that you're
+# actively editing.
+ROSE_SRC="$HOME/GS-CAD/ROSE/sources/release"
+
+# Whether to save tarballs of the build directories after each test (set to "yes" or "no"). The tarballs
+# are placed in the $WORKSPACE directory.
 SAVE_BUILD_DIR=yes
 
+# The list of steps. Each step also has a function named "run_STEP_commands". If any command in the function
+# fails then the test status is set to STEP.  If all functions pass then the status is "success".  The functions
+# are run with the CWD being the top of the ROSE build tree.  There are a few special steps that are always
+# run and don't have callback functions.  The entire list of steps is: setup, depend, $BUILD_STEPS, success.
+BUILD_STEPS=(configure build projects)
+
+run_configure_commands() {
+    rmc config --dry-run
+    rmc config
+}
+
+run_build_commands() {
+   rmc make -C src clean all
+   rmc make -C tests/roseTests/binaryTests clean all
+}
+
+run_projects_commands() {
+    rmc make -C projects/BinaryAnalysisTools clean all
+    rmc make -C projects/simulator2 clean all
+}
+
+# End of user-configuration
+########################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Other global variables
-OUTPUT_SECTION_SEPARATOR='=================#================='
+arg0=${0##*/}
+
+# Distinctive string that separates one section of output from another.
+OUTPUT_SECTION_SEPARATOR='=================-================='
+
+# ROSE SHA1 being tested. This is filled in later.
 ROSE_VERSION=
 
 ########################################################################################################################
@@ -17,13 +74,21 @@ ROSE_VERSION=
 # output in a way that makes it impossible to reliably use it in a script.
 query_database() {
     local sql="$1"
+    local pretty="$2"
+
+    local initfile=$(tempfile)
+    if [ "$pretty" != "" ]; then
+	echo ".mode columns" >>$initfile
+	echo ".headers on" >>$initfile
+    fi
+
     local logfile=$(tempfile)
-    echo "sqlite3 -init /dev/null $DATABASE" >$logfile
+    echo "sqlite3 -init $initfile $DATABASE" >$logfile
     echo "SQL> $sql" >>$logfile
-    if ! sqlite3 -init /dev/null "$DATABASE" "$sql" 2>>$logfile; then
+    if ! sqlite3 -init $initfile "$DATABASE" "$sql" 2>>$logfile; then
 	cat $logfile >&2
     fi
-    rm -f $logfile
+    rm -f $initfile $logfile
 }
 
 ########################################################################################################################
@@ -35,35 +100,45 @@ create table dependencies (
     version varchar(64)          -- argument(s) for the "rmc_" function
 );
 
+-- Insert the available software dependencies here.  If you don't
+-- have a particular dependencies installed that's okay. It just
+-- means that you'll get failures whenever that combination is tested.
+-- In its default mode of operation, the system will eventually
+-- test all combinations.
+
 insert into dependencies values ('build_system', 'autoconf');
+
+insert into dependencies values ('compiler',     '4.4.5');
 insert into dependencies values ('compiler',     '4.8.4');
+
 insert into dependencies values ('debug',        'yes');
 insert into dependencies values ('optimize',     'no');
 insert into dependencies values ('warnings',     'yes');
 insert into dependencies values ('assertions',   'abort');
 insert into dependencies values ('languages',    'all');
 
---insert into dependencies values ('boost', 	 '1.47');
---insert into dependencies values ('boost', 	 '1.48');
---insert into dependencies values ('boost', 	 '1.49');
+insert into dependencies values ('boost', 	 '1.47');
+insert into dependencies values ('boost', 	 '1.48');
+insert into dependencies values ('boost', 	 '1.49');
 insert into dependencies values ('boost', 	 '1.50');
 insert into dependencies values ('boost', 	 '1.51');
 insert into dependencies values ('boost', 	 '1.52');
 insert into dependencies values ('boost', 	 '1.53');
---insert into dependencies values ('boost', 	 '1.54');
+insert into dependencies values ('boost', 	 '1.54');
 insert into dependencies values ('boost', 	 '1.55');
 insert into dependencies values ('boost', 	 '1.56');
 insert into dependencies values ('boost', 	 '1.57');
 insert into dependencies values ('boost', 	 '1.58');
 insert into dependencies values ('boost', 	 '1.59');
 
+insert into dependencies values ('dlib',         'no');
 insert into dependencies values ('dlib',         '18.10');
---insert into dependencies values ('dlib',         '18.11');
---insert into dependencies values ('dlib',         '18.12');
---insert into dependencies values ('dlib',         '18.13');
---insert into dependencies values ('dlib',         '18.14');
---insert into dependencies values ('dlib',         '18.15');
---insert into dependencies values ('dlib',         '18.16');
+insert into dependencies values ('dlib',         '18.11');
+insert into dependencies values ('dlib',         '18.12');
+insert into dependencies values ('dlib',         '18.13');
+insert into dependencies values ('dlib',         '18.14');
+insert into dependencies values ('dlib',         '18.15');
+insert into dependencies values ('dlib',         '18.16');
 insert into dependencies values ('dlib',         '18.17');
 
 insert into dependencies values ('doxygen',      'no');
@@ -246,56 +321,69 @@ get_test_config() {
 
 
 ########################################################################################################################
+# Generate an output section heading. The heading is a single line.
+output_section_heading() {
+    local name="$1"
+    echo "$OUTPUT_SECTION_SEPARATOR $name $OUTPUT_SECTION_SEPARATOR"
+}
+
+
+########################################################################################################################
+# Filter output for a running command. Reads standard input and writes only a few important things to standard output.
+filter_output() {
+    perl -e '$|=1; while(<STDIN>) {/^$ARGV[0]\s+(.*?)\s+$ARGV[0]$/ && print "Starting next step: ", lc($1), "...\n"}' \
+	"$OUTPUT_SECTION_SEPARATOR"
+}
+
+
+########################################################################################################################
 # Run a test. The test must already have been created in the database.  All output is saved in a log file. This function
-# prints the final test status, one of the words:
-#    failure-setup  -- failed when setting up the test
-#    failure-config -- failed when configuring ROSE
-#    failure-build  -- failed during the build step
-#    success        -- ran to completion
+# prints the final test status, which is the word "success" or one of the words from $BUILD_STEPS where a failure
+# occurred.
 run_test() {
     local testid="$1"
-    local worksubdir="test-$(rose_version abbr)-$testid"
+    local worksubdir="test-$(rose_version abbr)-$testid-$$"
     local workspace="$WORKSPACE/$worksubdir"
     local logfile="$WORKSPACE/$worksubdir.log"
     echo "Output logged at $logfile" >&2
 
     # Run the test
     (
+	# Setup
 	set -e
 	mkdir -p "$workspace"
 	cd "$workspace"
 
+	# Software dependencies
 	echo
-	echo "$OUTPUT_SECTION_SEPARATOR CONFIGURE $OUTPUT_SECTION_SEPARATOR"
+	output_section_heading "depend"
 	print_configuration "${config[@]}" |tee .rmc-main.cfg
-	rmc config --dry-run
-	rmc config
+	rmc true
+	echo "Basic sanity checks pass"
 
-	echo
-	echo "$OUTPUT_SECTION_SEPARATOR BUILD $OUTPUT_SECTION_SEPARATOR"
-	echo "+ rmc make-binary clean all"
-	rmc $BUILD_COMMAND
+	for step in "${BUILD_STEPS[@]}"; do
+	    echo
+	    output_section_heading "$step"
+	    eval "(set -ex; run_${step}_commands)"
+	done
+	output_section_heading "success"
+    ) 2>&1 |tee "$logfile" | filter_output >&2
 
-	echo "$OUTPUT_SECTION_SEPARATOR SUCCESS $OUTPUT_SECTION_SEPARATOR"
-    ) >"$logfile" 2>&1
-
-    # Figure out final status
-    local status
-    if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR SUCCESS $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
-	status="success"
-    elif grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR BUILD $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
-	status="failure-build"
-    elif grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR CONFIGURE $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
-	status="failure-config"
-    else
-	status="failure-setup"
-    fi
+    # Figure out final status. First check for the "success" marker; then check for the others in reverse order.
+    local status=setup
+    local sections=("${BUILD_STEPS[@]}" success)
+    for step in success $(perl -e 'print join " ", reverse @ARGV' depend "${BUILD_STEPS[@]}"); do
+	if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR $step $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
+	    status="$step"
+	    break
+	fi
+    done
 
     # Save the results in a compressed format
     if [ "$SAVE_BUILD_DIR" = "yes" ]; then
 	local tarball="$WORKSPACE/$worksubdir.tar.gz"
-	tar cvzf "$tarball" -C "$WORKSPACE" "$worksubdir"
-	echo "build artifacts saved in $tarball" >&2
+	tar czf "$tarball" -C "$WORKSPACE" "$worksubdir"
+	echo "Build artifacts saved in $tarball" >&2
     fi
     rm -rf "$workspace"
 
@@ -344,16 +432,119 @@ run_all_tests() {
     local ntests=$(size_of_config_space)
     local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
     if [ "$ntested" -ge "$ntests" ]; then
-	echo "nothing to test (all $ntests for $(rose_version abbr) have already been run)" >&2
+	echo "$arg0: nothing to test (all $ntests tests for rose-$(rose_version abbr) have already been run)" >&2
     else
 	local number_of_tests=$[ ntests - ntested ]
 	for i in $(seq 1 $number_of_tests); do
 	    run_one_test
+	    sleep 1
 	done
     fi
 }
 
 
 ########################################################################################################################
+# Show system status
+show_status() {
+    # Show what versions of ROSE have been tested
+    echo "Totals per version of ROSE:"
+    query_database "select rose_version, status, count(*) as 'count' from tests group by rose_version, status" PRETTY |\
+        sed 's/^/    /'
+    echo
+    
+
+    # Show info about tests that are running
+    local nrunning=$(query_database "select count(*) from tests where status = 'running'");
+    echo "Number of tests running: $nrunning"
+    local testid
+    for testid in $(query_database "select id from tests where status = 'running'"); do
+	echo "  test $testid"
+	for depname in $(get_dependency_names); do
+	    local version=$(query_database "select rmc_$depname from tests where id = $testid")
+	    printf '    %-16s %s\n' "$depname" "$version"
+	done
+    done
+}
+
+########################################################################################################################
+# Show results as a table.  Arguments say what to show and are of the following forms:
+#    DEPNAME                 -- show all values for the dependency
+#    DEPNAME=VERSION         -- show only tests for the specified version
+show_results() {
+    local arg= columns="rose_version" order_by="rose_version"
+    local where="status <> 'running' and status <> 'depend'"
+    if [ "$#" -eq 0 ]; then
+	for depname in $(get_dependency_names); do
+	    columns="$columns, rmc_$depname as '$depname'"
+	    order_by="$order_by, rmc_$depname"
+	done
+    fi
+
+    for arg in "$@"; do
+	case "$arg" in
+	    rose=*)
+                where="$where and rose_version = '${arg#rose=}'"
+		;;
+       	    *=*)
+	        local depname="${arg%%=*}"
+		local version="${arg#*=}"
+                local is_dep_name=$(query_database "select count(*) from dependencies where name = '$depname'")
+		if [ "$is_dep_name" -ge 1 ]; then
+		    columns="$columns, rmc_$depname as '$depname'"
+		    where="$where and rmc_$depname = '$version'"
+		    order_by="$order_by, rmc_$depname"
+		else
+		    echo "$arg0: not a software dependency: $arg" >&2
+		    exit 1
+		fi
+		;;
+	    *)
+	        local is_dep_name=$(query_database "select count(*) from dependencies where name = '$arg'")
+		if [ "$is_dep_name" -ge 1 ]; then
+		    columns="$columns, rmc_$arg as '$arg'"
+		    order_by="$order_by, rmc_$arg"
+		else
+		    echo "$arg0: not a software dependency: $arg" >&2
+		    exit 1
+		fi
+		;;
+	esac
+    done
+    columns="$columns, status, duration, id"
+
+    query_database "select $columns from tests where $where order by $order_by" PRETTY
+}
+
+########################################################################################################################
 [ -e "$DATABASE" ] || create_database
-run_all_tests
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+	-*)
+	    echo "$arg0: unknown switch: $1" >&2
+	    exit 1
+	    ;;
+	show)
+	    shift
+	    show_results "$@"
+	    exit 0
+	    ;;
+	status)
+	    shift
+	    show_status
+	    exit 0
+	    ;;
+	test)
+	    shift
+	    run_all_tests
+	    exit 0
+	    ;;
+	*)
+	    echo "$arg0: unknown command: $1" >&2
+	    exit 1
+	    ;;
+    esac
+done
+
+echo "usage: $arg0 [GLOBAL_SWITCHES] COMMAND [ARGS...]" >&2
+exit 1

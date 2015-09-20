@@ -230,10 +230,19 @@ EOF
 
 
 ########################################################################################################################
+# Converts a ratio to a percent
+percent() {
+    local numerator="$1"
+    local denominator="$2"
+    perl -e 'print int(100.0*$ARGV[0]/$ARGV[1]+0.5), "%"' "$numerator" "$denominator"
+}
+
+
+########################################################################################################################
 # Print the ROSE version number (commit SHA1).  If $1 is non-empty then an abbreviated SHA1 is echoed.
 rose_version() {
     local abbr="$1"
-    [ "$ROSE_VERSION" = "" ] && ROSE_VERSION=$(cd "$ROSE_SRC" && git rev-parse HEAD)
+    [ "$ROSE_VERSION" = "" ] && ROSE_VERSION=$(cd "$ROSE_SRC" && git rev-parse HEAD 2>/dev/null)
     if [ "$abbr" != "" ]; then
 	echo "$ROSE_VERSION" |cut -c1-8
     else
@@ -367,7 +376,11 @@ find_tests_having_config() {
 # Choose a configuration that hasn't been tested yet.
 choose_configuration() {
     echo -n "searching configuration space " >&2
-    while true; do
+    local limit=$(size_of_config_space)
+    limit=$[ limit * 10 ]
+    local i=0
+    while [ $i -lt $limit ]; do
+	i=$[ i + 1 ]
 	local config=( $(random_configuration) )
 	local tests=( $(find_tests_having_config "${config[@]}") )
 	if [ "${#tests[*]}" -eq 0 ]; then
@@ -377,6 +390,8 @@ choose_configuration() {
 	fi
 	echo -n '.' >&2
     done
+    echo  " none found" >&2
+    return 1
 }
 
 
@@ -514,25 +529,30 @@ run_one_test() {
     (figlet "Test $testid" || banner "Test $testid" || echo "Test $testid") 2>/dev/null
     echo
     config=( $(choose_configuration) )
+    if [ "${#config[*]}" -eq 0 ]; then
+	echo "$arg0: no test configuration found, or none needs to run" >&2
+	return 1
+    fi
     print_configuration "${config[@]}"
     echo
     create_test "$testid" "${config[@]}"
     status=$(run_test $testid)
     update_test_status $testid "$status"
+    return 0
 }
 
 
 ########################################################################################################################
 # Run all possible tests one at a time.
 run_all_tests() {
+    local limit="$1"
     local ntests=$(size_of_config_space)
     local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
     if [ "$ntested" -ge "$ntests" ]; then
 	echo "$arg0: nothing to test (all $ntests tests for rose-$(rose_version abbr) have already been run)" >&2
     else
-	local number_of_tests=$[ ntests - ntested ]
-	for i in $(seq 1 $number_of_tests); do
-	    run_one_test
+	while [ $limit -gt 0 ] && run_one_test; do
+	    limit=$[ limit - 1 ]
 	    sleep 1
 	done
     fi
@@ -540,16 +560,33 @@ run_all_tests() {
 
 
 ########################################################################################################################
-# Show system status
-show_status() {
+# The "status" command for showing the current status
+cmd_status_help() {
+    echo "usage: $arg0 status"
+}
+
+cmd_status() {
+    if [ "$#" -ne 0 ]; then
+	cmd_status_help >&2
+	exit 1
+    fi
+
     # Show what versions of ROSE have been tested
     echo "Totals per version of ROSE:"
     query_database "select rose_version, status, count(*) as 'count' from tests group by rose_version, status" PRETTY |\
         sed 's/^/    /'
     echo
     
+    # How many tests are outstanding
+    local ntests=$(size_of_config_space)
+    echo "Size of configuration space: $ntests tests"
+    if [ "$(rose_version)" != "" ]; then
+	local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
+	echo "Number of tests run for $(rose_version ABBR): $ntested ($(percent $ntested $ntests))"
+    fi
 
     # Show info about tests that are running
+    echo
     local nrunning=$(query_database "select count(*) from tests where status = 'running'");
     echo "Number of tests running: $nrunning"
     local testid
@@ -563,10 +600,14 @@ show_status() {
 }
 
 ########################################################################################################################
-# Show results as a table.  Arguments say what to show and are of the following forms:
-#    DEPNAME                 -- show all values for the dependency
-#    DEPNAME=VERSION         -- show only tests for the specified version
-show_results() {
+# The "show" command for showing the matrix.
+cmd_show_help() {
+    echo "usage: $arg0 show ARGS..." 2>&1
+    echo "       ARGS specify what to show. They are either the names of dependencies (like 'boost')"
+    echo "       or a name=version pair to select a specific version (like 'boost=1.50')."
+}
+
+cmd_show() {
     local arg= columns="rose_version" order_by="rose_version"
     local where="status <> 'running' and status <> 'depend'"
     if [ "$#" -eq 0 ]; then
@@ -613,13 +654,40 @@ show_results() {
 
 
 ########################################################################################################################
+# The "run" command for running the tests
+cmd_run_help() {
+    echo "usage: $arg0 test [--max-tests=N]"
+}
+
+cmd_run() {
+    local max_tests=1000000000
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --max-tests=*)
+		max_tests=${1#--max-tests=}
+		if ! [ "$max_tests" -ge 0 ] 2>/dev/null; then
+		    echo "$arg0-test: invalid argument for --max-tests switch" >&2
+		    exit 1
+		fi
+		shift
+		;;
+	    *)
+		cmd_run_help >&2
+		exit 1
+		;;
+	esac
+    done
+    run_all_tests $max_tests
+}
+
+########################################################################################################################
 # Operations on the "dependencies" table.
 cmd_dependency_help() {
-    echo "usage: $arg0 dependency show [NAMES...]" >&2
-    echo "       $arg0 dependency disable NAME VERSION" >&2
-    echo "       $arg0 dependency enable NAME VERSION" >&2
-    echo "       $arg0 dependency insert NAME VERSION" >&2
-    echo "       $arg0 dependency erase NAME VERSION" >&2
+    echo "usage: $arg0 dependency show [NAMES...]"
+    echo "       $arg0 dependency disable NAME VERSION"
+    echo "       $arg0 dependency enable NAME VERSION"
+    echo "       $arg0 dependency insert NAME VERSION"
+    echo "       $arg0 dependency erase NAME VERSION"
 }
 
 cmd_dependency() {
@@ -649,7 +717,7 @@ cmd_dependency() {
 
 	enable|disable)
 	    if [ "$#" -ne 2 ]; then
-		cmd_dependency_help
+		cmd_dependency_help >&2
 		exit 1
 	    fi
 	    local depname="$1"
@@ -669,7 +737,7 @@ cmd_dependency() {
 
 	insert)
 	    if [ "$#" -ne 2 ]; then
-		cmd_dependency_help
+		cmd_dependency_help >&2
 		exit 1
 	    fi
 	    local depname="$1"
@@ -683,7 +751,7 @@ cmd_dependency() {
 
 	erase)
 	    if [ "$#" -ne 2 ]; then
-		cmd_dependency_help
+		cmd_dependency_help >&2
 		exit 1
 	    fi
 	    local depname="$1"
@@ -695,8 +763,13 @@ cmd_dependency() {
 	    fi
 	    ;;
 
-	*)
+	help)
 	    cmd_dependency_help
+	    exit 0
+	    ;;
+
+	*)
+	    cmd_dependency_help >&2
 	    exit 1
 	    ;;
     esac
@@ -704,40 +777,51 @@ cmd_dependency() {
 
 
 ########################################################################################################################
-[ -e "$DATABASE" ] || create_database
+# Main program
+main_help() {
+    echo "usage: $arg0 dependency..."
+    echo "       $arg0 run..."
+    echo "       $arg0 show..."
+    echo "       $arg0 status..."
+}
 
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-	-*)
-	    echo "$arg0: unknown switch: $1" >&2
-	    exit 1
-	    ;;
-	dependency)
-	    shift
-	    cmd_dependency "$@"
-	    exit 0
-	    ;;
-	show)
-	    shift
-	    show_results "$@"
-	    exit 0
-	    ;;
-	status)
-	    shift
-	    show_status
-	    exit 0
-	    ;;
-	test)
-	    shift
-	    run_all_tests
-	    exit 0
-	    ;;
-	*)
-	    echo "$arg0: unknown command: $1" >&2
-	    exit 1
-	    ;;
-    esac
-done
+main() {
+    [ -e "$DATABASE" ] || create_database
 
-echo "usage: $arg0 [GLOBAL_SWITCHES] COMMAND [ARGS...]" >&2
-exit 1
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    -*)
+		echo "$arg0: unknown switch: $1" >&2
+		exit 1
+		;;
+	    dependency)
+		shift
+		cmd_dependency "$@"
+		exit 0
+		;;
+	    show)
+		shift
+		cmd_show "$@"
+		exit 0
+		;;
+	    status)
+		shift
+		cmd_status "$@"
+		exit 0
+		;;
+	    run)
+		shift
+		cmd_run "$@"
+		exit 0
+		;;
+	    *)
+		main_help >&2
+		exit 1
+		;;
+	esac
+    done
+    main_help >&2
+}
+
+main "$@"
+

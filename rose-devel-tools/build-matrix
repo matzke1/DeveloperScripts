@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Builds various configurations of ROSE in order to construct a matrix that shows what works and what doesn't.
+
+
+
 
 ########################################################################################################################
 # User configuration.     This section has settings that can be adjusted by the user.
@@ -9,37 +14,60 @@ DATABASE="$HOME/ROSE-build-matrix.db"
 # The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
 WORKSPACE="$HOME/junk"
 
-# The directory containing the ROSE source code.  This should probably not be a directory that you're
-# actively editing.
+# The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
 ROSE_SRC="$HOME/GS-CAD/ROSE/sources/release"
 
-# Whether to save tarballs of the build directories after each test (set to "yes" or "no"). The tarballs
-# are placed in the $WORKSPACE directory.
+# Whether to save tarballs of the build directories after each test (set to "yes" or "no"). The tarballs are placed in
+# the $WORKSPACE directory.
 SAVE_BUILD_DIR=yes
 
-# The list of steps. Each step also has a function named "run_STEP_commands". If any command in the function
-# fails then the test status is set to STEP.  If all functions pass then the status is "success".  The functions
-# are run with the CWD being the top of the ROSE build tree.  There are a few special steps that are always
-# run and don't have callback functions.  The entire list of steps is: setup, depend, $BUILD_STEPS, success.
-BUILD_STEPS=(configure build projects)
+# The list of steps. Each step also has a function named "run_STEP_commands". If any command in the function fails then
+# the test status is set to STEP (these functions are run in the presence of "set -e").  If all functions pass then the
+# status is "success".  The functions are run with the CWD being the top of the ROSE build tree.  There are a couple
+# special steps that are always run and don't have callback functions: The "setup" step happens before any others and is
+# reponsible for creating the build directories, and the "success" step is run at the end to mark that all tests
+# succeeded.
+BUILD_STEPS=(depend configure build projects)
+
+run_depend_commands() {
+    # The "rmc" command does some very fast, rudimentary version checking and then executes the echo command if all is
+    # well. We run this as a separate step because it's useful to know that a configuration failed because something
+    # wasn't installed.
+    rmc echo "Basic sanity checks pass"
+}
 
 run_configure_commands() {
-    rmc config --dry-run
-    rmc config
+    # Runs either autoconf or cmake to generate the makefiles
+    rmc config --dry-run && rmc config
 }
 
 run_build_commands() {
-   rmc make -C src clean all
-   rmc make -C tests/roseTests/binaryTests clean all
+    # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
+    # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
+    for dir in src tests/roseTests/binaryTests; do
+	rmc make -C "$dir" clean all || rmc make -C "$dir" -j1 all
+    done
 }
 
 run_projects_commands() {
-    rmc make -C projects/BinaryAnalysisTools clean all
-    rmc make -C projects/simulator2 clean all
+    # Similar to building the library, except this is for building only certain projects after the library has been
+    # built. This will almost certainly fail for cmake since we haven't actually installed librose in the previous steps.
+    for project in BinaryAnalysisTools simulator2; do
+	rmc make -C "projects/$project" clean all || rmc make -C "$projects/$project" -j1 all
+    done
 }
 
 # End of user-configuration
 ########################################################################################################################
+
+
+
+
+
+
+
+
+
 
 
 
@@ -92,64 +120,80 @@ query_database() {
 }
 
 ########################################################################################################################
+# Creates the *initial* database.
+#
+# In order to add a new version of some dependency, just add another entry to the "dependencies" table.  If you create a
+# new dependency name (not just a new setting for an existing dependency) then you must also add a new column to the
+# "tests" table with a similar name.  Any existing rows in "tests" should have whatever value was effective for the
+# previous tests (e.g., if you added a new dependency on the "frobnicator" and the old tests were effectively using
+# frobnicator-1.2.3, then the "rmc_frobnicator" column for those rows should be initialized to "1.2.3".
+#
+# If you no longer want to test some version of a dependency, then remove that row from the "dependencies" table. BTW,
+# "no" is considered a valid version meaning "configure without this dependency. If you want to remove a dependency
+# entirely then just remove all its rows from the "dependencies" table -- there is no need to remove the corresponding
+# column from the "tests" table (in fact, they should stay since old tests had that dependency).
+#
+# This system will (eventually, if run long enough) test all combinations of dependencies. For instance, if you list
+# boost dependencies "1.50" and "1.52" and dlib dependencies "no", "18.10", and "18.17" then all six combinations of
+# those two dependencies will be tested.
+#
 create_database() {
     rm -f "$DATABASE"
     sqlite3 "$DATABASE" <<EOF
 create table dependencies (
-    name varchar(64),            -- last part of an "rmc_" function
-    version varchar(64)          -- argument(s) for the "rmc_" function
+    name varchar(64),            -- last part of an "rmc_" function name
+    version varchar(64),         -- argument(s) for the "rmc_" function
+    enabled integer              -- whether this version should be tested (sqlite doesn't have booleans)
 );
 
--- Insert the available software dependencies here.  If you don't
--- have a particular dependencies installed that's okay. It just
--- means that you'll get failures whenever that combination is tested.
--- In its default mode of operation, the system will eventually
--- test all combinations.
+insert into dependencies values ('build_system', 'autoconf', 	     1);
 
-insert into dependencies values ('build_system', 'autoconf');
+insert into dependencies values ('compiler',     '4.4.5',    	     1);
+insert into dependencies values ('compiler',     '4.8.4',    	     1);
 
-insert into dependencies values ('compiler',     '4.4.5');
-insert into dependencies values ('compiler',     '4.8.4');
+insert into dependencies values ('debug',        'yes',      	     1);
+insert into dependencies values ('optimize',     'no',       	     1);
+insert into dependencies values ('warnings',     'yes',      	     1);
+insert into dependencies values ('assertions',   'abort',    	     1);
+insert into dependencies values ('languages',    'all',      	     1);
 
-insert into dependencies values ('debug',        'yes');
-insert into dependencies values ('optimize',     'no');
-insert into dependencies values ('warnings',     'yes');
-insert into dependencies values ('assertions',   'abort');
-insert into dependencies values ('languages',    'all');
+insert into dependencies values ('boost', 	 '1.43',     	     1);
+insert into dependencies values ('boost', 	 '1.44',     	     1);
+insert into dependencies values ('boost', 	 '1.45',     	     1);
+insert into dependencies values ('boost', 	 '1.46',     	     1);
+insert into dependencies values ('boost', 	 '1.47',     	     1);
+insert into dependencies values ('boost', 	 '1.48',     	     1);
+insert into dependencies values ('boost', 	 '1.49',     	     1);
+insert into dependencies values ('boost', 	 '1.50',     	     1);
+insert into dependencies values ('boost', 	 '1.51',     	     1);
+insert into dependencies values ('boost', 	 '1.52',     	     1);
+insert into dependencies values ('boost', 	 '1.53',     	     1);
+insert into dependencies values ('boost', 	 '1.54',     	     1);
+insert into dependencies values ('boost', 	 '1.55',     	     1);
+insert into dependencies values ('boost', 	 '1.56',     	     1);
+insert into dependencies values ('boost', 	 '1.57',     	     1);
+insert into dependencies values ('boost', 	 '1.58',     	     1);
+insert into dependencies values ('boost', 	 '1.59',     	     1);
 
-insert into dependencies values ('boost', 	 '1.47');
-insert into dependencies values ('boost', 	 '1.48');
-insert into dependencies values ('boost', 	 '1.49');
-insert into dependencies values ('boost', 	 '1.50');
-insert into dependencies values ('boost', 	 '1.51');
-insert into dependencies values ('boost', 	 '1.52');
-insert into dependencies values ('boost', 	 '1.53');
-insert into dependencies values ('boost', 	 '1.54');
-insert into dependencies values ('boost', 	 '1.55');
-insert into dependencies values ('boost', 	 '1.56');
-insert into dependencies values ('boost', 	 '1.57');
-insert into dependencies values ('boost', 	 '1.58');
-insert into dependencies values ('boost', 	 '1.59');
+insert into dependencies values ('dlib',         'no',       	     1);
+insert into dependencies values ('dlib',         '18.10',    	     1);
+insert into dependencies values ('dlib',         '18.11',    	     1);
+insert into dependencies values ('dlib',         '18.12',    	     1);
+insert into dependencies values ('dlib',         '18.13',    	     1);
+insert into dependencies values ('dlib',         '18.14',    	     1);
+insert into dependencies values ('dlib',         '18.15',    	     1);
+insert into dependencies values ('dlib',         '18.16',    	     1);
+insert into dependencies values ('dlib',         '18.17',    	     1);
 
-insert into dependencies values ('dlib',         'no');
-insert into dependencies values ('dlib',         '18.10');
-insert into dependencies values ('dlib',         '18.11');
-insert into dependencies values ('dlib',         '18.12');
-insert into dependencies values ('dlib',         '18.13');
-insert into dependencies values ('dlib',         '18.14');
-insert into dependencies values ('dlib',         '18.15');
-insert into dependencies values ('dlib',         '18.16');
-insert into dependencies values ('dlib',         '18.17');
-
-insert into dependencies values ('doxygen',      'no');
-insert into dependencies values ('magic',        'no');
-insert into dependencies values ('python',       '/usr/bin/python3');
-insert into dependencies values ('qt',           'no');
-insert into dependencies values ('readline',     'no');
-insert into dependencies values ('sqlite',       'no');
-insert into dependencies values ('web_toolkit',  'no');
-insert into dependencies values ('yaml',         'no');
-insert into dependencies values ('yices',        'no');
+insert into dependencies values ('doxygen',      'no',       	     1);
+insert into dependencies values ('magic',        'no',       	     1);
+insert into dependencies values ('python',       '/usr/bin/python3', 1);
+insert into dependencies values ('qt',           'no',       	     1);
+insert into dependencies values ('readline',     'no',       	     1);
+insert into dependencies values ('sqlite',       'no',       	     1);
+insert into dependencies values ('web_toolkit',  'no',       	     1);
+insert into dependencies values ('yaml',         'no',       	     1);
+insert into dependencies values ('yices',        'no',       	     1);
 
 create table tests (
     id integer key not null,
@@ -206,11 +250,65 @@ get_dependency_names() {
 
 
 ########################################################################################################################
+# Return version numbers for a dependency.
+get_enabled_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname' and enabled <> 0"
+}
+
+get_disabled_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname' and enabled = 0"
+}
+
+get_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname'"
+}
+
+get_enabled_versions_count() {    
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname' and enabled <> 0"
+}
+
+get_disabled_versions_count() {
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname' and enabled = 0"
+}
+
+get_versions_count() {
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname'"
+}
+
+is_version_existing() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name = '$depname' and version = '$version'")
+    [ $n -ne 0 ]
+}
+
+is_version_enabled() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name='$depname' and version='$version' and enabled<>0")
+    [ $n -ne 0 ]
+}
+
+is_version_disabled() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name='$depname' and version='$version' and enabled=0")
+    [ $n -ne 0 ]
+}
+
+
+########################################################################################################################
 # Indicate how large the configuration space is.
 size_of_config_space() {
     local size=1
     for depname in $(get_dependency_names); do
-	local nchoices=$(query_database "select count(*) from dependencies where name = '$depname'")
+	local nchoices=$(get_enabled_versions_count "$depname")
 	size=$[ size * nchoices]
     done
     echo $size
@@ -221,7 +319,7 @@ size_of_config_space() {
 # Given a dependency, choose one version at random.
 choose_dependency_version() {
     local depname="$1"
-    local versions=($(query_database "select version from dependencies where name = '$depname'"))
+    local versions=( $(get_enabled_versions "$depname") )
     local i=$[ $RANDOM % ${#versions[*]} ]
     echo "${versions[$i]}"
 }
@@ -349,24 +447,22 @@ run_test() {
 
     # Run the test
     (
-	# Setup
+	# built-in "setup" step
 	set -e
 	mkdir -p "$workspace"
 	cd "$workspace"
-
-	# Software dependencies
-	echo
-	output_section_heading "depend"
 	print_configuration "${config[@]}" |tee .rmc-main.cfg
-	rmc true
-	echo "Basic sanity checks pass"
 
+	# user-defined steps
 	for step in "${BUILD_STEPS[@]}"; do
 	    echo
 	    output_section_heading "$step"
-	    eval "(set -ex; run_${step}_commands)"
+	    eval "(run_${step}_commands)"
 	done
+	
+	# built-in "success" step
 	output_section_heading "success"
+
     ) 2>&1 |tee "$logfile" | filter_output >&2
 
     # Figure out final status. First check for the "success" marker; then check for the others in reverse order.
@@ -488,8 +584,8 @@ show_results() {
        	    *=*)
 	        local depname="${arg%%=*}"
 		local version="${arg#*=}"
-                local is_dep_name=$(query_database "select count(*) from dependencies where name = '$depname'")
-		if [ "$is_dep_name" -ge 1 ]; then
+		local nversions=$(get_versions_count "$depname")
+		if [ $nversions -ge 1 ]; then
 		    columns="$columns, rmc_$depname as '$depname'"
 		    where="$where and rmc_$depname = '$version'"
 		    order_by="$order_by, rmc_$depname"
@@ -499,8 +595,8 @@ show_results() {
 		fi
 		;;
 	    *)
-	        local is_dep_name=$(query_database "select count(*) from dependencies where name = '$arg'")
-		if [ "$is_dep_name" -ge 1 ]; then
+	        local nversions=$(get_versions_count "$arg")
+		if [ $nversions -ge 1 ]; then
 		    columns="$columns, rmc_$arg as '$arg'"
 		    order_by="$order_by, rmc_$arg"
 		else
@@ -515,6 +611,98 @@ show_results() {
     query_database "select $columns from tests where $where order by $order_by" PRETTY
 }
 
+
+########################################################################################################################
+# Operations on the "dependencies" table.
+cmd_dependency_help() {
+    echo "usage: $arg0 dependency show [NAMES...]" >&2
+    echo "       $arg0 dependency disable NAME VERSION" >&2
+    echo "       $arg0 dependency enable NAME VERSION" >&2
+    echo "       $arg0 dependency insert NAME VERSION" >&2
+    echo "       $arg0 dependency erase NAME VERSION" >&2
+}
+
+cmd_dependency() {
+    local command="$1"; shift
+    case "$command" in
+	show)
+	    local depnames
+	    if [ "$#" -eq 0 ]; then
+		depnames="$(get_dependency_names)"
+	    else
+		depnames="$*"
+	    fi
+	    
+	    for depname in $depnames; do
+		echo -n "$depname enabled versions: "
+		for version in $(get_enabled_versions "$depname"); do
+		    echo -n " $version"
+		done
+		echo
+		echo -n "$depname disabled versions:"
+		for version in $(get_disabled_versions "$depname"); do
+		    echo -n " $version"
+		done
+		echo
+	    done
+	    ;;
+
+	enable|disable)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    local enabled=1
+	    [ "$command" = "disable" ] && enabled=0
+	    if is_version_existing "$depname" "$version"; then
+		query_database "update dependencies set enabled = $enabled where name = '$depname' and version = '$version'"
+		nfound=$(get_enabled_versions_count "$depname")
+		if [ $nfound -eq 0 ]; then
+		    echo "$arg0: warning: all versions of $depname are enabled; search space is now empty" >&2
+		fi
+	    else
+		echo "$arg0: warning: no $depname dependency for $version" >&2
+	    fi
+	    ;;
+
+	insert)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    if is_version_existing "$depname" "$version"; then
+		query_database "update dependencies set enable = true where name = '$depname' and version = '$version'"
+	    else
+		query_database "insert into dependencies (name, version, enabled) values ('$depname', '$version', 1)"
+	    fi
+	    ;;
+
+	erase)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    if is_version_existing "$depname" "$version"; then
+		query_database "delete from dependencies where name = '$depname' and version = '$version'"
+	    else
+		echo "$arg0: warning: no match for $depname $version" >&2
+	    fi
+	    ;;
+
+	*)
+	    cmd_dependency_help
+	    exit 1
+	    ;;
+    esac
+}
+
+
 ########################################################################################################################
 [ -e "$DATABASE" ] || create_database
 
@@ -523,6 +711,11 @@ while [ "$#" -gt 0 ]; do
 	-*)
 	    echo "$arg0: unknown switch: $1" >&2
 	    exit 1
+	    ;;
+	dependency)
+	    shift
+	    cmd_dependency "$@"
+	    exit 0
 	    ;;
 	show)
 	    shift

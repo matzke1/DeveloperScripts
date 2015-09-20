@@ -680,6 +680,36 @@ cmd_run() {
     run_all_tests $max_tests
 }
 
+
+########################################################################################################################
+# The "test" command for manipulating tests
+cmd_test_help() {
+    echo "usage: $arg0 test erase ID"
+}
+
+cmd_test() {
+    local command="$1"; shift
+    case "$command" in
+	erase)
+	    if [ "$#" -ne 1 ]; then
+		cmd_test_help >&2
+		exit 1
+	    fi
+	    local testid="$1"
+	    local ntests=$(query_database "select count(*) from tests where id = $testid")
+	    if [ $ntests -eq 0 ]; then
+		echo "$arg0: test $testid not found" >&2
+		exit 1
+	    fi
+	    query_database "delete from tests where id = $testid"
+	    ;;
+	*)
+	    cmd_test_help >&2
+	    exit 1
+	    ;;
+    esac
+}
+
 ########################################################################################################################
 # Operations on the "dependencies" table.
 cmd_dependency_help() {
@@ -783,6 +813,7 @@ main_help() {
     echo "       $arg0 run..."
     echo "       $arg0 show..."
     echo "       $arg0 status..."
+    echo "       $arg0 test..."
 }
 
 main() {
@@ -812,6 +843,11 @@ main() {
 	    run)
 		shift
 		cmd_run "$@"
+		exit 0
+		;;
+	    test)
+		shift
+		cmd_test "$@"
 		exit 0
 		;;
 	    *)

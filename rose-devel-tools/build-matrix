@@ -205,6 +205,7 @@ create table tests (
     started integer,             -- unix time when test started
     duration integer,            -- time in seconds for test to run
     status varchar(64),          -- 'running', 'passed', 'failed'
+    warnings integer,            -- number of warning messages during build
     rose_version varchar(64),    -- SHA1 for the commit being tested
 
     -- The following columns correspond to the dependency names. Each

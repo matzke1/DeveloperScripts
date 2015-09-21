@@ -21,12 +21,11 @@ ROSE_SRC="$HOME/GS-CAD/ROSE/sources/release"
 # the $WORKSPACE directory.
 SAVE_BUILD_DIR=yes
 
-# The list of steps. Each step also has a function named "run_STEP_commands". If any command in the function fails then
-# the test status is set to STEP (these functions are run in the presence of "set -e").  If all functions pass then the
-# status is "success".  The functions are run with the CWD being the top of the ROSE build tree.  There are a couple
-# special steps that are always run and don't have callback functions: The "setup" step happens before any others and is
-# reponsible for creating the build directories, and the "success" step is run at the end to mark that all tests
-# succeeded.
+# The list of steps. Each step also has a function named "run_STEP_commands". If the function fails then the test status
+# is set to STEP.  If all functions pass then the status is "success".  The functions are run with the CWD being the top
+# of the ROSE build tree.  There are a couple special steps that are always run and don't have callback functions: The
+# "setup" step happens before any others and is reponsible for creating the build directories, and the "success" step is
+# run at the end to mark that all tests succeeded.
 BUILD_STEPS=(depend configure build projects)
 
 run_depend_commands() {
@@ -45,7 +44,10 @@ run_build_commands() {
     # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
     # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
     for dir in src tests/roseTests/binaryTests; do
-	rmc make -C "$dir" clean all || rmc make -C "$dir" -j1 all
+	if ! rmc make -C "$dir" clean all; then
+	    rmc make -C "$dir" -j1 all
+	    return 1
+	fi
     done
 }
 
@@ -53,7 +55,10 @@ run_projects_commands() {
     # Similar to building the library, except this is for building only certain projects after the library has been
     # built. This will almost certainly fail for cmake since we haven't actually installed librose in the previous steps.
     for project in BinaryAnalysisTools simulator2; do
-	rmc make -C "projects/$project" clean all || rmc make -C "$projects/$project" -j1 all
+	if ! rmc make -C "projects/$project" clean all; then
+	    rmc make -C "$projects/$project" -j1 all
+	    return 1
+	fi
     done
 }
 
@@ -472,7 +477,7 @@ run_test() {
 	for step in "${BUILD_STEPS[@]}"; do
 	    echo
 	    output_section_heading "$step"
-	    eval "(run_${step}_commands)"
+	    eval "(run_${step}_commands)" || exit 1
 	done
 	
 	# built-in "success" step
@@ -490,6 +495,9 @@ run_test() {
 	fi
     done
 
+    # Count number of warnings
+    local nwarnings=$(grep "warning" "$logfile" |wc -l)
+
     # Save the results in a compressed format
     if [ "$SAVE_BUILD_DIR" = "yes" ]; then
 	local tarball="$WORKSPACE/$worksubdir.tar.gz"
@@ -500,20 +508,26 @@ run_test() {
 
     # Results
     (echo; echo "*** Final test status: $status ***"; echo) | tee -a "$logfile" >&2
-    echo "$status"
+
+    echo "$status $nwarnings"
 }
 
 
 ########################################################################################################################
-# Updates the test results in the database
+# Updates the test results in the database.  The results should have at least 'status' and 'nwarnings' keys.
 update_test_status() {
     local testid="$1"
     local status="$2"
+    local nwarnings="$3"
 
     local started=$(query_database "select started from tests where id = $testid")
     local ended=$(date '+%s')
     local duration=$[ ended - started ]
-    query_database "update tests set status = '$status', duration = $duration where id = $testid"
+    query_database "update tests set		\
+                      status = '$status',	\
+                      warnings = $nwarnings,	\
+                      duration = $duration	\
+                    where id = $testid"
 }
 
 
@@ -536,8 +550,8 @@ run_one_test() {
     print_configuration "${config[@]}"
     echo
     create_test "$testid" "${config[@]}"
-    status=$(run_test $testid)
-    update_test_status $testid "$status"
+    local results="$(run_test $testid)"
+    update_test_status $testid $results
     return 0
 }
 
@@ -604,12 +618,14 @@ cmd_status() {
 cmd_show_help() {
     echo "usage: $arg0 show ARGS..." 2>&1
     echo "       ARGS specify what to show. They are either the names of dependencies (like 'boost')"
-    echo "       or a name=version pair to select a specific version (like 'boost=1.50')."
+    echo "       or a name=version pair to select a specific version (like 'boost=1.50'). Additional"
+    echo "       words show extra columns: warnings, duration."
 }
 
 cmd_show() {
     local arg= columns="rose_version" order_by="rose_version"
     local where="status <> 'running' and status <> 'depend'"
+    local show_warnings= show_duration=
     if [ "$#" -eq 0 ]; then
 	for depname in $(get_dependency_names); do
 	    columns="$columns, rmc_$depname as '$depname'"
@@ -619,8 +635,18 @@ cmd_show() {
 
     for arg in "$@"; do
 	case "$arg" in
+	    help)
+		cmd_show_help >&2
+		exit 0
+		;;
 	    rose=*)
                 where="$where and rose_version = '${arg#rose=}'"
+		;;
+	    warnings)
+	        show_warnings=", warnings"
+		;;
+	    duration)
+		show_duration=", duration"
 		;;
        	    *=*)
 	        local depname="${arg%%=*}"
@@ -647,7 +673,7 @@ cmd_show() {
 		;;
 	esac
     done
-    columns="$columns, status, duration, id"
+    columns="$columns, status${show_warnings}${show_duration}, id as 'test-id'"
 
     query_database "select $columns from tests where $where order by $order_by" PRETTY
 }

@@ -734,8 +734,18 @@ rmc_yices() {
     parse_version_or directory rmc_yices YICES "$@"
 }
 
+# EDG version to compile into ROSE.
+#
+# usage: rmc_edg VERSION
+#
+export RMC_EDG_VERSION=
+rmc_edg() {
+    RMC_EDG_VERSION="$1"
+}
+
 # Directory containing libjvm.so
 export RMC_LIBJVM_ROOT=
+
 
 ############################################################################
 # Functions to finalize config commands. These generally need to execute
@@ -750,6 +760,7 @@ resolve() {
     resolve_compiler
     resolve_languages
     resolve_boost
+    resolve_edg
     resolve_web_toolkit
     resolve_magic
     resolve_yaml
@@ -873,6 +884,14 @@ resolve_boost() {
     fi
 
     add_library_path BOOST lib
+}
+
+resolve_edg() {
+    # EDG source is distributed with ROSE or a binary tarball is downloaded by ROSE. In either case, there's not
+    # really anything that needs to be resolved.
+    if [ "$RMC_EDG_VERSION" = "" ]; then
+	RMC_EDG_VERSION="4.7"
+    fi
 }
 
 resolve_web_toolkit() {
@@ -1166,7 +1185,8 @@ do_init() {
         echo "rmc_boost        1.50"
 	echo "rmc_cmake        system"
         echo "rmc_dlib         18.10"
-	echo "rmc_doxygen      1.8.1"
+	echo "rmc_doxygen      1.8.10"
+	echo "rmc_edg          4.7"
         echo "rmc_magic        system"
         echo "rmc_python       /usr/bin/python3"
         echo "rmc_qt           no"
@@ -1274,6 +1294,7 @@ do_config() {
 			$(configure_with DLIB) \
 		        $(configure_with DOXYGEN doxygen bin/doxygen) \
 			--with-edg_source_code=true \
+		        --with-edg_version="$RMC_EDG_VERSION" \
 			--with-java=/usr/lib/jvm/java-7-sun \
 			$(configure_with READLINE libreadline) \
 			$(configure_with MAGIC) \
@@ -1310,6 +1331,7 @@ do_config() {
 		    $(cmake_Droot BOOST) \
 		    $(cmake_Droot DLIB) \
 		    $(cmake_Droot DOXYGEN doxygen bin/doxygen) \
+		    -DEDG_VERSION="$RMC_EDG_VERSION" \
 		    $(cmake_Droot READLINE) \
 		    $(cmake_Droot MAGIC) \
 		    $(cmake_Droot SQLITE) \
@@ -1476,7 +1498,7 @@ case "$COMMAND" in
         do_make "here" "$@"
         ;;
     make-*)
-	do_make "${COMMAND#build-}" "$@"
+	do_make "${COMMAND#make-}" "$@"
 	;;
     shell)
         do_shell "$@"

@@ -44,7 +44,7 @@ run_build_commands() {
     # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
     # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
     for dir in src tests/roseTests/binaryTests; do
-	if ! rmc make -C "$dir" clean all; then
+	if ! rmc make -C "$dir" $MAX_PARALLELISM_SWITCH clean all; then
 	    rmc make -C "$dir" -j1 all
 	    return 1
 	fi
@@ -55,7 +55,7 @@ run_projects_commands() {
     # Similar to building the library, except this is for building only certain projects after the library has been
     # built. This will almost certainly fail for cmake since we haven't actually installed librose in the previous steps.
     for project in BinaryAnalysisTools simulator2; do
-	if ! rmc make -C "projects/$project" clean all; then
+	if ! rmc make -C "projects/$project" $MAX_PARALLELISM_SWITCH clean all; then
 	    rmc make -C "$projects/$project" -j1 all
 	    return 1
 	fi
@@ -100,6 +100,11 @@ OUTPUT_SECTION_SEPARATOR='=================-================='
 
 # ROSE SHA1 being tested. This is filled in later.
 ROSE_VERSION=
+
+# maximum parallelism for build steps, initialized by global "-j" switch and passed to the "rmc make" commands. This
+# should either be empty (to use the full parallelism of the machine) or the full "-j" switch supported by the "rmc
+# make" command.
+MAX_PARALLELISM_SWITCH=
 
 ########################################################################################################################
 # Run an SQL command in the database. The sqlite3 command doesn't have a way to turn off loading of ~/.sqliterc without
@@ -191,13 +196,34 @@ insert into dependencies values ('dlib',         '18.16',    	     1);
 insert into dependencies values ('dlib',         '18.17',    	     1);
 
 insert into dependencies values ('doxygen',      'no',       	     1);
+insert into dependencies values ('doxygen',      '1.8.1',            1);
+insert into dependencies values ('doxygen',      '1.8.2',            1);
+insert into dependencies values ('doxygen',      '1.8.3',            1);
+insert into dependencies values ('doxygen',      '1.8.4',            1);
+insert into dependencies values ('doxygen',      '1.8.5',            1);
+insert into dependencies values ('doxygen',      '1.8.6',            1);
+insert into dependencies values ('doxygen',      '1.8.7',            1);
+insert into dependencies values ('doxygen',      '1.8.8',            1);
+insert into dependencies values ('doxygen',      '1.8.9',            1);
+insert into dependencies values ('doxygen',      '1.8.10',           1);
+
+insert into dependencies values ('edg',          '4.4',              1);
+insert into dependencies values ('edg',          '4.7',              1);
+insert into dependencies values ('edg',          '4.8',              1);
+insert into dependencies values ('edg',          '4.9',              1);
+
 insert into dependencies values ('magic',        'no',       	     1);
 insert into dependencies values ('python',       '/usr/bin/python3', 1);
 insert into dependencies values ('qt',           'no',       	     1);
 insert into dependencies values ('readline',     'no',       	     1);
 insert into dependencies values ('sqlite',       'no',       	     1);
+
 insert into dependencies values ('web_toolkit',  'no',       	     1);
+insert into dependencies values ('web_toolkit',  '3.3.3',            1);
+insert into dependencies values ('web_toolkit',  '3.3.4',            1);
+
 insert into dependencies values ('yaml',         'no',       	     1);
+
 insert into dependencies values ('yices',        'no',       	     1);
 
 create table tests (
@@ -228,7 +254,8 @@ create table tests (
     rmc_sqlite varchar(64),
     rmc_web_toolkit varchar(64),
     rmc_yaml varchar(64),
-    rmc_yices varchar(64)
+    rmc_yices varchar(64),
+    rmc_edg varchar(64)
 );
     
 EOF
@@ -683,7 +710,7 @@ cmd_show() {
 ########################################################################################################################
 # The "run" command for running the tests
 cmd_run_help() {
-    echo "usage: $arg0 test [--max-tests=N]"
+    echo "usage: $arg0 test [--max-tests=N] [-jN]"
 }
 
 cmd_run() {
@@ -696,6 +723,10 @@ cmd_run() {
 		    echo "$arg0-test: invalid argument for --max-tests switch" >&2
 		    exit 1
 		fi
+		shift
+		;;
+            -j*)
+	        MAX_PARALLELISM_SWITCH="$1"
 		shift
 		;;
 	    *)

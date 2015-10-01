@@ -23,6 +23,10 @@
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
 
+;cursor might disappear when running with reverse video, so make it a color that shows up on either
+;a light or dark background.
+(set-cursor-color "green")
+
 ;(require 'icicles)
 ;(icy-mode)
 ;(require 'egg)
@@ -317,12 +321,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(ansi-color-names-vector
-   ["#2e3436" "#a40000" "#4e9a06" "#c4a000" "#204a87" "#5c3566" "#729fcf" "#eeeeec"])
+  ;; custom-set-variables was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector ["#2e3436" "#a40000" "#4e9a06" "#c4a000" "#204a87" "#5c3566" "#729fcf" "#eeeeec"])
  '(blink-matching-paren t)
  '(column-number-mode t)
  '(compilation-context-lines 0)
@@ -333,8 +336,6 @@
  '(display-time-mode t)
  '(ecb-auto-activate t)
  '(ecb-options-version "2.32")
- '(ecb-source-path (quote ("/home/matzke/GS-CAD/ROSE/sources/edg4x/src")))
- '(ede-project-directories (quote ("/home/matzke/rose" "/home/matzke/rose/src")))
  '(global-linum-mode t)
  '(hide-ifdef-initially t)
  '(hide-ifdef-shadow t)
@@ -349,11 +350,8 @@
  '(vc-handled-backends (quote (RCS CVS SVN SCCS Bzr Hg Mtn Arch)))
  '(which-function-mode t))
 (custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "black" :foreground "white" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 120 :width normal :foundry "unknown" :family "DejaVu Sans Mono"))))
- '(font-lock-doc-face ((t (:inherit font-lock-string-face :background "#202020" :foreground "tomato" :slant oblique))))
- '(font-lock-function-name-face ((t (:foreground "mediumspringgreen" :weight bold :height 1.0))))
- '(hide-ifdef-shadow ((t (:inherit shadow :foreground "#ccc")))))
+  ;; custom-set-faces was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(default ((t (:inherit nil :stipple nil :background "black" :foreground "white" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 67 :width normal :foundry "unknown" :family "DejaVu Sans Mono")))))

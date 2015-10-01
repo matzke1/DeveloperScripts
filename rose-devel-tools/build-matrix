@@ -14,13 +14,6 @@ DATABASE="$HOME/ROSE-build-matrix.db"
 # The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
 WORKSPACE="$HOME/junk"
 
-# The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
-ROSE_SRC="$HOME/GS-CAD/ROSE/sources/release"
-
-# Whether to save tarballs of the build directories after each test (set to "yes" or "no"). The tarballs are placed in
-# the $WORKSPACE directory.
-SAVE_BUILD_DIR=yes
-
 # The list of steps. Each step also has a function named "run_STEP_commands". If the function fails then the test status
 # is set to STEP.  If all functions pass then the status is "success".  The functions are run with the CWD being the top
 # of the ROSE build tree.  There are a couple special steps that are always run and don't have callback functions: The
@@ -105,6 +98,15 @@ ROSE_VERSION=
 # should either be empty (to use the full parallelism of the machine) or the full "-j" switch supported by the "rmc
 # make" command.
 MAX_PARALLELISM_SWITCH=
+
+# Whether to save tarballs of the build directories after each test (set to "yes" or empty). The tarballs are placed in
+# the $WORKSPACE directory.
+SAVE_BUILD_DIR=
+
+# The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
+ROSE_SRC=
+
+
 
 ########################################################################################################################
 # Run an SQL command in the database. The sqlite3 command doesn't have a way to turn off loading of ~/.sqliterc without
@@ -229,6 +231,7 @@ insert into dependencies values ('yices',        'no',       	     1);
 create table tests (
     id integer key not null,
     started integer,             -- unix time when test started
+    started_str varchar(64),     -- 'started' in ISO 8601 format
     duration integer,            -- time in seconds for test to run
     status varchar(64),          -- 'running', 'passed', 'failed'
     warnings integer,            -- number of warning messages during build
@@ -272,9 +275,21 @@ percent() {
 
 
 ########################################################################################################################
+# Convert seconds of duration to h::mm::ss format.
+hms() {
+    local seconds="$1"
+    local hours=$[ seconds / 3600 ]
+    local minutes=$[ seconds / 60 % 60 ]
+    seconds=$[ seconds % 60 ]
+    printf "%d:%02d:%02d" $hours $minutes $seconds
+}
+
+
+########################################################################################################################
 # Print the ROSE version number (commit SHA1).  If $1 is non-empty then an abbreviated SHA1 is echoed.
 rose_version() {
     local abbr="$1"
+    [ "$ROSE_SRC" = "" ] && return 1
     [ "$ROSE_VERSION" = "" ] && ROSE_VERSION=$(cd "$ROSE_SRC" && git rev-parse HEAD 2>/dev/null)
     if [ "$abbr" != "" ]; then
 	echo "$ROSE_VERSION" |cut -c1-8
@@ -440,8 +455,10 @@ next_test_id() {
 create_test() {
     local testid="$1"; shift
     local config=("$@")
-    local columns="id, started, duration, status, rose_version"
-    local values="$testid, $(date '+%s'), 0, 'running', '$(rose_version)'"
+    local columns="id, started, started_str, duration, status, rose_version"
+    local now=$(date '+%s')
+    local started=$(date -d "@$now" '+%Y-%m-%d %H:%M:%S%z')
+    local values="$testid, $now, '$started', 0, 'running', '$(rose_version)'"
     for pair in "${config[@]}"; do
 	local depname="${pair%%=*}"
 	local version="${pair#*=}"
@@ -588,6 +605,16 @@ run_one_test() {
 # Run all possible tests one at a time.
 run_all_tests() {
     local limit="$1"
+
+    if [ "$ROSE_SRC" = "" ]; then
+	echo "$arg0: no source tree specified" >&2
+	exit 1
+    fi
+    if [ ! -d "$ROSE_SRC" ]; then
+	echo "$arg0: not a source directory: $ROSE_SRC" >&2
+	exit 1
+    fi
+	
     local ntests=$(size_of_config_space)
     local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
     if [ "$ntested" -ge "$ntests" ]; then
@@ -598,6 +625,49 @@ run_all_tests() {
 	    sleep 1
 	done
     fi
+}
+
+
+########################################################################################################################
+# The "run" command for running the tests
+cmd_run_help() {
+    echo "usage: $arg0 run [--max-tests=N] [-jN] ROSE_SOURCE_DIR"
+}
+
+cmd_run() {
+    local max_tests=1000000000
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --max-tests=*)
+		max_tests=${1#--max-tests=}
+		if ! [ "$max_tests" -ge 0 ] 2>/dev/null; then
+		    echo "$arg0-test: invalid argument for --max-tests switch" >&2
+		    exit 1
+		fi
+		shift
+		;;
+	    --save)
+	        SAVE_BUILD_DIR=yes
+		;;
+	    --no-save)
+	        SAVE_BUILD_DIR=
+		;;
+            -j*)
+	        MAX_PARALLELISM_SWITCH="$1"
+		shift
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    if [ "$#" -ne 1 ]; then
+	cmd_run_help >&2
+	exit 1
+    fi
+    ROSE_SRC="$1"
+
+    run_all_tests $max_tests
 }
 
 
@@ -634,6 +704,7 @@ cmd_status() {
     local testid
     for testid in $(query_database "select id from tests where status = 'running'"); do
 	echo "  test $testid"
+	echo "    started         " $(query_database "select started_str from tests where id = $testid")
 	for depname in $(get_dependency_names); do
 	    local version=$(query_database "select rmc_$depname from tests where id = $testid")
 	    printf '    %-16s %s\n' "$depname" "$version"
@@ -701,41 +772,10 @@ cmd_show() {
 		;;
 	esac
     done
-    columns="$columns, status${show_warnings}${show_duration}, id as 'test-id'"
+    columns="$columns, status${show_warnings}, id as 'id', started_str as 'start time'${show_duration}"
+    order_by="$order_by, started_str"
 
     query_database "select $columns from tests where $where order by $order_by" PRETTY
-}
-
-
-########################################################################################################################
-# The "run" command for running the tests
-cmd_run_help() {
-    echo "usage: $arg0 test [--max-tests=N] [-jN]"
-}
-
-cmd_run() {
-    local max_tests=1000000000
-    while [ "$#" -gt 0 ]; do
-	case "$1" in
-	    --max-tests=*)
-		max_tests=${1#--max-tests=}
-		if ! [ "$max_tests" -ge 0 ] 2>/dev/null; then
-		    echo "$arg0-test: invalid argument for --max-tests switch" >&2
-		    exit 1
-		fi
-		shift
-		;;
-            -j*)
-	        MAX_PARALLELISM_SWITCH="$1"
-		shift
-		;;
-	    *)
-		cmd_run_help >&2
-		exit 1
-		;;
-	esac
-    done
-    run_all_tests $max_tests
 }
 
 
@@ -916,6 +956,15 @@ main() {
     done
     main_help >&2
 }
+
+# TESTING BEGIN
+#for testid in $(query_database "select id from tests"); do
+#    seconds=$(query_database "select started from tests where id = $testid")
+#    timestr=$(date -d "@$seconds" '+%Y-%m-%d %H:%M:%S%z')
+#    query_database "update tests set started_str = '$timestr' where id = $testid"
+#done
+#exit
+## TESTING END
 
 main "$@"
 

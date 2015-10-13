@@ -1,0 +1,106 @@
+#!/bin/bash
+# Install versions of doxygen
+arg0="${0##*/}"
+
+CMAKE=$HOME/GS-CAD/cmake-3.1.0/bin/cmake
+
+DOXYGEN_VERSIONS="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"
+DOXYGEN_BASE="$HOME/GS-CAD/doxygen"
+
+COMPILER="g++"
+TEMPDIR="$HOME/junk"
+
+# Copied from rmc script
+RMC_CXX="$COMPILER"
+RMC_CXX_VERSION=
+RMC_CXX_BASENAME=
+resolve_compiler() {
+    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
+
+    local real_name=$(realpath $(which "$RMC_CXX"))
+    if [ "$real_name" = "" ]; then
+	echo "$arg0: cannot find compiler: $RMC_CXX" >&2
+	exit 1
+    fi
+
+    local vers=$("$RMC_CXX" --version |\
+                        head -n1 |\
+                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
+    if [ "$vers" = "" ]; then
+        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
+        exit 1
+    fi
+    RMC_CXX_VERSION="$vers"
+}
+
+# Download source tarball into current working directory
+get_source() {
+    local version="$1" destination="$2"
+    if [ ! -f "$HOME/Downloads/doxygen-$version.src.tar.gz" ]; then
+	wget -O "$HOME/Downloads/doxygen-$version.src.tar.gz" \
+	    "ftp://ftp.stack.nl/pub/users/dimitri/doxygen-$version.src.tar.gz"
+    fi
+    ln -sf "$HOME/Downloads/doxygen-$version.src.tar.gz" "$destination"
+}
+
+is_installed() {
+    local prefix="$1"
+    local bin="$prefix/bin/doxygen"
+    if [ ! -x "$bin" ]; then
+	echo "$arg0: failed to install (missing $bin)" >&2
+	return 1
+    fi
+    return 0
+}
+
+resolve_compiler
+for doxygen_version in $DOXYGEN_VERSIONS; do
+    (figlet -c "$doxygen_version" || banner "$doxygen_version") 2>/dev/null
+    prefix="$DOXYGEN_BASE/$doxygen_version"
+    logfile="doxygen-$doxygen_version.log"
+    date >"$logfile"
+    echo "doxygen-$doxygen_version for $prefix"
+    echo "log file is " $(realpath "$logfile")
+    if is_installed "$prefix" 2>/dev/null; then
+	echo "already installed; skipping"
+	echo "already installed; skipping" >>"$logfile"
+	continue
+    fi
+
+    mkdir -p "$TEMPDIR"
+    (
+	cd "$TEMPDIR" || exit 1
+
+	echo "downloading doxygen-$doxygen_version..." >&2
+	tarball="doxygen-$doxygen_version.src.tar.gz"
+	get_source "$doxygen_version" "$tarball"
+	if [ ! -f "$tarball" ]; then
+	    echo "$arg0: couldn't download $tarball" >&2
+	else
+	    builddir="doxygen-$doxygen_version"
+	    echo "unpacking into $builddir..." >&2
+	    rm -rf "$builddir"
+	    tar xf "$tarball" || exit 1
+	    if [ ! -d "$builddir" ]; then
+		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+	    elif [ -r "$builddir/CMakeLists.txt" ]; then
+		mkdir "$builddir/_build" || exit 1
+		cd "$builddir/_build" || exit 1
+
+		$CMAKE .. -DCMAKE_INSTALL_PREFIX="$prefix" -Dbuild_search=YES
+
+		make -j4 || exit 1
+		make install || exit 1
+		is_installed "$prefix" || exit 1
+	    elif [ -r "$builddir/configure" ]; then
+		cd "$builddir" || exit 1
+		./configure --prefix "$prefix" || exit 1
+		make -j4 || exit 1
+		make install || exit 1
+	    else
+		echo "don't know how to build this version of doxygen" >&2
+		exit 1
+	    fi
+	fi
+    ) |tee -a "$logfile"
+done

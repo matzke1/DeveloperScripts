@@ -460,6 +460,31 @@ is_version_string() {
 }
 
 ########################################################################################################################
+# Compare two version strings. Arguments are VERSION1 OPERATION VERSION2 where OPERATION is "eq", "le", or "ge".
+versions_ordered() {
+    local version1="$1" operation="$2" version2="$3"
+    local i
+    for i in $(seq 1 4); do
+	local v1=$(echo "$version1" |cut -d. -f$i)
+	local v2=$(echo "$version2" |cut -d. -f$i)
+	case "$operation" in
+	    eq)
+		[ "$v1" != "$v2" ] && return 1
+		;;
+	    le)
+		[ "$v1" '<' "$v2" ] && return 0
+		[ "$v1" '>' "$v2" ] && return 1
+		;;
+	    ge)
+		[ "$v1" '>' "$v2" ] && return 0
+		[ "$v1" '<' "$v2" ] && return 1
+		;;
+	esac
+    done
+    return 0
+}
+
+########################################################################################################################
 # Sets variables based on arguments. The variables are:
 #   RMC_*_VERSION
 #   RMC_*_BASEDIR
@@ -1382,8 +1407,13 @@ do_config() {
 
             case "$RMC_WARN" in
                 yes)
-                    cxx_warn="'-Wall -Wno-unused-local-typedefs'"
+                    cxx_warn="-Wall"
+		    if versions_ordered "$RMC_CXX_VERSION" ge "4.8.0"; then
+			cxx_warn="$cxx_warn -Wno-unused-local-typedefs"
+		    fi
+		    cxx_warn="'$cxx_warn'"
                     c_warn="-Wall"
+
                     ;;
                 *)
                     cxx_warn=

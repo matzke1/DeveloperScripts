@@ -1,0 +1,18 @@
+#!/bin/bash
+
+eval $(RMC_YICES_VERSION=arbitrary rmc resolve yices)
+
+if [ "$RMC_YICES_BASEDIR" = "" ]; then
+    echo "$arg0: yices base directory is not specified" >&2
+    exit 1
+fi
+
+if [ ! -d "$RMC_YICES_BASEDIR" ]; then
+    echo "$arg0: yices base directory does not exist: $RMC_YICES_BASEDIR" >&2
+    exit 1
+fi
+
+for dir in $(cd "$RMC_YICES_BASEDIR" && find . -follow -maxdepth 3 -name yices -type f -perm -100 |sort); do
+    version=$(echo "$dir" |cut -d/ -f2)
+    echo "yices='$version'"
+done

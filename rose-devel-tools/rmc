@@ -229,7 +229,7 @@ do_init() {
             if [ "$show_instructions" != "" ]; then
                 echo "# Build system is either 'cmake' or 'autoconf'"
             fi
-            echo "rmc_build autoconf"
+            echo "rmc_build        autoconf"
 
             if [ "$show_instructions" != "" ]; then
                 echo

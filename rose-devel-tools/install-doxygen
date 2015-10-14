@@ -2,11 +2,10 @@
 # Install versions of doxygen
 arg0="${0##*/}"
 
-CMAKE=$HOME/GS-CAD/cmake-3.1.0/bin/cmake
-
 DOXYGEN_VERSIONS="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"
 
 export RMC_CXX_NAME="g++"
+export RMC_CMAKE_VERSION="system"
 TEMPDIR="$HOME/junk"
 
 # Download source tarball into current working directory
@@ -35,7 +34,7 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
     (figlet -c "$doxygen_version" || banner "$doxygen_version") 2>/dev/null
     logfile="doxygen-$doxygen_version.log"
     date >"$logfile"
-    echo "doxygen-$doxygen_version for $prefix"
+    echo "doxygen-$doxygen_version for $RMC_DOXYGEN_VERSION"
     echo "log file is " $(realpath "$logfile")
     if is_installed "$RMC_DOXYGEN_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
@@ -63,7 +62,8 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
 		mkdir "$builddir/_build" || exit 1
 		cd "$builddir/_build" || exit 1
 
-		$CMAKE .. -DCMAKE_INSTALL_PREFIX="$RMC_DOXYGEN_ROOT" -Dbuild_search=YES
+		eval $(rmc resolve --require cmake)
+		"$RMC_CMAKE_FILE" .. -DCMAKE_INSTALL_PREFIX="$RMC_DOXYGEN_ROOT" -Dbuild_search=YES
 
 		make -j$RMC_PARALLELISM || exit 1
 		make install || exit 1

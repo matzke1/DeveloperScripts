@@ -1,7 +1,11 @@
 # C++ compiler
 #
 # usage: rmc_compiler VENDOR VERSION [LANG]
+#        rmc_compiler VENDOR-VERSION
 #        rmc_compiler NAME
+#
+# Vendors are:
+#        gcc      - GCC compilers
 #
 export RMC_CXX_VENDOR
 export RMC_CXX_VERSION
@@ -23,6 +27,24 @@ rmc_compiler() {
 
 # Resolve compiler variables
 rmc_compiler_resolve() {
+
+    # If it looks like the user said something like "rmc_compiler gcc-4.8.4", then split the
+    # name apart into vendor and version instead.
+    if [ "$RMC_CXX_VENDOR" = "" -a "$RMC_CXX_VERSION" = "" ]; then
+	local vendor=$(echo "$RMC_CXX_NAME" |cut -d- -f1)
+	local version=$(echo "$RMC_CXX_NAME" |cut -d- -f2)
+	if rmc_is_version_string "$version"; then
+	    case "$vendor" in
+		gcc)
+		    RMC_CXX_VENDOR="$vendor"
+		    RMC_CXX_VERSION="$version"
+		    RMC_CXX_NAME=
+		    ;;
+	    esac
+	fi
+    fi
+
+    # Default compiler if none specified
     if [ "$RMC_CXX_NAME" = "" -a "$RMC_CXX_VENDOR" = "" -a "$RMC_CXX_VERSION" = "" ]; then
 	RMC_CXX_NAME=g++
     fi

@@ -45,10 +45,18 @@ rmc_parse_version_or() {
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
 
     if [ "$arg1" = "no" -o "$arg1" = "none" ]; then
+	if [ "$arg2" != "" ]; then
+	    echo "rmc_$pkg: cannot specify both '$arg1' and a location" >&2
+	    exit 1
+	fi
         eval 'RMC_'$pkguc'_VERSION=none'
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
     elif [ "$arg1" = "system" -o "$arg1" = "yes" ]; then
+	if [ "$arg2" != "" ]; then
+	    echo "rmc_$pkg: cannot specify both '$arg' and a location" >&2
+	    exit 1
+	fi
         eval 'RMC_'$pkguc'_VERSION=system'
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
@@ -59,12 +67,22 @@ rmc_parse_version_or() {
     elif [ "$arg2" != "" ]; then
         echo "rmc_$pkg: not a version number: '$arg1'" >&2
         exit 1
-    elif [ "$or_else" = "directory" -a ! -d "$arg1" ]; then
-        echo "rmc_$pkg: invalid directory: $arg1" >&2
-        exit 1
-    elif [ "$or_else" = "file" -a ! -r "$arg1" ]; then
-        echo "rmc_$pkg: no such file: $arg1" >&2
-        exit 1
+    elif [ "$or_else" = "directory" ]; then
+	if [ ! -d "$arg1" ]; then
+	    echo "rmc_$pkg: not a directory: $arg1" >&2
+	    exit 1
+	fi
+	eval 'RMC_'$pkguc'_VERSION='
+	eval 'RMC_'$pkguc'_BASEDIR='
+	eval 'RMC_'$pkguc'_ROOT="$arg1"'
+    elif [ "$or_else" = "file" ]; then
+	if [ ! -r "$arg1" ]; then
+	    echo "rmc_$pkg: not a file: $arg1" >&2
+	    exit 1
+	fi
+	eval 'RMC_'$pkguc'_VERSION='
+	eval 'RMC_'$pkguc'_BASEDIR='
+	eval 'RMC_'$pkguc'_ROOT="$arg1"'
     else
         eval 'RMC_'$pkguc'_VERSION='
         eval 'RMC_'$pkguc'_BASEDIR='
@@ -81,8 +99,23 @@ rmc_resolve_root_and_version() {
     local pkglc=$(echo "$pkg" |tr A-Z a-z)
     local base="$HOME/GS-CAD/$pkglc"
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
+    local file=$(eval echo '$RMC_'$pkguc'_FILE')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
 
+    # ROOT is usually a directory, but could be a file at this point. We want ROOT to always be the installation
+    # directory, so if ROOT is currently a file we should store it in FILE and reset ROOT to the directory
+    # containing that file.  Use "! -d _ -a -r _" instead of "-f" to check for files becuase the're often symbolic
+    # links, for which "-f _" is false.
+    if [ ! -d "$root" -a -r "$root" ]; then
+	if [ "$file" != "" -a "$file" != "$root" ]; then
+	    echo "$arg0: $pkg has conflicting ROOT and FILE properties (root=\"$root\", file=\"$file\")" >&2
+	    exit 1
+	fi
+	file="$root"
+	root="${root%/*}"
+    fi
+
+    # User must have specified either a directory (or file) or a version number (or special version word like "none")
     if [ "$root" = "" -a "$vers" = "" ]; then
 	echo "$arg0: $pkg root or version number required" >&2
 	exit 1
@@ -92,9 +125,11 @@ rmc_resolve_root_and_version() {
 	vers=
 	root=
 	base=
+	file=
     elif [ "$vers" = "system" ]; then
 	root=
 	base=
+	file=
     else	
 	# Find the installation root (it need not exsit at this point)
 	if [ "$root" = "" ]; then
@@ -112,6 +147,9 @@ rmc_resolve_root_and_version() {
 		exit 1
 	    fi
 	    vers=$(eval 'rmc_'$pkglc'_version' "$root")
+	    if [ "$vers" = "" -a "$file" != "" ]; then
+		vers=$(eval 'rmc_'$pkglc'_version' "$file")
+	    fi
 	    if [ "$vers" = "" ]; then
 		echo "$arg0: cannot determine $pkg version number installed in $root" >&2
 		exit 1
@@ -122,6 +160,9 @@ rmc_resolve_root_and_version() {
     eval 'RMC_'$pkguc'_BASEDIR="$base"'
     eval 'RMC_'$pkguc'_ROOT="$root"'
     eval 'RMC_'$pkguc'_VERSION="$vers"'
+    if [ "$file" != "" ]; then
+	eval 'RMC_'$pkguc'_FILE="$file"'
+    fi
 }
 
 ########################################################################################################################
@@ -129,19 +170,52 @@ rmc_resolve_root_and_version() {
 rmc_check_root_and_version() {
     local pkg="$1"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
+    local pkglc=$(echo "$pkg" |tr A-Z a-z)
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
+    local file=$(eval echo '$RMC_'$pkguc'_FILE')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
+    local base=$(eval echo '$RMC_'$pkguc'_BASEDIR')
 
-    if [ "$root" = "" ]; then
+    # Get the FILE property for a system-installed package
+    if [ "$vers" = "system" -a "$root" = "" -a "$file" = "" ]; then
+	file=$(eval 'rmc_'$pkg'_find_in_system')
+	if [ "$file" = "" ]; then
+	    echo "$arg0: $pkg system version cannot be found" >&2
+	    exit 1
+	fi
+    fi
+
+    # Get the ROOT property if possible
+    if [ "$root" = "" -a "$file" != "" ]; then
+	if [ -d "$file" ]; then
+	    root="$file"
+	else
+	    root=$(realpath "$file")
+	    root="${root%/*}"
+	fi
+    fi
+
+    # Get the FILE property if possible
+    if [ "$file" = "" -a "$root" != "" ]; then
+	file=$(eval 'rmc_'$pkglc'_file' "$root")
+    fi
+
+    # Check for existence
+    if [ "$root" = "" -a "$file" = "" ]; then
 	echo "$arg0: $pkg is required" >&2
 	exit 1
-    elif [ ! -e "$root" ]; then
+    elif [ ! -e "$root" -a ! -e "$file" ]; then
 	echo "$arg0: $pkg installation is missing: $root" >&2
 	exit 1
     elif [ "$vers" = "" ]; then
 	echo "$arg0: $pkg version number is unknown" >&2
 	exit 1
     fi
+
+    eval 'RMC_'$pkguc'_ROOT="$root"'
+    eval 'RMC_'$pkguc'_FILE="$file"'
+    eval 'RMC_'$pkguc'_VERSION="$vers"'
+    eval 'RMC_'$pkguc'_BASEDIR="$base"'
 }
 
 ########################################################################################################################
@@ -237,6 +311,7 @@ resolve() {
     rmc_rosesrc_check
     rmc_rosebld_check
     rmc_build_check
+    [ "$RMC_BUILD_SYSTEM" = "cmake" ] && rmc_cmake_check
     rmc_install_resolve
     rmc_parallelism_check
     rmc_build_check

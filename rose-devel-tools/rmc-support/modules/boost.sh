@@ -6,6 +6,8 @@
 export RMC_BOOST_BASEDIR
 export RMC_BOOST_VERSION
 export RMC_BOOST_ROOT
+export RMC_BOOST_FILE
+
 rmc_boost() {
     rmc_parse_version_or directory boost "$@"
 }
@@ -21,6 +23,13 @@ rmc_boost_version() {
 rmc_boost_root() {
     local base="$1" vers="$2"
     echo "$base/$vers/$RMC_CXX_VENDOR-$RMC_CXX_VERSION"
+}
+
+# Find canonical installed file for package
+rmc_boost_file() {
+    local root="$1"
+    local file="$root/include/boost/version.hpp"
+    [ -r "$file" ] && echo "$file"
 }
 
 # Resolve boost variables

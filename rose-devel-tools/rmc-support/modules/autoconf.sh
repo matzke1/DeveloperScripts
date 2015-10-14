@@ -10,7 +10,7 @@ rmc_autoconf_check() {
 
 # Generate an optional autotools "--with-..." argument for a package.
 rmc_autoconf_with() {
-    local pkg="$1" switch_name="$2" subname="$3"
+    local pkg="$1" switch_name="$2" value="$3"
     [ "$switch_name" = "" ] && switch_name="$pkg"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
@@ -20,8 +20,10 @@ rmc_autoconf_with() {
         echo "--with-$switch_name"
     elif [ "$vers" = "no" -o "$vers" = "none" ]; then
         echo "--without-$switch_name"
+    elif [ "$value" != "" ]; then
+	echo "--with-$switch_name='$value'";
     elif [ "$root" != "" ]; then
-        echo "--with-$switch_name=$(rmc_find_root "$pkguc" "$pkg" "$subname")"
+        echo "--with-$switch_name='$root'";
     else
 	echo "--without-$switch_name"
     fi
@@ -93,14 +95,14 @@ rmc_autoconf_run() {
             --with-ROSE_LONG_MAKE_CHECK_RULE=yes \
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \
-            $(rmc_autoconf_with doxygen doxygen bin/doxygen) \
+            $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
             --with-edg_source_code=true \
             --with-edg_version="$RMC_EDG_VERSION" \
             --with-java=/usr/lib/jvm/java-7-sun \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \
             --with-pch \
-            $(rmc_autoconf_with python python bin/python) \
+            $(rmc_autoconf_with python python "$RMC_PYTHON_FILE") \
             $qt_flags \
             $(rmc_autoconf_with sqlite sqlite3) \
             $(rmc_autoconf_with wt) \

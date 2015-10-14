@@ -5,33 +5,9 @@ arg0="${0##*/}"
 CMAKE=$HOME/GS-CAD/cmake-3.1.0/bin/cmake
 
 DOXYGEN_VERSIONS="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"
-DOXYGEN_BASE="$HOME/GS-CAD/doxygen"
 
-COMPILER="g++"
+export RMC_CXX_NAME="g++"
 TEMPDIR="$HOME/junk"
-
-# Copied from rmc script
-RMC_CXX="$COMPILER"
-RMC_CXX_VERSION=
-RMC_CXX_BASENAME=
-resolve_compiler() {
-    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
-
-    local real_name=$(realpath $(which "$RMC_CXX"))
-    if [ "$real_name" = "" ]; then
-	echo "$arg0: cannot find compiler: $RMC_CXX" >&2
-	exit 1
-    fi
-
-    local vers=$("$RMC_CXX" --version |\
-                        head -n1 |\
-                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-    if [ "$vers" = "" ]; then
-        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
-        exit 1
-    fi
-    RMC_CXX_VERSION="$vers"
-}
 
 # Download source tarball into current working directory
 get_source() {
@@ -53,15 +29,15 @@ is_installed() {
     return 0
 }
 
-resolve_compiler
+eval $(rmc resolve parallelism)
 for doxygen_version in $DOXYGEN_VERSIONS; do
+    eval $(RMC_DOXYGEN_VERSION="$doxygen_version" rmc resolve doxygen)
     (figlet -c "$doxygen_version" || banner "$doxygen_version") 2>/dev/null
-    prefix="$DOXYGEN_BASE/$doxygen_version"
     logfile="doxygen-$doxygen_version.log"
     date >"$logfile"
     echo "doxygen-$doxygen_version for $prefix"
     echo "log file is " $(realpath "$logfile")
-    if is_installed "$prefix" 2>/dev/null; then
+    if is_installed "$RMC_DOXYGEN_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"
 	continue
@@ -87,15 +63,15 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
 		mkdir "$builddir/_build" || exit 1
 		cd "$builddir/_build" || exit 1
 
-		$CMAKE .. -DCMAKE_INSTALL_PREFIX="$prefix" -Dbuild_search=YES
+		$CMAKE .. -DCMAKE_INSTALL_PREFIX="$RMC_DOXYGEN_ROOT" -Dbuild_search=YES
 
-		make -j4 || exit 1
+		make -j$RMC_PARALLELISM || exit 1
 		make install || exit 1
-		is_installed "$prefix" || exit 1
+		is_installed "$RMC_DOXYGEN_ROOT" || exit 1
 	    elif [ -r "$builddir/configure" ]; then
 		cd "$builddir" || exit 1
-		./configure --prefix "$prefix" || exit 1
-		make -j4 || exit 1
+		./configure --prefix "$RMC_DOXYGEN_ROOT" || exit 1
+		make -j$RMC_PARALLELISM || exit 1
 		make install || exit 1
 	    else
 		echo "don't know how to build this version of doxygen" >&2

@@ -234,6 +234,7 @@ rmc_execute() {
 # their strong point and we don't want to duplicate that work.
 
 resolve() {
+    rmc_os_check
     rmc_rosesrc_check
     rmc_rosebld_check
     rmc_build_check

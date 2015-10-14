@@ -35,6 +35,7 @@ source ${arg0_realname%/*}/rmc-support/modules/edg.sh         || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/jvm.sh         || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/magic.sh       || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/misc.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/os.sh          || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/python.sh      || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/qt.sh          || exit 1

@@ -18,1110 +18,45 @@ arg0="${0##*/}"
 COMMAND=
 CONFIG_BASE_NAME=".rmc-main.cfg"
 
-########################################################################################################################
-#	           _   _                  ____                                          _
-#	          | | | |___  ___ _ __   / ___|___  _ __ ___  _ __ ___   __ _ _ __   __| |___
-#	          | | | / __|/ _ \ '__| | |   / _ \| '_ ` _ \| '_ ` _ \ / _` | '_ \ / _` / __|
-#	          | |_| \__ \  __/ |    | |__| (_) | | | | | | | | | | | (_| | | | | (_| \__ \
-#	           \___/|___/\___|_|     \____\___/|_| |_| |_|_| |_| |_|\__,_|_| |_|\__,_|___/
-#
-# These are the commands that are available to users and which will show up in his configuration files. The commands
-# can appear in the configuration file in any order.  Interdependencies between commands are resolved after the
-# configuration file has been processed.
-#
-########################################################################################################################
 
-# These are set automatically
-export RMC_BUILD_DIR=
-export RMC_SOURCE_DIR=
-export LD_LIBRARY_PATH
+# Load additional functionality. These files live in the same directory as this script.
+arg0_realname=$(realpath $0)
+source ${arg0_realname%/*}/rmc-support/functions.sh || exit 1
 
-# Installation prefix.
-#
-# usage: rmc_install yes|no|DIRECTORY
-#
-# If DIRECTORY is relative then it will be relative to the top of the build
-# directory.  A value of "no" means "make install" will probably fail. A
-# value of yes just uses the default.
-export RMC_PREFIX=installed
-rmc_install() {
-    if [ "$1" = "" -o "$1" = "yes" ]; then
-        RMC_PREFIX=installed
-    else
-        RMC_PREFIX="$1"
-    fi
-}
-
-# Build system
-#
-# usage: rmc_build_system autoconf|cmake
-#
-export RMC_BUILD_SYSTEM=autoconf
-rmc_build_system() {
-    local arg="$1"
-    case "$arg" in
-        autoconf|cmake)
-            RMC_BUILD_SYSTEM="$arg"
-            ;;
-        *)
-            echo "rmc_build_system: argument should be 'autoconf' or 'cmake'" >&2
-            ;;
-    esac
-}
-
-# Parallelism limit
-#
-# usage: rmc_parallelism N|system|unlimited
-#
-# where "N" means limit parallelism to N procs (as in "make -jN")
-#       "system" limit to the number of CPU cores present on this machine
-#       "unlimited" means no limit (as in "make -j" without a number)
-#
-export RMC_PARALLELISM=system
-rmc_parallelism() {
-    local arg="$1"
-    case "$arg" in
-        system|unlimited)
-            RMC_PARALLELISM="$arg"
-            ;;
-        [0-9]*[0-9])
-            RMC_PARALLELISM="$arg"
-            ;;
-        *)
-            echo "rmc_parallelism: invalid argument: '$arg'" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# What frontend languages to support
-#
-# usage: rmc_languages all|COMMA_SEPARATED_LIST
-#
-export RMC_LANGUAGES=all
-rmc_languages() {
-    RMC_LANGUAGES="$1"
-}
-
-# Debugging support
-#
-# usage: rmc_debug yes|no
-#
-export RMC_DEBUG=yes
-rmc_debug() {
-    local arg="$1"
-    case "$arg" in
-        ""|yes)
-            RMC_DEBUG=yes
-            ;;
-        no)
-            RMC_DEBUG=no
-            ;;
-        *)
-            echo "rmc_debug: invalid setting: '$arg'" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# Compiler warnings. Turn on compiler warnings.
-#
-# usage: rmc_warnings yes|no
-#
-export RMC_WARN=yes
-rmc_warnings() {
-    local arg="$1"
-    case "$arg" in
-        ""|yes)
-            RMC_WARN=yes
-            ;;
-        no)
-            RMC_WARN=no
-            ;;
-        *)
-            echo "rmc_warnings: invalid setting: '$arg'" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# Optimization
-#
-# usage: rmc_optimize yes|no
-#
-export RMC_OPTIM=yes
-rmc_optimize() {
-    local arg="$1"
-    case "$arg" in
-        ""|yes)
-            RMC_OPTIM=yes
-            ;;
-        no)
-            RMC_OPTIM=no
-            ;;
-        *)
-            echo "rmc_optimize: invalid setting: '$arg'" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# Failure mode for assertions (Sawyer ASSERT_* macros)
-#
-# usage: rmc_assertions abort|exit|throw
-#
-export RMC_ASSERTIONS=abort
-rmc_assertions() {
-    local arg="$1"
-    case "$arg" in
-        abort|exit|throw)
-            RMC_ASSERTIONS="$arg"
-            ;;
-        *)
-            echo "rmc_assertions: method must be 'abort', 'exit', or 'throw'" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# C++ compiler
-#
-# usage: rmc_compiler NAME
-#        rmc_compiler VERSION
-#
-export RMC_CXX=g++
-export RMC_CXX_VERSION=
-export RMC_CXX_BASENAME=
-rmc_compiler() {
-    local cxx="$1"
-    if [ "$cxx" = "" ]; then
-        echo "rmc_compiler: no compiler specified" >&2
-        exit 1
-    fi
-
-    # Does the name look like a version number?
-    local version=$(perl -e '$ARGV[0] =~ /^(\d+(\.\d+)+)$/ and print "$1"' "$cxx")
-    if [ "$version" != "" ]; then
-	RMC_CXX_VERSION="$version"
-    else
-	RMC_CXX="$cxx"
-    fi
-}
-
-# Extensive checking (affects "check" command)
-#
-# usage: rmc_checks LIST
-#
-# LIST of things that the "check" should test. Possible items in the list:
-#   library  -- run "make check" in the $RMC_BUILD_DIR/tests directory
-#   binary   -- run "make check" in various binary analysis directories
-#   projects -- run "make check" in the top-level projects directory
-#   all      -- run all possible checks (i.e., "make check" in top build dir)
-#
-# You can always run plain old "make check" wherever you like too.
-#
-export RMC_CHECKS=
-rmc_checks() {
-    if [ "$#" -eq 0 ]; then
-        RMC_CHECKS="library"
-    else
-        for type in "$@"; do
-            case "$type" in
-                library|binary|projects|all)
-                    if [ "$RMC_CHECKS" = "" ]; then
-                        RMC_CHECKS="$type"
-                    else
-                        RMC_CHECKS="$RMC_CHECKS:$type"
-                    fi
-                    ;;
-                *)
-                    echo "rmc_checks: invalid check type: '$type'" >&2
-                    exit 1
-                    ;;
-            esac
-        done
-    fi
-}
-
-# Boost installation directory
-#
-# usage: rmc_boost VERSION [BASE]
-#    or: rmc_boost DIRECTORY
-#
-export RMC_BOOST_BASEDIR=
-export RMC_BOOST_VERSION=
-export RMC_BOOST_ROOT=
-rmc_boost() {
-    parse_version_or directory rmc_boost BOOST "$@"
-}
-
-# Wt web toolkit
-#
-# usage: rmc_web_toolkit VERSION [BASE]
-#    or: rmc_web_toolkit DIRECTORY
-#    or: rmc_web_toolkit no
-#
-export RMC_WT_BASEDIR=
-export RMC_WT_VERSION=
-export RMC_WT_ROOT=
-rmc_web_toolkit() {
-    parse_version_or directory rmc_web_toolkit WT "$@"
-}
-
-# libmagic for identifying magic numbers
-#
-# usage: rmc_magic VERSION [BASE]
-#    or: rmc_magic DIRECTORY
-#    or: rmc_magic system  (or "yes")
-#    or: rmc_magic no
-#
-export RMC_MAGIC_BASEDIR=
-export RMC_MAGIC_VERSION=
-export RMC_MAGIC_ROOT=
-rmc_magic() {
-    parse_version_or directory rmc_magic MAGIC "$@"
-}
-
-# YAML parsing library
-#
-# usage: rmc_yaml VERSION [BASE]
-#    or: rmc_yaml DIRECTORY
-#    or: rmc_yaml system (or "yes")
-#    or: rmc_yaml no
-#
-export RMC_YAML_BASEDIR=
-export RMC_YAML_VERSION=
-export RMC_YAML_ROOT=
-rmc_yaml() {
-    parse_version_or directory rmc_yaml YAML "$@"
-}
-
-# dlib
-#
-# usage: rmc_dlib VERSION [BASE]
-#    or: rmc_dlib DIRECTORY
-#    or: rmc_dlib system (or "yes")
-#    or: rmc_dlib no
-#
-export RMC_DLIB_BASEDIR=
-export RMC_DLIB_VERSION=
-export RMC_DLIB_ROOT=
-rmc_dlib() {
-    parse_version_or directory rmc_dlib DLIB "$@"
-}
-
-# doxygen executable
-#
-# usage: rmc_doxygen VERSION [BASE]
-#    or: rmc_doxygen DIRECTORY
-#    or: rmc_doxygen system (or "yes")
-#    or: rmc_doxygen no
-#
-export RMC_DOXYGEN_BASEDIR=
-export RMC_DOXYGEN_VERSION=
-export RMC_DOXYGEN_ROOT=
-rmc_doxygen() {
-    parse_version_or file rmc_doxygen DOXYGEN "$@"
-}
-
-# cmake executable
-#
-# usage: rmc_cmake VERSION [BASE]
-#    or: rmc_cmake DIRECTORY
-#    or: rmc_cmake system (or "yes")
-#    or: rmc_cmake no
-#
-export RMC_CMAKE_BASEDIR=
-export RMC_CMAKE_VERSION=
-export RMC_CMAKE_ROOT=
-rmc_cmake() {
-    parse_version_or file rmc_cmake CMAKE "$@"
-}
-
-# python executable
-#
-# usage: rmc_python VERSION [BASE]
-#    or: rmc_python DIRECTORY
-#    or: rmc_python system (or "yes")
-#    or: rmc_python no
-#
-export RMC_PYTHON_BASEDIR=
-export RMC_PYTHON_VERSION=
-export RMC_PYTHON_ROOT=
-rmc_python() {
-    parse_version_or file rmc_python PYTHON "$@"
-}
-
-# Qt widget library
-#
-# usage: rmc_qt VERSION [BASE]
-#    or: rmc_qt DIRECTORY
-#    or: rmc_qt system (or "yes")
-#    or: rmc_qt no
-#
-export RMC_READLINE_BASEDIR=
-export RMC_READLINE_VERSION=
-export RMC_READLINE_ROOT=
-rmc_qt() {
-    parse_version_or directory rmc_qt QT "$@"
-}
-
-# Readline input library
-#
-# usage: rmc_readline VERSION [BASE]
-#    or: rmc_readline DIRECTORY
-#    or: rmc_readline system (or "yes")
-#    or: rmc_readline no
-#
-export RMC_READLINE_BASEDIR=
-export RMC_READLINE_VERSION=
-export RMC_READLINE_ROOT=
-rmc_readline() {
-    parse_version_or directory rmc_readline READLINE "$@"
-}
-
-# SQLite database library
-#
-# usage: rmc_sqlite VERSION [BASE]
-#    or: rmc_sqlite DIRECTORY
-#    or: rmc_sqlite system (or "yes")
-#    or: rmc_sqlite no
-#
-export RMC_SQLITE_BASEDIR=
-export RMC_SQLITE_VERSION=
-export RMC_SQLITE_ROOT=
-rmc_sqlite() {
-    parse_version_or directory rmc_sqlite SQLITE "$@"
-}
-
-# Yices SMT solver
-#
-# usage: rmc_yices VERSION [BASE]
-#    or: rmc_yices DIRECTORY
-#    or: rmc_yices system (or "yes")
-#    or: rmc_yices no
-#
-export RMC_YICES_BASEDIR=
-export RMC_YICES_VERSION=
-export RMC_YICES_ROOT=
-rmc_yices() {
-    parse_version_or directory rmc_yices YICES "$@"
-}
-
-# EDG version to compile into ROSE.
-#
-# usage: rmc_edg VERSION
-#
-export RMC_EDG_VERSION=
-rmc_edg() {
-    RMC_EDG_VERSION="$1"
-}
-
-# Directory containing libjvm.so
-export RMC_LIBJVM_ROOT=
-
-########################################################################################################################
-###                               E N D   O F   U S E R   C O M M A N D S
-########################################################################################################################
-
-
-
-
-
-
-
-
-
-
-
+# RMC modules
+source ${arg0_realname%/*}/rmc-support/modules/autoconf.sh    || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/boost.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/build.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/compiler.sh    || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/cmake.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/dlib.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh     || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/edg.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/jvm.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/magic.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/misc.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/python.sh      || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/qt.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/readline.sh    || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rose.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosebld.sh     || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosesrc.sh     || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/sqlite.sh      || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/wt.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yaml.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yices.sh       || exit 1
 
 
 ########################################################################################################################
-# Find the top of the build directory.  The top is the CWD or its closest ancestor that has a $CONFIG_BASE_NAME
-# configuration file.
-top_blddir() {
-    local dir=$(pwd)
-    while true; do
-        if [ -e "$dir/$CONFIG_BASE_NAME" ]; then
-            echo "$dir"
-            return 0;
-        fi
-        if [ "$dir" = "/" ]; then
-            return 1
-        fi
-        dir=$(realpath "$dir/..")
-    done
-}
-
-########################################################################################################################
-# Check whether $1 looks like a version number.
-is_version_string() {
-    perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
-}
-
-########################################################################################################################
-# Compare two version strings. Arguments are VERSION1 OPERATION VERSION2 where OPERATION is "eq", "le", or "ge".
-versions_ordered() {
-    local version1="$1" operation="$2" version2="$3"
-    local i
-    for i in $(seq 1 4); do
-	local v1=$(echo "$version1" |cut -d. -f$i)
-	local v2=$(echo "$version2" |cut -d. -f$i)
-	case "$operation" in
-	    eq)
-		[ "$v1" != "$v2" ] && return 1
-		;;
-	    le)
-		[ "$v1" '<' "$v2" ] && return 0
-		[ "$v1" '>' "$v2" ] && return 1
-		;;
-	    ge)
-		[ "$v1" '>' "$v2" ] && return 0
-		[ "$v1" '<' "$v2" ] && return 1
-		;;
-	esac
-    done
-    return 0
-}
-
-########################################################################################################################
-# Sets variables based on arguments. The variables are:
-#   RMC_*_VERSION
-#   RMC_*_BASEDIR
-#   RMC_*_ROOT
-parse_version_or() {
-    local or_else="$1" # directory|file
-    local caller="$2"
-    local pkg="$3"
-    local arg1="$4"
-    local arg2="$5"
-
-    if [ "$arg1" = "no" ]; then
-        eval 'RMC_'$pkg'_VERSION='
-        eval 'RMC_'$pkg'_BASEDIR='
-        eval 'RMC_'$pkg'_ROOT='
-    elif [ "$arg1" = "system" -o "$arg1" = "yes" ]; then
-        eval 'RMC_'$pkg'_VERSION=system'
-        eval 'RMC_'$pkg'_BASEDIR='
-        eval 'RMC_'$pkg'_ROOT='
-    elif is_version_string "$arg1"; then
-        eval 'RMC_'$pkg'_VERSION="$arg1"'
-        eval 'RMC_'$pkg'_BASEDIR="$arg2"'
-        eval 'RMC_'$pkg'_ROOT='
-    elif [ "$arg2" != "" ]; then
-        echo "$caller: not a version number: '$arg1'" >&2
-        exit 1
-    elif [ "$or_else" = "directory" -a ! -d "$arg1" ]; then
-        echo "$caller: invalid directory: $arg1" >&2
-        exit 1
-    elif [ "$or_else" = "file" -a ! -r "$arg1" ]; then
-        echo "$caller: no such file: $arg1" >&2
-        exit 1
-    else
-        eval 'RMC_'$pkg'_VERSION='
-        eval 'RMC_'$pkg'_BASEDIR='
-        eval 'RMC_'$pkg'_ROOT="$arg1"'
-    fi
-}
-
-########################################################################################################################
-# These functions return a version number given an installation root.
-version_boost() {
-    local root="$1"
-    local hdr="$root/include/boost/version.hpp"
-    perl -ne '/BOOST_LIB_VERSION\s+"([_0-9]+)"/ && print $1' "$hdr" |tr _ .
-}
-
-version_dlib() {
-    local root="$1"
-    local hdr="$root/dlib/revision.h"
-    local major=$(perl -ne '/DLIB_MAJOR_VERSION\s+(\d+)/ && print $1' "$hdr")
-    local minor=$(perl -ne '/DLIB_MINOR_VERSION\s+(\d+)/ && print $1' "$hdr")
-    echo "$major.$minor"
-}
-
-version_python() {
-    local python="$1"
-    local output=$("$python" --version 2>&1 |head -n1)
-    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
-}
-
-version_readline() {
-    local root="$1"
-    local hdr="$root/include/readline/readline.h"
-    local major=$(perl -ne '/RL_VERSION_MAJOR\s+(\d+)/ && print $1' "$hdr")
-    local minor=$(perl -ne '/RL_VERSION_MINOR\s+(\d+)/ && print $1' "$hdr")
-    echo "$major.$minor"
-}
-
-version_wt() {
-    local root="$1"
-    local hdr="$root/include/Wt/WConfig.h"
-    perl -ne '/WT_VERSION_STR\s+"(\d+(\.\d+)+)"/ && print $1' "$hdr"
-}
-
-version_yaml() {
-    local root="$1"
-    perl -e '$ARGV[0] =~ /\byaml.*?(\d+(\.\d+)+)/ && print $1' "$root"
-}
-
-version_doxygen() {
-    local doxygen="$1"
-    local output=$("$doxygen" --version 2>&1 |head -n1)
-    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
-}
-
-version_cmake() {
-    local cmake="$1"
-    local output=$("$cmake" --version 2>&1 |head -n1)
-    perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
-}
-
-########################################################################################################################
-# These functions return the installation root when given a base and version.
-root_boost() {
-    local base="$1" vers="$2"
-    echo "$base/$vers/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-}
-
-root_dlib() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-root_magic() {
-    echo "$arg0: magic library cannot be specified by version number" >&2
-    exit 1
-}
-
-root_readline() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-root_wt() {
-    local base="$1" vers="$2"
-    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-}
-
-root_yaml() {
-    local base="$1" vers="$2"
-    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-}
-
-root_yices() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-root_python() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-root_doxygen() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-root_cmake() {
-    local base="$1" vers="$2"
-    echo "$base/$vers"
-}
-
-########################################################################################################################
-# Find version number for a package.  The package has an upper-case name which we use to find the root of its
-# installation tree, and a printable name that shows up in error messages.  If the package alread has a version number
-# then we check that the detected version number matches.
-find_version() {
-    local pkg="$1" name="$2"
-    local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    [ "$name" = "" ] && name="$pkglc"
-    local root=$(eval echo '$RMC_'$pkg'_ROOT')
-    local vers=$(eval echo '$RMC_'$pkg'_VERSION')
-    local v=$(eval 'version_'$pkglc' "$root"')
-    if [ "$v" = "" ]; then
-        echo "$arg0: cannot determine $name version number for $root" >&2
-        exit 1
-    fi
-    if [ "$vers" != "" -a "$vers" != "$v" ]; then
-        echo "$arg0: $name version mismatch: found '$v', requested '$vers'" >&2
-        exit 1
-    fi
-    eval 'RMC_'$pkg'_VERSION="$v"'
-}
-
-########################################################################################################################
-# Find the root directory for a package when given its version number.
-find_root() {
-    local pkg="$1" name="$2"
-    local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    [ "$name" = "" ] && name="$pkglc"
-    local base=$(eval echo '$RMC_'$pkg'_BASEDIR')
-    local vers=$(eval echo '$RMC_'$pkg'_VERSION')
-
-    if [ "$vers" = "system" ]; then
-        eval 'RMC_'$pkg'_ROOT=system'
-        return 0
-    fi
-
-    if [ "$base" = "" ]; then
-        for f in "$HOME/GS-CAD" "$HOME" "/usr/local"; do
-            if [ -d "$f/$pkglc" ]; then
-                base="$f/$pkglc"
-                break
-            fi
-        done
-        if [ "$base" = "" ]; then
-            echo "$arg0: cannot find $name installation base" >&2
-            exit 1
-        fi
-    fi
-
-    local root=$(eval 'root_'$pkglc' "$base" "$vers"')
-    if [ ! -d "$root" ]; then
-        echo "$arg0: invalid $name root directory: $root" >&2
-        exit 1
-    fi
-
-    eval 'RMC_'$pkg'_ROOT=$(realpath "$root")'
-}
-
-########################################################################################################################
-# Read and process the configuration file, $CONFIG_BASE_NAME at the top of the build tree.
-load_configuration() {
-    resolve_build_dir
-    local config="$RMC_BUILD_DIR/$CONFIG_BASE_NAME"
-    if [ ! -r "$config" ]; then
-        echo "$arg0: build directory is not initialized" >&2
-        exit 1
-    fi
-    source "$config" || exit 1
-    resolve
-}
-
-########################################################################################################################
-# Find the prefix directory (or file if $subname isn't empty) for a package.
-find_prefix() {
-    local pkg"=$1" name="$2" subname="$3"
-    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
-    local root=$(eval echo '$RMC_'$pkg'_ROOT')
-    case "$root" in
-	system)
-	    echo "$name"
-	    ;;
-	""|no)
-	    ;;
-	*)
-	    if [ "$subname" = "" ]; then
-		echo "$root"
-	    elif [ -e "$root/$subname" ]; then
-		echo "$root/$subname"
-	    elif [ -e "$root" -a ! -d "$root" ]; then
-		echo "$root"
-	    else
-		echo "$arg0: no file found for $name: $root/$subname" >&2
-		echo "NOT_FOUND"
-	    fi
-            ;;
-    esac
-}
-
-########################################################################################################################
-# Generate an optional autotools "--with-..." argument for a package.
-configure_with() {
-    local pkg="$1" name="$2" subname="$3"
-    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
-    local root=$(eval echo '$RMC_'$pkg'_ROOT')
-    case "$root" in
-        system)
-            echo "--with-$name"
-            ;;
-        ""|no)
-	    echo "--without-$name"
-            ;;
-        *)
-	    echo "--with-$name=$(find_prefix "$pkg" "$name" "$subname")"
-            ;;
-    esac
-}
-
-########################################################################################################################
-# Generate optional cmake "-D..._ROOT=..." argument for a package.
-cmake_Droot() {
-    local pkg="$1" name="$2" subname="$3"
-    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
-    local root=$(eval echo '$RMC_'$pkg'_ROOT')
-    case "$root" in
-        system|""|no)
-            ;;
-        *)
-	    echo "-D${pkg}_ROOT=$(find_prefix "$pkg" "$name" "$subname")"
-            ;;
-    esac
-}
-
-########################################################################################################################
-# Add a package's library directory to the LD_LIBRARY_PATH if necessary.
-add_library_path() {
-    local pkg="$1" path="$2"
-    local root=$(eval echo '$RMC_'$pkg'_ROOT')
-    [ "$root" = "system" -o "$root" = "" ] && return 0
-    local full="$root/$path"
-    if [ ! -d "$full" ]; then
-        echo "$arg0: library path does not exist: $full" >&2
-        exit 1
-    fi
-    full=$(realpath "$full")
-    for f in /lib /usr/lib /usr/local/lib; do
-        if [ "$full" = $(realpath "$f") ]; then
-            return 0
-        fi
-    done
-    eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$full")
-    
-}
-
-########################################################################################################################
-# Optionally execute a command.
-execute() {
-    local dry_run
-    while [ "$#" -gt 0 ]; do
-        case "$1" in
-            --dry-run)
-                dry_run=yes
-                shift
-                ;;
-            *)
-                break
-                ;;
-        esac
-    done
-    if [ "$dry_run" = "yes" ]; then
-        echo "+" "$@" >&2
-    else
-        eval "$@"
-    fi
-}
-
-########################################################################################################################
-# The following functions are to resolve interdependencies in the user's configuration settings and to adjust variables
-# to their final values.  This is also where we check that the certain desired packages are actually available. The check
-# is performed when it is easy to do, otherwise we leave most of the checking up to the configure/cmake steps (that's
-# their strong point and we don't want to duplicate that work.
-
-resolve() {
-    # order is important for some of these
-    resolve_source_dir
-    resolve_build_dir
-    resolve_install
-    resolve_parallelism
-    resolve_cmake
-    resolve_compiler
-    resolve_languages
-    resolve_boost
-    resolve_edg
-    resolve_web_toolkit
-    resolve_magic
-    resolve_yaml
-    resolve_dlib
-    resolve_yices
-    resolve_python
-    resolve_libjvm
-    resolve_readline
-    resolve_sqlite
-    resolve_qt
-    resolve_so_paths
-    resolve_doxygen
-}
-
-resolve_source_dir() {
-    if [ "$RMC_SOURCE_DIR" = "" ]; then
-        echo "$arg0: source directory is not specified" >&2
-        exit 1
-    elif [ ! -d "$RMC_SOURCE_DIR" ]; then
-        echo "$arg0: source directory is missing: $RMC_SOURCE_DIR" >&2
-        exit 1
-    fi
-
-    # Backward compatibility
-    export RG_SRC="$RMC_SOURCE_DIR"
-    export RG_BLD="$RMC_BUILD_DIR"
-    export ROSE_SOURCE="$RMC_SOURCE_DIR"
-    export ROSE_BUILD="$RMC_BUILD_DIR"
-}       
-
-resolve_build_dir() {
-    local dir=$(top_blddir)
-    if [ "$dir" = "" ]; then
-        echo "$arg0: cannot find build directory" >&2
-        exit 1
-    fi
-    RMC_BUILD_DIR="$dir"
-}
-
-resolve_install() {
-    case "$RMC_PREFIX" in
-        ""|yes)
-            RMC_PREFIX="$RMC_BUILD_DIR/installed"
-            ;;
-        no)
-            RMC_PREFIX="/DO_NOT_INSTALL"
-            ;;
-        *)
-            RMC_PREFIX=$(cd "$RMC_BUILD_DIR" && realpath -s "$RMC_PREFIX")
-            ;;
-    esac
-}
-
-resolve_parallelism() {
-    case "$RMC_PARALLELISM" in
-        ""|system)
-            local nprocs=$(sed -n '/^processor[ \t]*:/p' /proc/cpuinfo |wc -l)
-            [ -n "$nprocs" ] || nprocs=1
-            RMC_PARALLELISM="$nprocs"
-            ;;
-        unlimited|[0-9]*[0-9])
-            : fine as is
-            ;;
-        *)
-            echo "$arg0: invalid parallelism: '$RMC_PARALLELISM'" >&2
-            ;;
-    esac
-}
-
-resolve_compiler() {
-    # Figure out the compiler executable regardless of version required. Don't try to hard to follow symlinks, or
-    # we might end up invoking something like ccache directly (in which case version numbers will be wrong).
-    [ "$RMC_CXX" = "" ] && RMC_CXX="g++"
-    local cxx_realname=$(which "$RMC_CXX")
-    if [ "$cxx_realname" = "" ]; then
-	echo "$arg0: no such compiler command in path: $RMC_CXX" >&2
-	exit 1
-    fi
-
-    # Get the compiler version number from its command
-    local have_version=$("$cxx_realname" --version |\
-				head -n1 |\
-				perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-    if [ "$have_version" = "" ]; then
-        echo "$arg0: cannot obtain version number from $cxx_realname" >&2
-        exit 1
-    fi
-
-    # If a version number was specified, then make sure it matches the one we found
-    if [ "$RMC_CXX_VERSION" != "" ]; then
-	if [ "$RMC_CXX_VERSION" != "$have_version" ]; then
-	    echo "$arg0: compiler version mismatch; have $have_version but need $RMC_CXX_VERSION" >&2
-	    exit 1
-	fi
-    fi
-
-    # Update global variables
-    RMC_CXX="$cxx_realname"
-    RMC_CXX_BASENAME=$(basename "$cxx_realname" |perl -pe 's/-\d+(\.\d+)+//')
-    RMC_CXX_VERSION="$have_version"
-}
-
-resolve_languages() {
-    if [ "$RMC_LANGUAGES" = "" ]; then
-	echo "$arg0: warning: no frontend languages configured; ROSE will not be too useful" >&2
-    fi
-}
-
-resolve_boost() {
-    if [ "$RMC_BOOST_VERSION" = "system" ]; then
-        echo "$arg0: do not use system-installed boost" >&2
-        exit 1
-    elif [ "$RMC_BOOST_ROOT" != "" ]; then
-        find_version BOOST
-        RMC_BOOST_ROOT=$(realpath "$RMC_BOOST_ROOT")
-    elif [ "$RMC_BOOST_VERSION" != "" ]; then
-        find_root BOOST
-    else
-        echo "$arg0: boost is required (use rmc_boost)" >&2
-        exit 1
-    fi
-
-    add_library_path BOOST lib
-}
-
-resolve_edg() {
-    # EDG source is distributed with ROSE or a binary tarball is downloaded by ROSE. In either case, there's not
-    # really anything that needs to be resolved.
-    if [ "$RMC_EDG_VERSION" = "" ]; then
-	RMC_EDG_VERSION="4.7"
-    fi
-}
-
-resolve_web_toolkit() {
-    if [ "$RMC_WT_VERSION" = "system" ]; then
-        echo "$arg0: do not use system-insalled Wt" >&2
-        exit 1
-    elif [ "$RMC_WT_ROOT" != "" ]; then
-        find_version WT Wt
-        RMC_WT_ROOT=$(realpath "$RMC_WT_ROOT")
-    elif [ "$RMC_WT_VERSION" != "" ]; then
-        find_root WT Wt
-    fi
-
-    add_library_path WT lib
-}
-
-resolve_magic() {
-    if [ "$RMC_MAGIC_ROOT" != "" ]; then
-        find_version MAGIC
-        RMC_MAGIC_ROOT=$(realpath "$RMC_MAGIC_ROOT")
-    elif [ "$RMC_MAGIC_VERSION" != "" ]; then
-        find_root MAGIC
-    fi
-
-    add_library_path MAGIC lib
-}
-
-resolve_yaml() {
-    if [ "$RMC_YAML_ROOT" != "" ]; then
-        find_version YAML
-        RMC_YAML_ROOT=$(realpath "$RMC_YAML_ROOT")
-    elif [ "$RMC_YAML_VERSION" != "" ]; then
-        find_root YAML
-    fi
-
-    add_library_path YAML lib
-}
-
-resolve_dlib() {
-    if [ "$RMC_DLIB_ROOT" != "" ]; then
-        find_version DLIB
-        RMC_DLIB_ROOT=$(realpath "$RMC_DLIB_ROOT")
-    elif [ "$RMC_DLIB_VERSION" != "" ]; then
-        find_root DLIB
-    fi
-}
-
-resolve_yices() {
-    if [ "$RMC_YICES_ROOT" != "" ]; then
-        find_version YICES
-        RMC_YICES_ROOT=$(realpath "$RMC_YICES_ROOT")
-    elif [ "$RMC_YICES_VERSION" != "" ]; then
-        find_root YICES
-    fi
-}
-
-resolve_doxygen() {
-    if [ "$RMC_DOXYGEN_ROOT" != "" ]; then
-        find_version DOXYGEN
-        RMC_DOXYGEN_ROOT=$(realpath "$RMC_DOXYGEN_ROOT")
-    elif [ "$RMC_DOXYGEN_VERSION" != "" ]; then
-        find_root DOXYGEN
-    fi
-}
-
-resolve_cmake() {
-    if [ "$RMC_CMAKE_ROOT" != "" ]; then
-        find_version CMAKE
-        RMC_CMAKE_ROOT=$(realpath "$RMC_CMAKE_ROOT")
-    elif [ "$RMC_CMAKE_VERSION" != "" ]; then
-        find_root CMAKE
-    fi
-}
-
-resolve_python() {
-    if [ "$RMC_PYTHON_ROOT" != "" ]; then
-        find_version PYTHON
-        RMC_PYTHON_ROOT=$(realpath "$RMC_PYTHON_ROOT")
-    elif [ "$RMC_PYTHON_VERSION" != "" ]; then
-        find_root PYTHON
-    fi
-}
-
-resolve_libjvm() {
-    if [ "$RMC_LIBJVM_ROOT" = "" ]; then
-        local javac=$(realpath $(which javac))
-        [ "$javac" = "" ] && exit 1
-        local bindir="${javac%/*}"
-        local libdir=$(realpath "$bindir/../jre")
-        local libjvm=$(find "$libdir" -name 'libjvm.so' |head -n1)
-        RMC_LIBJVM_ROOT="${libjvm%/*}"
-        if [ ! -d "$RMC_LIBJVM_ROOT" ]; then
-            echo "$arg0: cannot find libjvm.so" >&2
-            exit 1
-        fi
-    else
-        if [ ! -d "$RMC_LIBJVM_ROOT" ]; then
-            echo "$arg0: libjvm directory is not valid: $RMC_LIBJVM_ROOT" >&2
-            exit 1
-        fi
-        RMC_LIBJVM_ROOT=$(realpath "$RMC_LIBJVM_ROOT")
-    fi
-
-    add_library_path LIBJVM .
-}
-
-resolve_readline() {
-    if [ "$RMC_READLINE_ROOT" != "" ]; then
-        find_version READLINE
-        RMC_READLINE_ROOT=$(realpath "$RMC_READLINE_ROOT")
-    elif [ "$RMC_READLINE_VERSION" != "" ]; then
-        find_root READLINE
-    fi
-
-    add_library_path READLINE
-}
-
-resolve_sqlite() {
-    if [ "$RMC_SQLITE_ROOT" != "" ]; then
-        find_version SQLITE SQLite3
-        RMC_SQLITE_ROOT=$(realpath "$RMC_SQLITE_ROOT")
-    elif [ "$RMC_SQLITE_VERSION" != "" ]; then
-        find_root SQLITE SQLite3
-    fi
-
-    add_library_path SQLITE
-}
-
-resolve_qt() {
-    if [ "$RMC_QT_ROOT" != "" ]; then
-        find_version QT Qt
-        RMC_QT_ROOT=$(realpath "$RMC_QT_ROOT")
-    elif [ "$RMC_QT_VERSION" != "" ]; then
-        find_root QT Qt
-    fi
-
-    add_library_path QT
-}
-
-resolve_so_paths() {
-    # These are necessary if you want to run an executable directly without going through
-    # the GNU libtool shell scripts. It's sometimes necessary if you want to use GDB
-    # on a program that hasn't been installed yet (on the other hand, nemiver seems to
-    # be able to debug through the libtool script).
-    for f in src/.libs \
-             libltdl/.libs \
-             src/3rdPartyLibraries/libharu-2.1.0/src/.libs \
-             src/3rdPartyLibraries/qrose/QRoseLib/.libs; do
-        eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$RMC_BUILD_DIR/$f")
-    done
-}
-
-
-
-
-
-########################################################################################################################
-#	                   ____                                          _
-#	                  / ___|___  _ __ ___  _ __ ___   __ _ _ __   __| |___
-#	                 | |   / _ \| '_ ` _ \| '_ ` _ \ / _` | '_ \ / _` / __|
-#	                 | |__| (_) | | | | | | | | | | | (_| | | | | (_| \__ \
-#	                  \____\___/|_| |_| |_|_| |_| |_|\__,_|_| |_|\__,_|___/
+#                        ____  _          _ _ 
+#                       / ___|| |__   ___| | |
+#                       \___ \| '_ \ / _ \ | |
+#                        ___) | | | |  __/ | |
+#                       |____/|_| |_|\___|_|_|
 #
 ########################################################################################################################
 
-
-########################################################################################################################
-# Subcommand to run a user-specified command or a shell in the build environment.  This is probably the most important,
-# useful thing this script does.  This is invoked whenever the script doesn't recognized its arguments or is invoked
-# without any arguments.
 do_shell_help() {
     echo "usage: $arg0 [SWITCHES] [shell] SHELL_COMMAND..."
     echo "       $arg0 [SWITCHES]"
@@ -1132,8 +67,8 @@ do_shell_help() {
 }
 
 do_shell() {
-    load_configuration
-    export PS1_STACK="${RMC_BUILD_DIR##*/} $PS1_STACK"
+    rmc_load_configuration
+    export PS1_STACK="${RMC_ROSEBLD_ROOT##*/} $PS1_STACK"
 
     if [ "$#" -eq 0 ]; then
         exec $SHELL
@@ -1144,7 +79,67 @@ do_shell() {
     exit 1
 }
 
-# Subcommand to create and initialize a build tree
+########################################################################################################################
+#                        ____                 _
+#                       |  _ \ ___  ___  ___ | |_   _____
+#                       | |_) / _ \/ __|/ _ \| \ \ / / _ \
+#                       |  _ <  __/\__ \ (_) | |\ V /  __/
+#                       |_| \_\___||___/\___/|_| \_/ \___|
+#
+########################################################################################################################
+
+do_resolve_help() {
+    echo "usage: $arg0 $COMMAND [--require] WHAT"
+    echo "  This command prints environment variables without reading any config file. It"
+    echo "  can be used to query things like directory names when building ROSE software"
+    echo "  dependencies."
+    
+}
+
+do_resolve() {
+    local require=
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    -h|--help)
+		do_resolve_help
+		exit 0
+		;;
+	    --require)
+		require=yes
+		shift
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: $1" >&2
+		exit 1
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    if [ "$#" -ne 1 ]; then
+	echo "$arg0 $COMMAND: incorrect usage; see --help" >&2
+	exit 1
+    fi
+    local pkg="$1"
+    if [ "$require" != "" ]; then
+	eval 'rmc_'$pkg'_check'
+    else
+	eval 'rmc_'$pkg'_resolve'
+    fi
+    export |sed -n '/^declare -x RMC_[a-zA-Z_0-9]*=/ s/declare -x //p'
+}
+
+
+########################################################################################################################
+#                        ___       _ _
+#                       |_ _|_ __ (_) |_
+#                        | || '_ \| | __|
+#                        | || | | | | |_
+#                       |___|_| |_|_|\__|
+#
+########################################################################################################################
+
 do_init_help() {
     echo "usage: $arg0 $COMMAND [SWITCHES] SOURCE_DIR"
     echo "    Initializes the current working directory so it can be used to compile ROSE."
@@ -1171,22 +166,22 @@ do_init() {
     local force= show_instructions=yes
     while [ "$#" -gt 0 ]; do
         case "$1" in
-	    --help|-h)
-		do_init_help
-		exit 0
-		;;
+            --help|-h)
+                do_init_help
+                exit 0
+                ;;
             --force|-f)
                 force=yes
                 shift
                 ;;
-	    --instructions)
-		show_instructions=yes
-		shift
-		;;
-	    --no-instructions|-s)
-		show_instructions=
-		shift
-		;;
+            --instructions)
+                show_instructions=yes
+                shift
+                ;;
+            --no-instructions|-s)
+                show_instructions=
+                shift
+                ;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
                 exit 1
@@ -1197,170 +192,171 @@ do_init() {
         esac
     done
     if [ "$#" -ne 1 ]; then
-	do_init_help >&2
-	exit 1
+        do_init_help >&2
+        exit 1
     fi
 
     # Check the source directory
     local srcdir="$1"
     if [ ! -d "$srcdir" ]; then
-	echo "$arg0 $COMMAND: source directory does not exist: $srcdir" >&2
-	exit 1
+        echo "$arg0 $COMMAND: source directory does not exist: $srcdir" >&2
+        exit 1
     fi
     if [ ! -e "$srcdir/src/frontend/BinaryLoader/BinaryLoader.h" ]; then
-	echo "$arg0 $COMMAND: directory does not appear to be top of ROSE source code: $srcdir" >&2
-	exit 1
+        echo "$arg0 $COMMAND: directory does not appear to be top of ROSE source code: $srcdir" >&2
+        exit 1
     fi
     srcdir=$(realpath "$srcdir")
 
     # Create and edit the config file
     if [ -e "$CONFIG_BASE_NAME" -a "$force" = "" ]; then
-	echo "$arg0 init: CWD appears to be set up already; use '--force' to override" >&2
-	exit 1
+        echo "$arg0 init: CWD appears to be set up already; use '--force' to override" >&2
+        exit 1
     fi
     if [ -e "$HOME/.rmc-defaults.cfg" ]; then
-	cp "$HOME/.rmc-defaults.cfg" "$CONFIG_BASE_NAME" || exit 1
+        cp "$HOME/.rmc-defaults.cfg" "$CONFIG_BASE_NAME" || exit 1
     else
-	(
-	    echo "# ROSE meta config (auto generated) -*- shell-script -*-"
-	    echo "#-------------------------------------------------------"
-	    echo
-	    echo "#----------------------------------"
-	    echo "#         General stuff"
-	    echo "#----------------------------------"
-	    echo
+        (
+            echo "# ROSE meta config (auto generated) -*- shell-script -*-"
+            echo "#-------------------------------------------------------"
+            echo "rmc_rosesrc $srcdir"
+            echo
+            echo "#----------------------------------"
+            echo "#         General stuff"
+            echo "#----------------------------------"
+            echo
 
-	    if [ "$show_instructions" != "" ]; then
-		echo "# Build system is either 'cmake' or 'autoconf'"
-	    fi
-	    echo "rmc_build_system autoconf"
+            if [ "$show_instructions" != "" ]; then
+                echo "# Build system is either 'cmake' or 'autoconf'"
+            fi
+            echo "rmc_build autoconf"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Installation prefix for 'make install'. The argument is"
-		echo "#   absolute path   -- install into the specified path"
-		echo "#   relative path   -- installation prefix w.r.t. build directory"
-		echo "#   'yes' (default) -- build-relative directory named 'installed'"
-		echo "#   'no'            -- installation is not supported"
-	    fi
-	    echo "rmc_install      yes"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Installation prefix for 'make install'. The argument is"
+                echo "#   absolute path   -- install into the specified path"
+                echo "#   relative path   -- installation prefix w.r.t. build directory"
+                echo "#   'yes' (default) -- build-relative directory named 'installed'"
+                echo "#   'no'            -- installation is not supported"
+            fi
+            echo "rmc_install      yes"
 
-	    if  [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Maximum parallelism for things like 'make' commands."
-		echo "#   positive number -- limit parallelism to specified value"
-		echo "#   'system' (dflt) -- use number of compute cores as the limit"
-		echo "#   'unlimited'     -- no hard limit on parallelism"
-	    fi
-	    echo "rmc_parallelism  system"
+            if  [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Maximum parallelism for things like 'make' commands."
+                echo "#   positive number -- limit parallelism to specified value"
+                echo "#   'system' (dflt) -- use number of compute cores as the limit"
+                echo "#   'unlimited'     -- no hard limit on parallelism"
+            fi
+            echo "rmc_parallelism  system"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Language frontends. The argument should be a comma-separated list"
-		echo "# of language names with no intervening white space.  Possible languages"
-		echo "# are 'all', 'non', 'binaries', 'c', 'c++', 'cuda', 'fortran', 'java'"
-		echo "# 'x10', 'opencl', 'php', 'matlab', and 'python'."
-	    fi
-	    echo "rmc_languages    all"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Language frontends. The argument should be a comma-separated list"
+                echo "# of language names with no intervening white space.  Possible languages"
+                echo "# are 'all', 'non', 'binaries', 'c', 'c++', 'cuda', 'fortran', 'java'"
+                echo "# 'x10', 'opencl', 'php', 'matlab', and 'python'."
+            fi
+            echo "rmc_languages    all"
 
-	    echo
-	    echo
-	    echo "#----------------------------------"
-	    echo "#         Compiling"
-	    echo "#----------------------------------"
-	    echo
+            echo
+            echo
+            echo "#----------------------------------"
+            echo "#         Compiling"
+            echo "#----------------------------------"
+            echo
 
-	    if [ "$show_instructions" != "" ]; then
-		echo "# Comand that runs the C++ compiler.  Relative names are searched"
-		echo "# according to the \$PATH environment variable."
-	    fi
-	    echo "rmc_compiler     g++"
+            if [ "$show_instructions" != "" ]; then
+                echo "# Comand that runs the C++ compiler.  Relative names are searched"
+                echo "# according to the \$PATH environment variable."
+            fi
+            echo "rmc_compiler     g++"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Whether ('yes' or 'no') to generate symbol tables useful for debugging"
-		echo "# with tools like GDB. The default is 'yes'. Debugging support and"
-		echo "# optimization are orthogonal issues."
-	    fi
-	    echo "rmc_debug        yes"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Whether ('yes' or 'no') to generate symbol tables useful for debugging"
+                echo "# with tools like GDB. The default is 'yes'. Debugging support and"
+                echo "# optimization are orthogonal issues."
+            fi
+            echo "rmc_debug        yes"
 
-	    if  [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Whether ('yes' or 'no') to add optimization switches to compiler"
-		echo "# commands. If 'no' then optimizations are explicitly turned off, which"
-		echo "# can be useful for debugging since C++ statements will generally have"
-		echo "# the same order as the binary instructions."
-	    fi
-	    echo "rmc_optimize     yes"
+            if  [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Whether ('yes' or 'no') to add optimization switches to compiler"
+                echo "# commands. If 'no' then optimizations are explicitly turned off, which"
+                echo "# can be useful for debugging since C++ statements will generally have"
+                echo "# the same order as the binary instructions."
+            fi
+            echo "rmc_optimize     yes"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Whether ('yes' or 'no') to cause the C++ compiler to emit warnings"
-		echo "# about questionable source code."
-	    fi
-	    echo "rmc_warnings     yes"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Whether ('yes' or 'no') to cause the C++ compiler to emit warnings"
+                echo "# about questionable source code."
+            fi
+            echo "rmc_warnings     yes"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Behavior of Sawyer ASSERT_... macros."
-		echo "#   'abort' (dflt)-- message emitted, then abort process"
-		echo "#   'exit'        -- message emitted, then exit with non-zero status"
-		echo "#   'throw'       -- exception thrown, which contains the message"
-	    fi
-	    echo "rmc_assertions   abort"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Behavior of Sawyer ASSERT_... macros."
+                echo "#   'abort' (dflt)-- message emitted, then abort process"
+                echo "#   'exit'        -- message emitted, then exit with non-zero status"
+                echo "#   'throw'       -- exception thrown, which contains the message"
+            fi
+            echo "rmc_assertions   abort"
 
-	    echo
-	    echo
-	    echo "#----------------------------------"
-	    echo "#         Additional software"
-	    echo "#----------------------------------"
-	    echo
+            echo
+            echo
+            echo "#----------------------------------"
+            echo "#         Additional software"
+            echo "#----------------------------------"
+            echo
 
-	    if [ "$show_instructions" != "" ]; then
-		echo "# These directives all take the same kinds of arguments:"
-		echo "#   'no'          -- ROSE should not use this software"
-		echo "#   'system'      -- Use the publicly installed version; a.k.a. 'yes'"
-		echo "#   directory     -- Look in the directory for includes and libs"
-		echo "#   file          -- Use the specified file (not for libraries)"
-		echo "#   vesion        -- Look for a particular version"
-		echo "#   version base  -- Same, but use specified base directory"
-		echo "# If a version is specified without a base directory then this"
-		echo "# script searches certain well-known locations. Versioned software"
-		echo "# directories follow a specific naming scheme which incorporates"
-		echo "# information about their dependencies, therefore specifying software"
-		echo "# by version number is the safest way to make sure all software is"
-		echo "# configured consistently."
-		echo
-	    fi
-	    echo "rmc_boost        1.50"
-	    echo "rmc_cmake        system"
-	    echo "rmc_dlib         18.10"
-	    echo "rmc_doxygen      1.8.10"
-	    echo "rmc_edg          4.7"
-	    echo "rmc_magic        system"
-	    echo "rmc_python       /usr/bin/python3"
-	    echo "rmc_qt           no"
-	    echo "rmc_readline     6.3"
-	    echo "rmc_sqlite       system"
-	    echo "rmc_web_toolkit  3.3.3"
-	    echo "rmc_yaml         0.5.1"
-	    echo "rmc_yices        1.0.34"
-	    echo
-	    echo
-	    echo "#----------------------------------"
-	    echo "#         Tool options"
-	    echo "#----------------------------------"
-	    echo
-	    echo "# Not used yet"
-	    echo "rmc_checks       binary"
-	    echo
-	    echo "#-------------------------------------------------------"
-	    echo "RMC_SOURCE_DIR='$srcdir'"
-	) >"$CONFIG_BASE_NAME"
+            if [ "$show_instructions" != "" ]; then
+                echo "# These directives all take the same kinds of arguments:"
+                echo "#   'no'          -- ROSE should not use this software"
+                echo "#   'system'      -- Use the publicly installed version; a.k.a. 'yes'"
+                echo "#   directory     -- Look in the directory for includes and libs"
+                echo "#   file          -- Use the specified file (not for libraries)"
+                echo "#   vesion        -- Look for a particular version"
+                echo "#   version base  -- Same, but use specified base directory"
+                echo "# If a version is specified without a base directory then this"
+                echo "# script searches certain well-known locations. Versioned software"
+                echo "# directories follow a specific naming scheme which incorporates"
+                echo "# information about their dependencies, therefore specifying software"
+                echo "# by version number is the safest way to make sure all software is"
+                echo "# configured consistently."
+                echo
+            fi
+            echo "rmc_boost        1.50"
+            echo "rmc_cmake        system"
+            echo "rmc_dlib         18.10"
+            echo "rmc_doxygen      1.8.10"
+            echo "rmc_edg          4.7"
+            echo "rmc_magic        system"
+            echo "rmc_python       /usr/bin/python3"
+            echo "rmc_qt           no"
+            echo "rmc_readline     6.3"
+            echo "rmc_sqlite       system"
+            echo "rmc_wt           3.3.3"
+            echo "rmc_yaml         0.5.1"
+            echo "rmc_yices        1.0.34"
+        ) >"$CONFIG_BASE_NAME"
     fi
     ${EDITOR-vi} "$CONFIG_BASE_NAME"
     do_shell true || exit 1
 }
+
+########################################################################################################################
+#                         ____             __ _
+#                        / ___|___  _ __  / _(_) __ _
+#                       | |   / _ \| '_ \| |_| |/ _` |
+#                       | |__| (_) | | | |  _| | (_| |
+#                        \____\___/|_| |_|_| |_|\__, |
+#                                               |___/
+#
+########################################################################################################################
+
 
 # Subcommand to configure the build directory (autoconf, cmake, etc)
 #
@@ -1388,120 +384,15 @@ do_config() {
         esac
     done
     
-    load_configuration
+    rmc_load_configuration
 
     case "$RMC_BUILD_SYSTEM" in
-        ""|autoconf)
-            local debug optim cxx_warn c_warn
-
-            [ "$RMC_DEBUG" = "yes" ] && debug="-g"
-
-            case "$RMC_OPTIM" in
-                yes)
-                    optim="'-O3 -fomit-frame-pointer -DNDEBUG'"
-                    ;;
-                *)
-                    optim="-O0"
-                    ;;
-            esac
-
-            case "$RMC_WARN" in
-                yes)
-                    cxx_warn="-Wall"
-		    if versions_ordered "$RMC_CXX_VERSION" ge "4.8.0"; then
-			cxx_warn="$cxx_warn -Wno-unused-local-typedefs"
-		    fi
-		    cxx_warn="'$cxx_warn'"
-                    c_warn="-Wall"
-
-                    ;;
-                *)
-                    cxx_warn=
-                    c_warn=
-                    ;;
-            esac
-
-            # Qt detections is somewhat broken in ROSE's config system. For one thing, it doesn't
-	    # understand "--without-qt"
-            qt_flags=$(configure_with QT)
-	    if [ "$qt_flags" = "--without-qt" ]; then
-		qt_flags=
-	    else
-                qt_flags="$qt_flags --with-qt-lib --with-roseQt"
-            fi
-            
-
-	    (
-		set -e
-		cd "$RMC_BUILD_DIR"
-		execute $dry_run \
-			$RMC_SOURCE_DIR/configure \
-			--disable-boost-version-check \
-			--enable-assertion-behavior=$RMC_ASSERTIONS \
-			--enable-edg_union_struct_debugging \
-		        --enable-languages="$RMC_LANGUAGES" \
-			--enable-rosehpc \
-			--prefix="$RMC_PREFIX" \
-			--with-CFLAGS=-fPIC \
-			--with-CXXFLAGS=-fPIC \
-			--with-CXX_DEBUG="$debug" \
-			--with-CXX_OPTIMIZE="$optim" \
-			--with-CXX_WARNINGS="$cxx_warn" \
-			--with-C_DEBUG="$debug" \
-			--with-C_OPTIMIZE="$optim" \
-			--with-C_WARNINGS="$c_warn" \
-			--with-ROSE_LONG_MAKE_CHECK_RULE=yes \
-			--with-boost="$RMC_BOOST_ROOT" \
-			$(configure_with DLIB) \
-		        $(configure_with DOXYGEN doxygen bin/doxygen) \
-			--with-edg_source_code=true \
-		        --with-edg_version="$RMC_EDG_VERSION" \
-			--with-java=/usr/lib/jvm/java-7-sun \
-			$(configure_with READLINE libreadline) \
-			$(configure_with MAGIC) \
-			--with-pch \
-			$(configure_with PYTHON python bin/python) \
-			$qt_flags \
-			$(configure_with SQLITE sqlite3) \
-			$(configure_with WT) \
-			$(configure_with YAML) \
-			$(configure_with YICES)
-	    )
+        autoconf)
+	    rmc_autoconf_run $dry_run
             ;;
         cmake)
-	    local cmake_build_type
-	    if [ "$RMC_OPTIM" = "yes" ]; then
-		if [ "$RMC_DEBUG" = "yes" ]; then
-		    echo "$arg0: warning: cmake builds cannot handle optimize + debug (assuming only optimize)" >&2
-		fi
-		cmake_build_type="Release"
-	    elif [ "$RMC_DEBUG" = "yes" ]; then
-		cmake_build_type="Debug"
-	    else
-		echo "$arg0: warning: camek builds cannot handle non-optimize + non-debug (assuming only debug)" >&2
-		cmake_build_type="Debug"
-	    fi
-
-	    (
-		set -e
-		cd "$RMC_BUILD_DIR"
-		execute $dry_run $(find_prefix CMAKE cmake bin/cmake) "$RMC_SOURCE_DIR" \
-		    -DCMAKE_BUILD_TYPE="$cmake_build_type" \
-		    -DCMAKE_INSTALL_PREFIX="$RMC_PREFIX" \
-		    -DASSERTION_BEHAVIOR="$RMC_ASSERTIONS" \
-		    $(cmake_Droot BOOST) \
-		    $(cmake_Droot DLIB) \
-		    $(cmake_Droot DOXYGEN doxygen bin/doxygen) \
-		    -DEDG_VERSION="$RMC_EDG_VERSION" \
-		    $(cmake_Droot READLINE) \
-		    $(cmake_Droot MAGIC) \
-		    $(cmake_Droot SQLITE) \
-		    $(cmake_Droot YAML) \
-		    $(cmake_Droot YICES with-yices) \
-		    $(cmake_Droot WT) \
-		    -Denable-cuda:BOOL=OFF
-	    )
-	    ;;
+	    rmc_cmake_run $dry_run
+            ;;
 
         *)
             echo "$arg0 $COMMAND: unknown build system: $RMC_BUILD_SYSTEM'" >&2
@@ -1509,6 +400,16 @@ do_config() {
             ;;
     esac
 }
+
+########################################################################################################################
+#                        __  __       _
+#                       |  \/  | __ _| | _____
+#                       | |\/| |/ _` | |/ / _ \
+#                       | |  | | (_| |   <  __/
+#                       |_|  |_|\__,_|_|\_\___|
+#
+########################################################################################################################
+
 #   make[-WHAT] [SWITCHES] [TARGETS]
 #      Runs "make" for each of the TARGETS sequentially in directories
 #      specific to WHAT (or the CWD). For instance, saying "build-binary
@@ -1517,7 +418,7 @@ do_config() {
 #      same make switches are passed to each invocation of make (e.g., "-k").
 do_make() {
     local where="$1"; shift
-    load_configuration
+    rmc_load_configuration
 
     # Parse "make" switches, keeping track of a couple special ones.
     local make_switches=()
@@ -1561,14 +462,14 @@ do_make() {
                 have_j="$1"
                 shift
                 ;;
-	    --silent)
-	        have_silent=--silent
-		shift
-		;;
+            --silent)
+                have_silent=--silent
+                shift
+                ;;
             --no-silent)
-	        have_silent=
-		shift
-		;;
+                have_silent=
+                shift
+                ;;
             --debug|-f|--file|--makefile|-I|--include-dir|-l|--load-average|-o|--old-file|--assume-old|-O|--output-sync|-W|--what-if|--new-file|--assume-new)
                 # These all take an argument
                 make_switches=("${make_swithces[@]}" "$1" "$2")
@@ -1579,11 +480,11 @@ do_make() {
                 make_switches=("${make_switches[@]}" "$1")
                 shift
                 ;;
-	    *=*)
-	        # These are make variables, not targets
-	        make_switches=("${make_switches[@]}" "$1")
-		shift
-		;;
+            *=*)
+                # These are make variables, not targets
+                make_switches=("${make_switches[@]}" "$1")
+                shift
+                ;;
             *)
                 break
                 ;;
@@ -1598,19 +499,19 @@ do_make() {
     local dirs=()
     case "$where" in
         binary)
-            dirs=("-C $RMC_BUILD_DIR/src"
-                  "-C $RMC_BUILD_DIR/tests/roseTests/binaryTests"
-                  "-C $RMC_BUILD_DIR/projects/BinaryAnalysisTools"
-		  "-C $RMC_BUILD_DIR/projects/simulator2"
-		  "-C $RMC_BUILD_DIR/projects/BinaryCloneDetection"
-	    )
+            dirs=("-C $RMC_ROSEBLD_ROOT/src"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/binaryTests"
+                  "-C $RMC_ROSEBLD_ROOT/projects/BinaryAnalysisTools"
+                  "-C $RMC_ROSEBLD_ROOT/projects/simulator2"
+                  "-C $RMC_ROSEBLD_ROOT/projects/BinaryCloneDetection"
+            )
             ;;
         here)
             dirs=("")
-	    have_C=
+            have_C=
             ;;
         lib)
-            dirs=("-C $RMC_BUILD_DIR/src")
+            dirs=("-C $RMC_ROSEBLD_ROOT/src")
             ;;
         *)
             echo "$arg0 $COMMAND: unknown location: '$where'" >&2
@@ -1639,17 +540,21 @@ do_make() {
             # Use --silent because ROSE's autoconf- and cmake-generated
             # maekfiles generally print their own output anyway. Otherwise
             # "make" is so noisy that warning messages tend to get overlooked
-            execute $dry_run make $parallelism $have_silent "$dir" "${make_switches[@]}" "$target" \
+            rmc_execute $dry_run make $parallelism $have_silent "$dir" "${make_switches[@]}" "$target" \
                 || exit 1
         done
     done
     return 0
 }
 
-    
-############################################################################
-#                      Parse global switches
-############################################################################
+########################################################################################################################
+#                        __  __       _
+#                       |  \/  | __ _(_)_ __
+#                       | |\/| |/ _` | | '_ \
+#                       | |  | | (_| | | | | |
+#                       |_|  |_|\__,_|_|_| |_|
+#
+########################################################################################################################
 
 command=
 while [ "$#" -gt 0 ]; do
@@ -1677,11 +582,14 @@ case "$COMMAND" in
         do_make "here" "$@"
         ;;
     make-*)
-	do_make "${COMMAND#make-}" "$@"
-	;;
+        do_make "${COMMAND#make-}" "$@"
+        ;;
     shell)
         do_shell "$@"
         ;;
+    resolve)
+	do_resolve "$@"
+	;;
     "")
         do_shell
         ;;

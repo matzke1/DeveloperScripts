@@ -1,0 +1,276 @@
+export LD_LIBRARY_PATH
+
+########################################################################################################################
+# Check whether $1 looks like a version number.
+rmc_is_version_string() {
+    perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
+}
+
+########################################################################################################################
+# Compare two version strings. Arguments are VERSION1 OPERATION VERSION2 where OPERATION is "eq", "le", or "ge".
+rmc_versions_ordered() {
+    local version1="$1" operation="$2" version2="$3"
+    local i
+    for i in $(seq 1 4); do
+        local v1=$(echo "$version1" |cut -d. -f$i)
+        local v2=$(echo "$version2" |cut -d. -f$i)
+        case "$operation" in
+            eq)
+                [ "$v1" != "$v2" ] && return 1
+                ;;
+            le)
+                [ "$v1" '<' "$v2" ] && return 0
+                [ "$v1" '>' "$v2" ] && return 1
+                ;;
+            ge)
+                [ "$v1" '>' "$v2" ] && return 0
+                [ "$v1" '<' "$v2" ] && return 1
+                ;;
+        esac
+    done
+    return 0
+}
+
+########################################################################################################################
+# Sets variables based on arguments. The variables are:
+#   RMC_*_VERSION
+#   RMC_*_BASEDIR
+#   RMC_*_ROOT
+rmc_parse_version_or() {
+    local or_else="$1" # directory|file|optional
+    local pkg="$2"
+    local arg1="$3"
+    local arg2="$4"
+    
+    local pkguc=$(echo "$pkg" |tr a-z A-Z)
+
+    if [ "$arg1" = "no" -o "$arg1" = "none" ]; then
+        eval 'RMC_'$pkguc'_VERSION=none'
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT='
+    elif [ "$arg1" = "system" -o "$arg1" = "yes" ]; then
+        eval 'RMC_'$pkguc'_VERSION=system'
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT='
+    elif rmc_is_version_string "$arg1"; then
+        eval 'RMC_'$pkguc'_VERSION="$arg1"'
+        eval 'RMC_'$pkguc'_BASEDIR="$arg2"'
+        eval 'RMC_'$pkguc'_ROOT='
+    elif [ "$arg2" != "" ]; then
+        echo "rmc_$pkg: not a version number: '$arg1'" >&2
+        exit 1
+    elif [ "$or_else" = "directory" -a ! -d "$arg1" ]; then
+        echo "rmc_$pkg: invalid directory: $arg1" >&2
+        exit 1
+    elif [ "$or_else" = "file" -a ! -r "$arg1" ]; then
+        echo "rmc_$pkg: no such file: $arg1" >&2
+        exit 1
+    else
+        eval 'RMC_'$pkguc'_VERSION='
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT="$arg1"'
+    fi
+}
+
+
+########################################################################################################################
+# Resolve ROOT and VERSION  parameters for a package.
+rmc_resolve_root_and_version() {
+    local pkg="$1"
+    local pkguc=$(echo "$pkg" |tr a-z A-Z)
+    local pkglc=$(echo "$pkg" |tr A-Z a-z)
+    local base="$HOME/GS-CAD/$pkglc"
+    local root=$(eval echo '$RMC_'$pkguc'_ROOT')
+    local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
+
+    if [ "$root" = "" -a "$vers" = "" ]; then
+	echo "$arg0: $pkg root or version number required" >&2
+	exit 1
+    fi
+
+    if [ "$vers" = "no" -o "$vers" = "none" ]; then
+	vers=
+	root=
+	base=
+    elif [ "$vers" = "system" ]; then
+	root=
+	base=
+    else	
+	# Find the installation root (it need not exsit at this point)
+	if [ "$root" = "" ]; then
+	    root=$(eval 'rmc_'$pkglc'_root' "$base" "$vers")
+	    if [ "$root" = "" ]; then
+		echo "$arg0: $pkg cannot be specified by a version number" >&2
+		exit 1
+	    fi
+	fi
+
+	# Find a version number (the root must exist if no version is specified)
+	if [ "$vers" = "" ]; then
+	    if [ ! -e "$root" ]; then
+		echo "$arg0: $pkg must be installed or a version specified (install in $root)" >&2
+		exit 1
+	    fi
+	    vers=$(eval 'rmc_'$pkglc'_version' "$root")
+	    if [ "$vers" = "" ]; then
+		echo "$arg0: cannot determine $pkg version number installed in $root" >&2
+		exit 1
+	    fi
+	fi
+    fi
+
+    eval 'RMC_'$pkguc'_BASEDIR="$base"'
+    eval 'RMC_'$pkguc'_ROOT="$root"'
+    eval 'RMC_'$pkguc'_VERSION="$vers"'
+}
+
+########################################################################################################################
+# Check that a package exists and has ROOT and VERSION properties
+rmc_check_root_and_version() {
+    local pkg="$1"
+    local pkguc=$(echo "$pkg" |tr a-z A-Z)
+    local root=$(eval echo '$RMC_'$pkguc'_ROOT')
+    local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
+
+    if [ "$root" = "" ]; then
+	echo "$arg0: $pkg is required" >&2
+	exit 1
+    elif [ ! -e "$root" ]; then
+	echo "$arg0: $pkg installation is missing: $root" >&2
+	exit 1
+    elif [ "$vers" = "" ]; then
+	echo "$arg0: $pkg version number is unknown" >&2
+	exit 1
+    fi
+}
+
+########################################################################################################################
+# Read and process the configuration file, $CONFIG_BASE_NAME at the top of the build tree.
+rmc_load_configuration() {
+    rmc_rosebld_check
+    local config="$RMC_ROSEBLD_ROOT/$CONFIG_BASE_NAME"
+    if [ ! -r "$config" ]; then
+        echo "$arg0: build directory is not initialized" >&2
+        exit 1
+    fi
+    source "$config" || exit 1
+    resolve
+}
+
+########################################################################################################################
+# Find the root directory (or file if $subname isn't empty) for a package.
+rmc_find_root() {
+    local pkg"=$1" name="$2" subname="$3"
+    [ "$name" = "" ] && name=$(echo "$pkg" |tr A-Z a-z)
+    local root=$(eval echo '$RMC_'$pkg'_ROOT')
+    case "$root" in
+        system)
+            echo "$name"
+            ;;
+        ""|no)
+            ;;
+        *)
+            if [ "$subname" = "" ]; then
+                echo "$root"
+            elif [ -e "$root/$subname" ]; then
+                echo "$root/$subname"
+            elif [ -e "$root" -a ! -d "$root" ]; then
+                echo "$root"
+            else
+                echo "$arg0: no file found for $name: $root/$subname" >&2
+                echo "NOT_FOUND"
+            fi
+            ;;
+    esac
+}
+
+########################################################################################################################
+# Add a package's library directory to the LD_LIBRARY_PATH if necessary.
+rmc_add_library_path() {
+    local pkg="$1" path="$2"
+    local pkguc=$(echo "$pkg" |tr a-z A-Z)
+    local root=$(eval echo '$RMC_'$pkguc'_ROOT')
+    [ "$root" = "system" -o "$root" = "" ] && return 0
+    local full="$root/$path"
+    if [ ! -d "$full" ]; then
+        echo "$arg0: library path does not exist: $full" >&2
+        exit 1
+    fi
+    full=$(realpath "$full")
+    for f in /lib /usr/lib /usr/local/lib; do
+        if [ "$full" = $(realpath "$f") ]; then
+            return 0
+        fi
+    done
+    eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$full")
+}
+
+########################################################################################################################
+# Optionally execute a command.
+rmc_execute() {
+    local dry_run
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --dry-run)
+                dry_run=yes
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    if [ "$dry_run" = "yes" ]; then
+        echo "+" "$@" >&2
+    else
+        eval "$@"
+    fi
+}
+
+########################################################################################################################
+# The following functions are to resolve interdependencies in the user's configuration settings and to adjust variables
+# to their final values.  This is also where we check that the certain desired packages are actually available. The check
+# is performed when it is easy to do, otherwise we leave most of the checking up to the configure/cmake steps (that's
+# their strong point and we don't want to duplicate that work.
+
+resolve() {
+    rmc_rosesrc_check
+    rmc_rosebld_check
+    rmc_build_check
+    rmc_install_resolve
+    rmc_parallelism_check
+    rmc_build_check
+    rmc_compiler_check
+    rmc_debug_resolve
+    rmc_warnings_resolve
+    rmc_assertions_resolve
+    rmc_optim_resolve
+    rmc_languages_resolve
+    rmc_boost_check
+    rmc_edg_check
+    rmc_wt_resolve
+    rmc_magic_resolve
+    rmc_yaml_resolve
+    rmc_dlib_resolve
+    rmc_yices_resolve
+    rmc_python_resolve
+    rmc_jvm_check
+    rmc_readline_resolve
+    rmc_sqlite_resolve
+    rmc_qt_resolve
+    rmc_doxygen_resolve
+    resolve_so_paths
+}
+
+resolve_so_paths() {
+    # These are necessary if you want to run an executable directly without going through
+    # the GNU libtool shell scripts. It's sometimes necessary if you want to use GDB
+    # on a program that hasn't been installed yet (on the other hand, nemiver seems to
+    # be able to debug through the libtool script).
+    for f in src/.libs \
+             libltdl/.libs \
+             src/3rdPartyLibraries/libharu-2.1.0/src/.libs \
+             src/3rdPartyLibraries/qrose/QRoseLib/.libs; do
+        eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$RMC_ROSEBLD_ROOT/$f")
+    done
+}

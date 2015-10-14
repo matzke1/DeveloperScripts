@@ -1,9 +1,9 @@
 ;; Robb's emacs startup file                                                                           -*- lisp -*-
 
-(add-to-list 'load-path (expand-file-name "~/.emacs.d"))
-(add-to-list 'load-path (expand-file-name "~/.emacs.d/cc-mode"))
-(add-to-list 'load-path (expand-file-name "~/.emacs.d/gnus/lisp"))
-(require 'gnus-load)
+(add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp"))
+(add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/cc-mode"))
+(add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/gnus/lisp"))
+;(require 'gnus-load)
 
 (setq inhibit-startup-message t)        ;do not display startup message
 (setq enable-recursive-minibuffers t)   ;allow minibuffer use in minibuffer
@@ -22,6 +22,10 @@
 (setq column-number-mode t)		;turn on column numbers in mode line
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
+
+;cursor might disappear when running with reverse video, so make it a color that shows up on either
+;a light or dark background.
+(set-cursor-color "green")
 
 ;(require 'icicles)
 ;(icy-mode)
@@ -49,7 +53,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)
-(add-to-list 'load-path "~/.emacs.d")
+;(add-to-list 'load-path "~/.emacs.d")
 (require 'auto-complete-config)
 (add-to-list 'ac-dictionary-directories "~/.emacs.d/ac-dict")
 (ac-config-default)
@@ -321,17 +325,17 @@
   ;; If you edit it by hand, you could mess it up, so be careful.
   ;; Your init file should contain only one such instance.
   ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector ["#2e3436" "#a40000" "#4e9a06" "#c4a000" "#204a87" "#5c3566" "#729fcf" "#eeeeec"])
  '(blink-matching-paren t)
  '(column-number-mode t)
  '(compilation-context-lines 0)
  '(compilation-scroll-output t)
  '(compilation-skip-threshold 0)
+ '(custom-enabled-themes (quote (manoj-dark)))
  '(delete-old-versions t)
  '(display-time-mode t)
  '(ecb-auto-activate t)
  '(ecb-options-version "2.32")
- '(ecb-source-path (quote ("/home/matzke/GS-CAD/ROSE/sources/edg4x/src")))
- '(ede-project-directories (quote ("/home/matzke/rose" "/home/matzke/rose/src")))
  '(global-linum-mode t)
  '(hide-ifdef-initially t)
  '(hide-ifdef-shadow t)
@@ -341,6 +345,7 @@
  '(show-paren-mode t)
  '(show-paren-style (quote mixed))
  '(text-mode-hook (quote (turn-on-auto-fill text-mode-hook-identify)))
+ '(tool-bar-mode nil)
  '(transient-mark-mode nil)
  '(vc-handled-backends (quote (RCS CVS SVN SCCS Bzr Hg Mtn Arch)))
  '(which-function-mode t))
@@ -349,6 +354,4 @@
   ;; If you edit it by hand, you could mess it up, so be careful.
   ;; Your init file should contain only one such instance.
   ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "white" :foreground "black" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 92 :width normal :foundry "unknown" :family "DejaVu Sans Mono"))))
- '(font-lock-doc-face ((t (:inherit font-lock-string-face :background "#ffffdd" :foreground "black" :slant oblique))))
- '(hide-ifdef-shadow ((t (:inherit shadow :foreground "#ccc")))))
+ '(default ((t (:inherit nil :stipple nil :background "black" :foreground "white" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 67 :width normal :foundry "unknown" :family "DejaVu Sans Mono")))))

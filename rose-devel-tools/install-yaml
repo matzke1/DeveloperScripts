@@ -3,36 +3,11 @@
 arg0="${0##*/}"
 
 YAML_VERSIONS="0.5.1"
-YAML_BASE="$HOME/GS-CAD/yaml"
-
 BOOST_VERSIONS="all"
-BOOST_BASE="$HOME/GS-CAD/boost"
 
-COMPILER="g++"
+export RMC_CXX_NAME="g++"
+
 TEMPDIR="$HOME/junk"
-
-# Copied from rmc script
-RMC_CXX="$COMPILER"
-RMC_CXX_VERSION=
-RMC_CXX_BASENAME=
-resolve_compiler() {
-    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
-
-    local real_name=$(realpath $(which "$RMC_CXX"))
-    if [ "$real_name" = "" ]; then
-	echo "$arg0: cannot find compiler: $RMC_CXX" >&2
-	exit 1
-    fi
-
-    local vers=$("$RMC_CXX" --version |\
-                        head -n1 |\
-                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-    if [ "$vers" = "" ]; then
-        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
-        exit 1
-    fi
-    RMC_CXX_VERSION="$vers"
-}
 
 # Download source tarball into current working directory
 get_source() {
@@ -56,9 +31,10 @@ is_installed() {
 }
 
 if [ "$BOOST_VERSIONS" = "all" ]; then
+    eval $(RMC_BOOST_VERSION=arbitrary rmc resolve boost)
     vnames=()
-    for f in $(cd $BOOST_BASE && ls); do
-	if [ $(find "$BOOST_BASE/$f" -name version.hpp |wc -l) -gt 0 ]; then
+    for f in $(cd $RMC_BOOST_BASEDIR && ls); do
+	if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
 	    vnames=("${vnames[@]}" "$f")
 	fi
     done
@@ -66,17 +42,18 @@ if [ "$BOOST_VERSIONS" = "all" ]; then
     echo "$arg0: available boost versions: $BOOST_VERSIONS"
 fi
 
-resolve_compiler
+eval $(rmc resolve parallelism)
 for yaml_version in $YAML_VERSIONS; do
     for boost_version in $BOOST_VERSIONS; do
+	eval $(RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)
+
 	(figlet -c "$yaml_version w/boost-$boost_version" || \
 	 banner "$yaml_version w/boost-$boost_version") 2>/dev/null
-	prefix="$YAML_BASE/$yaml_version/boost-$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
 	logfile="yaml-cpp-$yaml_version.log"
 	date >"$logfile"
-	echo "yaml-cpp-$yaml_version for $prefix"
+	echo "yaml-cpp-$yaml_version for $RMC_YAML_ROOT"
 	echo "log file is " $(realpath "$logfile")
-	if is_installed "$prefix" 2>/dev/null; then
+	if is_installed "$RMC_YAML_ROOT" 2>/dev/null; then
 	    echo "already installed; skipping"
 	    echo "already installed; skipping" >>"$logfile"
 	    continue
@@ -107,13 +84,12 @@ for yaml_version in $YAML_VERSIONS; do
 	    mkdir "$builddir/_build"
 	    cd "$builddir/_build"
 
-	    boost_root="$BOOST_BASE/$boost_version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
-	    cmake .. -DBOOST_ROOT="$boost_root" -DCMAKE_INSTALL_PREFIX="$prefix"
+	    cmake .. -DBOOST_ROOT="$RMC_BOOST_ROOT" -DCMAKE_INSTALL_PREFIX="$RMC_YAML_ROOT"
 
-	    make
+	    make -j$RMC_PARALLELISM
 
 	    make install
-	    is_installed "$prefix" || exit 1
+	    is_installed "$RMC_YAML_ROOT" || exit 1
 
 	) |tee -a "$logfile"
     done

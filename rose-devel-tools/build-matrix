@@ -1,0 +1,970 @@
+#!/bin/bash
+#
+# Builds various configurations of ROSE in order to construct a matrix that shows what works and what doesn't.
+
+
+
+
+########################################################################################################################
+# User configuration.     This section has settings that can be adjusted by the user.
+
+# The name of the database that stores the results.
+DATABASE="$HOME/ROSE-build-matrix.db"
+
+# The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
+WORKSPACE="$HOME/junk"
+
+# The list of steps. Each step also has a function named "run_STEP_commands". If the function fails then the test status
+# is set to STEP.  If all functions pass then the status is "success".  The functions are run with the CWD being the top
+# of the ROSE build tree.  There are a couple special steps that are always run and don't have callback functions: The
+# "setup" step happens before any others and is reponsible for creating the build directories, and the "success" step is
+# run at the end to mark that all tests succeeded.
+BUILD_STEPS=(depend configure build projects)
+
+run_depend_commands() {
+    # The "rmc" command does some very fast, rudimentary version checking and then executes the echo command if all is
+    # well. We run this as a separate step because it's useful to know that a configuration failed because something
+    # wasn't installed.
+    rmc echo "Basic sanity checks pass"
+}
+
+run_configure_commands() {
+    # Runs either autoconf or cmake to generate the makefiles
+    rmc config --dry-run && rmc config
+}
+
+run_build_commands() {
+    # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
+    # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
+    for dir in src tests/roseTests/binaryTests; do
+	if ! rmc make -C "$dir" $MAX_PARALLELISM_SWITCH clean all; then
+	    rmc make -C "$dir" -j1 all
+	    return 1
+	fi
+    done
+}
+
+run_projects_commands() {
+    # Similar to building the library, except this is for building only certain projects after the library has been
+    # built. This will almost certainly fail for cmake since we haven't actually installed librose in the previous steps.
+    for project in BinaryAnalysisTools simulator2; do
+	if ! rmc make -C "projects/$project" $MAX_PARALLELISM_SWITCH clean all; then
+	    rmc make -C "$projects/$project" -j1 all
+	    return 1
+	fi
+    done
+}
+
+# End of user-configuration
+########################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Other global variables
+arg0=${0##*/}
+
+# Distinctive string that separates one section of output from another.
+OUTPUT_SECTION_SEPARATOR='=================-================='
+
+# ROSE SHA1 being tested. This is filled in later.
+ROSE_VERSION=
+
+# maximum parallelism for build steps, initialized by global "-j" switch and passed to the "rmc make" commands. This
+# should either be empty (to use the full parallelism of the machine) or the full "-j" switch supported by the "rmc
+# make" command.
+MAX_PARALLELISM_SWITCH=
+
+# Whether to save tarballs of the build directories after each test (set to "yes" or empty). The tarballs are placed in
+# the $WORKSPACE directory.
+SAVE_BUILD_DIR=
+
+# The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
+ROSE_SRC=
+
+
+
+########################################################################################################################
+# Run an SQL command in the database. The sqlite3 command doesn't have a way to turn off loading of ~/.sqliterc without
+# also producing noise on stderr, but we shouldn't load ~/.sqliterc because it might have commands that change the
+# output in a way that makes it impossible to reliably use it in a script.
+query_database() {
+    local sql="$1"
+    local pretty="$2"
+
+    local initfile=$(tempfile)
+    if [ "$pretty" != "" ]; then
+	echo ".mode columns" >>$initfile
+	echo ".headers on" >>$initfile
+    fi
+
+    local logfile=$(tempfile)
+    echo "sqlite3 -init $initfile $DATABASE" >$logfile
+    echo "SQL> $sql" >>$logfile
+    if ! sqlite3 -init $initfile "$DATABASE" "$sql" 2>>$logfile; then
+	cat $logfile >&2
+    fi
+    rm -f $initfile $logfile
+}
+
+########################################################################################################################
+# Creates the *initial* database.
+#
+# In order to add a new version of some dependency, just add another entry to the "dependencies" table.  If you create a
+# new dependency name (not just a new setting for an existing dependency) then you must also add a new column to the
+# "tests" table with a similar name.  Any existing rows in "tests" should have whatever value was effective for the
+# previous tests (e.g., if you added a new dependency on the "frobnicator" and the old tests were effectively using
+# frobnicator-1.2.3, then the "rmc_frobnicator" column for those rows should be initialized to "1.2.3".
+#
+# If you no longer want to test some version of a dependency, then remove that row from the "dependencies" table. BTW,
+# "no" is considered a valid version meaning "configure without this dependency. If you want to remove a dependency
+# entirely then just remove all its rows from the "dependencies" table -- there is no need to remove the corresponding
+# column from the "tests" table (in fact, they should stay since old tests had that dependency).
+#
+# This system will (eventually, if run long enough) test all combinations of dependencies. For instance, if you list
+# boost dependencies "1.50" and "1.52" and dlib dependencies "no", "18.10", and "18.17" then all six combinations of
+# those two dependencies will be tested.
+#
+create_database() {
+    rm -f "$DATABASE"
+    sqlite3 "$DATABASE" <<EOF
+create table dependencies (
+    name varchar(64),            -- last part of an "rmc_" function name
+    version varchar(64),         -- argument(s) for the "rmc_" function
+    enabled integer              -- whether this version should be tested (sqlite doesn't have booleans)
+);
+
+insert into dependencies values ('build_system', 'autoconf', 	     1);
+
+insert into dependencies values ('compiler',     '4.4.5',    	     1);
+insert into dependencies values ('compiler',     '4.8.4',    	     1);
+
+insert into dependencies values ('debug',        'yes',      	     1);
+insert into dependencies values ('optimize',     'no',       	     1);
+insert into dependencies values ('warnings',     'yes',      	     1);
+insert into dependencies values ('assertions',   'abort',    	     1);
+insert into dependencies values ('languages',    'all',      	     1);
+
+insert into dependencies values ('boost', 	 '1.43',     	     1);
+insert into dependencies values ('boost', 	 '1.44',     	     1);
+insert into dependencies values ('boost', 	 '1.45',     	     1);
+insert into dependencies values ('boost', 	 '1.46',     	     1);
+insert into dependencies values ('boost', 	 '1.47',     	     1);
+insert into dependencies values ('boost', 	 '1.48',     	     1);
+insert into dependencies values ('boost', 	 '1.49',     	     1);
+insert into dependencies values ('boost', 	 '1.50',     	     1);
+insert into dependencies values ('boost', 	 '1.51',     	     1);
+insert into dependencies values ('boost', 	 '1.52',     	     1);
+insert into dependencies values ('boost', 	 '1.53',     	     1);
+insert into dependencies values ('boost', 	 '1.54',     	     1);
+insert into dependencies values ('boost', 	 '1.55',     	     1);
+insert into dependencies values ('boost', 	 '1.56',     	     1);
+insert into dependencies values ('boost', 	 '1.57',     	     1);
+insert into dependencies values ('boost', 	 '1.58',     	     1);
+insert into dependencies values ('boost', 	 '1.59',     	     1);
+
+insert into dependencies values ('dlib',         'no',       	     1);
+insert into dependencies values ('dlib',         '18.10',    	     1);
+insert into dependencies values ('dlib',         '18.11',    	     1);
+insert into dependencies values ('dlib',         '18.12',    	     1);
+insert into dependencies values ('dlib',         '18.13',    	     1);
+insert into dependencies values ('dlib',         '18.14',    	     1);
+insert into dependencies values ('dlib',         '18.15',    	     1);
+insert into dependencies values ('dlib',         '18.16',    	     1);
+insert into dependencies values ('dlib',         '18.17',    	     1);
+
+insert into dependencies values ('doxygen',      'no',       	     1);
+insert into dependencies values ('doxygen',      '1.8.1',            1);
+insert into dependencies values ('doxygen',      '1.8.2',            1);
+insert into dependencies values ('doxygen',      '1.8.3',            1);
+insert into dependencies values ('doxygen',      '1.8.4',            1);
+insert into dependencies values ('doxygen',      '1.8.5',            1);
+insert into dependencies values ('doxygen',      '1.8.6',            1);
+insert into dependencies values ('doxygen',      '1.8.7',            1);
+insert into dependencies values ('doxygen',      '1.8.8',            1);
+insert into dependencies values ('doxygen',      '1.8.9',            1);
+insert into dependencies values ('doxygen',      '1.8.10',           1);
+
+insert into dependencies values ('edg',          '4.4',              1);
+insert into dependencies values ('edg',          '4.7',              1);
+insert into dependencies values ('edg',          '4.8',              1);
+insert into dependencies values ('edg',          '4.9',              1);
+
+insert into dependencies values ('magic',        'no',       	     1);
+insert into dependencies values ('python',       '/usr/bin/python3', 1);
+insert into dependencies values ('qt',           'no',       	     1);
+insert into dependencies values ('readline',     'no',       	     1);
+insert into dependencies values ('sqlite',       'no',       	     1);
+
+insert into dependencies values ('web_toolkit',  'no',       	     1);
+insert into dependencies values ('web_toolkit',  '3.3.3',            1);
+insert into dependencies values ('web_toolkit',  '3.3.4',            1);
+
+insert into dependencies values ('yaml',         'no',       	     1);
+
+insert into dependencies values ('yices',        'no',       	     1);
+
+create table tests (
+    id integer key not null,
+    started integer,             -- unix time when test started
+    started_str varchar(64),     -- 'started' in ISO 8601 format
+    duration integer,            -- time in seconds for test to run
+    status varchar(64),          -- 'running', 'passed', 'failed'
+    warnings integer,            -- number of warning messages during build
+    rose_version varchar(64),    -- SHA1 for the commit being tested
+
+    -- The following columns correspond to the dependency names. Each
+    -- dependency name in the "names" column of the "dependencies" table
+    -- must have a corresponding column in this table, prefixed with "rmc_".
+    rmc_build_system varchar(64),
+    rmc_compiler varchar(64),
+    rmc_debug varchar(64),
+    rmc_optimize varchar(64),
+    rmc_warnings varchar(64),
+    rmc_assertions varchar(64),
+    rmc_languages varchar(64),
+    rmc_boost varchar(64),
+    rmc_dlib varchar(64),
+    rmc_doxygen varchar(64),
+    rmc_magic varchar(64),
+    rmc_python varchar(64),
+    rmc_qt varchar(64),
+    rmc_readline varchar(64),
+    rmc_sqlite varchar(64),
+    rmc_web_toolkit varchar(64),
+    rmc_yaml varchar(64),
+    rmc_yices varchar(64),
+    rmc_edg varchar(64)
+);
+    
+EOF
+}
+
+
+########################################################################################################################
+# Converts a ratio to a percent
+percent() {
+    local numerator="$1"
+    local denominator="$2"
+    perl -e 'print int(100.0*$ARGV[0]/$ARGV[1]+0.5), "%"' "$numerator" "$denominator"
+}
+
+
+########################################################################################################################
+# Convert seconds of duration to h::mm::ss format.
+hms() {
+    local seconds="$1"
+    local hours=$[ seconds / 3600 ]
+    local minutes=$[ seconds / 60 % 60 ]
+    seconds=$[ seconds % 60 ]
+    printf "%d:%02d:%02d" $hours $minutes $seconds
+}
+
+
+########################################################################################################################
+# Print the ROSE version number (commit SHA1).  If $1 is non-empty then an abbreviated SHA1 is echoed.
+rose_version() {
+    local abbr="$1"
+    [ "$ROSE_SRC" = "" ] && return 1
+    [ "$ROSE_VERSION" = "" ] && ROSE_VERSION=$(cd "$ROSE_SRC" && git rev-parse HEAD 2>/dev/null)
+    if [ "$abbr" != "" ]; then
+	echo "$ROSE_VERSION" |cut -c1-8
+    else
+	echo "$ROSE_VERSION"
+    fi
+}    
+	
+
+########################################################################################################################
+# Return the list of dependency names.
+get_dependency_names() {
+    query_database 'select distinct name from dependencies order by name'
+}
+
+
+########################################################################################################################
+# Return version numbers for a dependency.
+get_enabled_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname' and enabled <> 0"
+}
+
+get_disabled_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname' and enabled = 0"
+}
+
+get_versions() {
+    local depname="$1"
+    query_database "select distinct version from dependencies where name = '$depname'"
+}
+
+get_enabled_versions_count() {    
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname' and enabled <> 0"
+}
+
+get_disabled_versions_count() {
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname' and enabled = 0"
+}
+
+get_versions_count() {
+    local depname="$1"
+    query_database "select count(*) from dependencies where name = '$depname'"
+}
+
+is_version_existing() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name = '$depname' and version = '$version'")
+    [ $n -ne 0 ]
+}
+
+is_version_enabled() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name='$depname' and version='$version' and enabled<>0")
+    [ $n -ne 0 ]
+}
+
+is_version_disabled() {
+    local depname="$1"
+    local version="$2"
+    local n=$(query_database "select count(*) from dependencies where name='$depname' and version='$version' and enabled=0")
+    [ $n -ne 0 ]
+}
+
+
+########################################################################################################################
+# Indicate how large the configuration space is.
+size_of_config_space() {
+    local size=1
+    for depname in $(get_dependency_names); do
+	local nchoices=$(get_enabled_versions_count "$depname")
+	size=$[ size * nchoices]
+    done
+    echo $size
+}
+
+
+########################################################################################################################
+# Given a dependency, choose one version at random.
+choose_dependency_version() {
+    local depname="$1"
+    local versions=( $(get_enabled_versions "$depname") )
+    local i=$[ $RANDOM % ${#versions[*]} ]
+    echo "${versions[$i]}"
+}
+
+
+########################################################################################################################
+# Build a random configuration. Emits a space separated list of DEPNAME=VERSION pairs.
+random_configuration() {
+    for depname in $(get_dependency_names); do
+	echo -n " $depname='$(choose_dependency_version "$depname")'"
+    done
+    echo
+}
+
+
+########################################################################################################################
+# Print a configuration in a human-readable format. The configuration is a list of DEPNAME=VERSION pairs.
+print_configuration() {
+    for pair in "$@"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	printf 'rmc_%-16s %s\n' "$depname" "$version"
+    done
+    echo
+    echo "RMC_SOURCE_DIR='$ROSE_SRC'"
+}
+
+
+########################################################################################################################
+# Find any tests that already exist with this configuration.  The configuration is specified as a space-separated list
+# of DEPNAME=VERSION pairs.
+find_tests_having_config() {
+    local config=("$@")
+    local query="select id from tests where rose_version = '$(rose_version)'"
+    for pair in "${config[@]}"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	query="$query and rmc_$depname = $version"
+    done
+    query_database "$query"
+}
+
+
+########################################################################################################################
+# Choose a configuration that hasn't been tested yet.
+choose_configuration() {
+    echo -n "searching configuration space " >&2
+    local limit=$(size_of_config_space)
+    limit=$[ limit * 10 ]
+    local i=0
+    while [ $i -lt $limit ]; do
+	i=$[ i + 1 ]
+	local config=( $(random_configuration) )
+	local tests=( $(find_tests_having_config "${config[@]}") )
+	if [ "${#tests[*]}" -eq 0 ]; then
+	    echo >&2
+	    echo "${config[@]}"
+	    return 0
+	fi
+	echo -n '.' >&2
+    done
+    echo  " none found" >&2
+    return 1
+}
+
+
+########################################################################################################################
+# Return the next available test ID number.
+next_test_id() {
+    query_database 'select coalesce(max(id),0)+1 from tests'
+}
+
+
+########################################################################################################################
+# Create a new test and set its status to running.
+create_test() {
+    local testid="$1"; shift
+    local config=("$@")
+    local columns="id, started, started_str, duration, status, rose_version"
+    local now=$(date '+%s')
+    local started=$(date -d "@$now" '+%Y-%m-%d %H:%M:%S%z')
+    local values="$testid, $now, '$started', 0, 'running', '$(rose_version)'"
+    for pair in "${config[@]}"; do
+	local depname="${pair%%=*}"
+	local version="${pair#*=}"
+	columns="$columns, rmc_$depname"
+	values="$values, $version"
+    done
+    local query="insert into tests ($columns) values ($values)"
+    query_database "$query"
+}
+
+
+########################################################################################################################
+# Get the configuration for a test. The result is echoed as space-separated DEPNAME=VERSION pairs.
+get_test_config() {
+    local testid="$1"; shift
+    local depnames="$*"
+    [ "$depnames" = "" ] && depnames=$(get_dependency_names)
+    for depname in $depnames; do
+	local version=$(query_database "select rmc_$depname from tests where id = $testid")
+	echo "$depname='$version'"
+    done
+}
+
+
+########################################################################################################################
+# Generate an output section heading. The heading is a single line.
+output_section_heading() {
+    local name="$1"
+    echo "$OUTPUT_SECTION_SEPARATOR $name $OUTPUT_SECTION_SEPARATOR"
+}
+
+
+########################################################################################################################
+# Filter output for a running command. Reads standard input and writes only a few important things to standard output.
+filter_output() {
+    perl -e '$|=1; while(<STDIN>) {/^$ARGV[0]\s+(.*?)\s+$ARGV[0]$/ && print "Starting next step: ", lc($1), "...\n"}' \
+	"$OUTPUT_SECTION_SEPARATOR"
+}
+
+
+########################################################################################################################
+# Run a test. The test must already have been created in the database.  All output is saved in a log file. This function
+# prints the final test status, which is the word "success" or one of the words from $BUILD_STEPS where a failure
+# occurred.
+run_test() {
+    local testid="$1"
+    local worksubdir="test-$(rose_version abbr)-$testid-$$"
+    local workspace="$WORKSPACE/$worksubdir"
+    local logfile="$WORKSPACE/$worksubdir.log"
+    echo "Output logged at $logfile" >&2
+
+    # Run the test
+    (
+	# built-in "setup" step
+	set -e
+	mkdir -p "$workspace"
+	cd "$workspace"
+	print_configuration "${config[@]}" |tee .rmc-main.cfg
+
+	# user-defined steps
+	for step in "${BUILD_STEPS[@]}"; do
+	    echo
+	    output_section_heading "$step"
+	    eval "(run_${step}_commands)" || exit 1
+	done
+	
+	# built-in "success" step
+	output_section_heading "success"
+
+    ) 2>&1 |tee "$logfile" | filter_output >&2
+
+    # Figure out final status. First check for the "success" marker; then check for the others in reverse order.
+    local status=setup
+    local sections=("${BUILD_STEPS[@]}" success)
+    for step in success $(perl -e 'print join " ", reverse @ARGV' depend "${BUILD_STEPS[@]}"); do
+	if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR $step $OUTPUT_SECTION_SEPARATOR" "$logfile" >/dev/null; then
+	    status="$step"
+	    break
+	fi
+    done
+
+    # Count number of warnings
+    local nwarnings=$(grep "warning" "$logfile" |wc -l)
+
+    # Save the results in a compressed format
+    if [ "$SAVE_BUILD_DIR" = "yes" ]; then
+	local tarball="$WORKSPACE/$worksubdir.tar.gz"
+	tar czf "$tarball" -C "$WORKSPACE" "$worksubdir"
+	echo "Build artifacts saved in $tarball" >&2
+    fi
+    rm -rf "$workspace"
+
+    # Results
+    (echo; echo "*** Final test status: $status ***"; echo) | tee -a "$logfile" >&2
+
+    echo "$status $nwarnings"
+}
+
+
+########################################################################################################################
+# Updates the test results in the database.  The results should have at least 'status' and 'nwarnings' keys.
+update_test_status() {
+    local testid="$1"
+    local status="$2"
+    local nwarnings="$3"
+
+    local started=$(query_database "select started from tests where id = $testid")
+    local ended=$(date '+%s')
+    local duration=$[ ended - started ]
+    query_database "update tests set		\
+                      status = '$status',	\
+                      warnings = $nwarnings,	\
+                      duration = $duration	\
+                    where id = $testid"
+}
+
+
+########################################################################################################################
+# Run one test with a randomly selected configuration. WARNING:  this function will enter an infinite loop if all
+# possible configurations have been tested already!
+run_one_test() {
+    local testid=$(next_test_id)
+    echo
+    echo
+    echo
+    echo
+    (figlet "Test $testid" || banner "Test $testid" || echo "Test $testid") 2>/dev/null
+    echo
+    config=( $(choose_configuration) )
+    if [ "${#config[*]}" -eq 0 ]; then
+	echo "$arg0: no test configuration found, or none needs to run" >&2
+	return 1
+    fi
+    print_configuration "${config[@]}"
+    echo
+    create_test "$testid" "${config[@]}"
+    local results="$(run_test $testid)"
+    update_test_status $testid $results
+    return 0
+}
+
+
+########################################################################################################################
+# Run all possible tests one at a time.
+run_all_tests() {
+    local limit="$1"
+
+    if [ "$ROSE_SRC" = "" ]; then
+	echo "$arg0: no source tree specified" >&2
+	exit 1
+    fi
+    if [ ! -d "$ROSE_SRC" ]; then
+	echo "$arg0: not a source directory: $ROSE_SRC" >&2
+	exit 1
+    fi
+	
+    local ntests=$(size_of_config_space)
+    local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
+    if [ "$ntested" -ge "$ntests" ]; then
+	echo "$arg0: nothing to test (all $ntests tests for rose-$(rose_version abbr) have already been run)" >&2
+    else
+	while [ $limit -gt 0 ] && run_one_test; do
+	    limit=$[ limit - 1 ]
+	    sleep 1
+	done
+    fi
+}
+
+
+########################################################################################################################
+# The "run" command for running the tests
+cmd_run_help() {
+    echo "usage: $arg0 run [--max-tests=N] [-jN] ROSE_SOURCE_DIR"
+}
+
+cmd_run() {
+    local max_tests=1000000000
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --max-tests=*)
+		max_tests=${1#--max-tests=}
+		if ! [ "$max_tests" -ge 0 ] 2>/dev/null; then
+		    echo "$arg0-test: invalid argument for --max-tests switch" >&2
+		    exit 1
+		fi
+		shift
+		;;
+	    --save)
+	        SAVE_BUILD_DIR=yes
+		;;
+	    --no-save)
+	        SAVE_BUILD_DIR=
+		;;
+            -j*)
+	        MAX_PARALLELISM_SWITCH="$1"
+		shift
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    if [ "$#" -ne 1 ]; then
+	cmd_run_help >&2
+	exit 1
+    fi
+    ROSE_SRC="$1"
+
+    run_all_tests $max_tests
+}
+
+
+########################################################################################################################
+# The "status" command for showing the current status
+cmd_status_help() {
+    echo "usage: $arg0 status"
+}
+
+cmd_status() {
+    if [ "$#" -ne 0 ]; then
+	cmd_status_help >&2
+	exit 1
+    fi
+
+    # Show what versions of ROSE have been tested
+    echo "Totals per version of ROSE:"
+    query_database "select rose_version, status, count(*) as 'count' from tests group by rose_version, status" PRETTY |\
+        sed 's/^/    /'
+    echo
+    
+    # How many tests are outstanding
+    local ntests=$(size_of_config_space)
+    echo "Size of configuration space: $ntests tests"
+    if [ "$(rose_version)" != "" ]; then
+	local ntested=$(query_database "select count(*) from tests where rose_version = '$(rose_version)'")
+	echo "Number of tests run for $(rose_version ABBR): $ntested ($(percent $ntested $ntests))"
+    fi
+
+    # Show info about tests that are running
+    echo
+    local nrunning=$(query_database "select count(*) from tests where status = 'running'");
+    echo "Number of tests running: $nrunning"
+    local testid
+    for testid in $(query_database "select id from tests where status = 'running'"); do
+	echo "  test $testid"
+	echo "    started         " $(query_database "select started_str from tests where id = $testid")
+	for depname in $(get_dependency_names); do
+	    local version=$(query_database "select rmc_$depname from tests where id = $testid")
+	    printf '    %-16s %s\n' "$depname" "$version"
+	done
+    done
+}
+
+########################################################################################################################
+# The "show" command for showing the matrix.
+cmd_show_help() {
+    echo "usage: $arg0 show ARGS..." 2>&1
+    echo "       ARGS specify what to show. They are either the names of dependencies (like 'boost')"
+    echo "       or a name=version pair to select a specific version (like 'boost=1.50'). Additional"
+    echo "       words show extra columns: warnings, duration."
+}
+
+cmd_show() {
+    local arg= columns="rose_version" order_by="rose_version"
+    local where="status <> 'running' and status <> 'depend'"
+    local show_warnings= show_duration=
+    if [ "$#" -eq 0 ]; then
+	for depname in $(get_dependency_names); do
+	    columns="$columns, rmc_$depname as '$depname'"
+	    order_by="$order_by, rmc_$depname"
+	done
+    fi
+
+    for arg in "$@"; do
+	case "$arg" in
+	    help)
+		cmd_show_help >&2
+		exit 0
+		;;
+	    rose=*)
+                where="$where and rose_version = '${arg#rose=}'"
+		;;
+	    warnings)
+	        show_warnings=", warnings"
+		;;
+	    duration)
+		show_duration=", duration"
+		;;
+       	    *=*)
+	        local depname="${arg%%=*}"
+		local version="${arg#*=}"
+		local nversions=$(get_versions_count "$depname")
+		if [ $nversions -ge 1 ]; then
+		    columns="$columns, rmc_$depname as '$depname'"
+		    where="$where and rmc_$depname = '$version'"
+		    order_by="$order_by, rmc_$depname"
+		else
+		    echo "$arg0: not a software dependency: $arg" >&2
+		    exit 1
+		fi
+		;;
+	    *)
+	        local nversions=$(get_versions_count "$arg")
+		if [ $nversions -ge 1 ]; then
+		    columns="$columns, rmc_$arg as '$arg'"
+		    order_by="$order_by, rmc_$arg"
+		else
+		    echo "$arg0: not a software dependency: $arg" >&2
+		    exit 1
+		fi
+		;;
+	esac
+    done
+    columns="$columns, status${show_warnings}, id as 'id', started_str as 'start time'${show_duration}"
+    order_by="$order_by, started_str"
+
+    query_database "select $columns from tests where $where order by $order_by" PRETTY
+}
+
+
+########################################################################################################################
+# The "test" command for manipulating tests
+cmd_test_help() {
+    echo "usage: $arg0 test erase ID"
+}
+
+cmd_test() {
+    local command="$1"; shift
+    case "$command" in
+	erase)
+	    if [ "$#" -ne 1 ]; then
+		cmd_test_help >&2
+		exit 1
+	    fi
+	    local testid="$1"
+	    local ntests=$(query_database "select count(*) from tests where id = $testid")
+	    if [ $ntests -eq 0 ]; then
+		echo "$arg0: test $testid not found" >&2
+		exit 1
+	    fi
+	    query_database "delete from tests where id = $testid"
+	    ;;
+	*)
+	    cmd_test_help >&2
+	    exit 1
+	    ;;
+    esac
+}
+
+########################################################################################################################
+# Operations on the "dependencies" table.
+cmd_dependency_help() {
+    echo "usage: $arg0 dependency show [NAMES...]"
+    echo "       $arg0 dependency disable NAME VERSION"
+    echo "       $arg0 dependency enable NAME VERSION"
+    echo "       $arg0 dependency insert NAME VERSION"
+    echo "       $arg0 dependency erase NAME VERSION"
+}
+
+cmd_dependency() {
+    local command="$1"; shift
+    case "$command" in
+	show)
+	    local depnames
+	    if [ "$#" -eq 0 ]; then
+		depnames="$(get_dependency_names)"
+	    else
+		depnames="$*"
+	    fi
+	    
+	    for depname in $depnames; do
+		echo -n "$depname enabled versions: "
+		for version in $(get_enabled_versions "$depname"); do
+		    echo -n " $version"
+		done
+		echo
+		echo -n "$depname disabled versions:"
+		for version in $(get_disabled_versions "$depname"); do
+		    echo -n " $version"
+		done
+		echo
+	    done
+	    ;;
+
+	enable|disable)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help >&2
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    local enabled=1
+	    [ "$command" = "disable" ] && enabled=0
+	    if is_version_existing "$depname" "$version"; then
+		query_database "update dependencies set enabled = $enabled where name = '$depname' and version = '$version'"
+		nfound=$(get_enabled_versions_count "$depname")
+		if [ $nfound -eq 0 ]; then
+		    echo "$arg0: warning: all versions of $depname are enabled; search space is now empty" >&2
+		fi
+	    else
+		echo "$arg0: warning: no $depname dependency for $version" >&2
+	    fi
+	    ;;
+
+	insert)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help >&2
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    if is_version_existing "$depname" "$version"; then
+		query_database "update dependencies set enable = true where name = '$depname' and version = '$version'"
+	    else
+		query_database "insert into dependencies (name, version, enabled) values ('$depname', '$version', 1)"
+	    fi
+	    ;;
+
+	erase)
+	    if [ "$#" -ne 2 ]; then
+		cmd_dependency_help >&2
+		exit 1
+	    fi
+	    local depname="$1"
+	    local version="$2"
+	    if is_version_existing "$depname" "$version"; then
+		query_database "delete from dependencies where name = '$depname' and version = '$version'"
+	    else
+		echo "$arg0: warning: no match for $depname $version" >&2
+	    fi
+	    ;;
+
+	help)
+	    cmd_dependency_help
+	    exit 0
+	    ;;
+
+	*)
+	    cmd_dependency_help >&2
+	    exit 1
+	    ;;
+    esac
+}
+
+
+########################################################################################################################
+# Main program
+main_help() {
+    echo "usage: $arg0 dependency..."
+    echo "       $arg0 run..."
+    echo "       $arg0 show..."
+    echo "       $arg0 status..."
+    echo "       $arg0 test..."
+}
+
+main() {
+    [ -e "$DATABASE" ] || create_database
+
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    -*)
+		echo "$arg0: unknown switch: $1" >&2
+		exit 1
+		;;
+	    dependency)
+		shift
+		cmd_dependency "$@"
+		exit 0
+		;;
+	    show)
+		shift
+		cmd_show "$@"
+		exit 0
+		;;
+	    status)
+		shift
+		cmd_status "$@"
+		exit 0
+		;;
+	    run)
+		shift
+		cmd_run "$@"
+		exit 0
+		;;
+	    test)
+		shift
+		cmd_test "$@"
+		exit 0
+		;;
+	    *)
+		main_help >&2
+		exit 1
+		;;
+	esac
+    done
+    main_help >&2
+}
+
+# TESTING BEGIN
+#for testid in $(query_database "select id from tests"); do
+#    seconds=$(query_database "select started from tests where id = $testid")
+#    timestr=$(date -d "@$seconds" '+%Y-%m-%d %H:%M:%S%z')
+#    query_database "update tests set started_str = '$timestr' where id = $testid"
+#done
+#exit
+## TESTING END
+
+main "$@"
+

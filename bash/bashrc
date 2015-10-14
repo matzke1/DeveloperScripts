@@ -24,6 +24,10 @@ shopt -s histappend
 # values of LINES and COLUMNS.
 shopt -s checkwinsize
 
+# Turn off this incredibly stupid autocompleting mode. Pressing TAB fails
+# to list file names an many situations.
+shopt -u progcomp
+
 # Make sure system directories are in $MANPATH so if we add more paths
 # later everything is still found.
 export MANPATH=$(manpath 2>/dev/null)

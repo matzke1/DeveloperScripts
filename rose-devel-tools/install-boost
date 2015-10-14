@@ -3,19 +3,42 @@
 arg0="${0##*/}"
 
 # boost-1.54 has known bugs that prevent building boost without zlib.
-VERSIONS="1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.55 1.56 1.57 1.58 1.59"
-BOOST_BASE="$HOME/GS-CAD/boost"
-COMPILER=g++
+VERSIONS="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
+
+
+export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
+export RMC_CXX_NAME="g++"
+
 TEMPDIR="$HOME/junk"
 
-# chrono is needed by date_time
+# chrono is needed by date_time in some versions of boost.
 # random and signals are needed by Wt
 # the remaining are needed by ROSE
-LIBRARIES="date_time chrono filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_43_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_44_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_45_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_46_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_47_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_48_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_49_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_50_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_51_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_52_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_53_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_54_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_55_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_56_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_57_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_58_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_59_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way
 # to disable this changes over time. zlib is autodetected after 1.53.
+IOSTREAM_FLAGS_1_43_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_44_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_45_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_46_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_47_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_48_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_49_0="-sNO_COMPRESSION=1 -sNO_ZLIB=1 -sNO_BZIP2=1"
@@ -30,32 +53,43 @@ IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_58_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_59_0="-sNO_BZIP2=1"
 
+# The name of boost's build system has changed over time.
+BOOST_BUILD_COMMAND_1_43_0="./bjam"
+BOOST_BUILD_COMMAND_1_44_0="./bjam"
+BOOST_BUILD_COMMAND_1_45_0="./bjam"
+BOOST_BUILD_COMMAND_1_46_0="./bjam"
+BOOST_BUILD_COMMAND_1_47_0="./b2"
+BOOST_BUILD_COMMAND_1_48_0="./b2"
+BOOST_BUILD_COMMAND_1_49_0="./b2"
+BOOST_BUILD_COMMAND_1_50_0="./b2"
+BOOST_BUILD_COMMAND_1_51_0="./b2"
+BOOST_BUILD_COMMAND_1_52_0="./b2"
+BOOST_BUILD_COMMAND_1_53_0="./b2"
+BOOST_BUILD_COMMAND_1_54_0="./b2"
+BOOST_BUILD_COMMAND_1_55_0="./b2"
+BOOST_BUILD_COMMAND_1_56_0="./b2"
+BOOST_BUILD_COMMAND_1_57_0="./b2"
+BOOST_BUILD_COMMAND_1_58_0="./b2"
+BOOST_BUILD_COMMAND_1_59_0="./b2"
+
+
+libraries() {
+    local vs="$1" with_commas="$2"
+    if [ "$with_commas" = "" ]; then
+	eval 'echo $LIBRARIES_'$vs
+    else
+	eval 'echo $LIBRARIES_'$vs |tr ' ' ','
+    fi
+}
+
 iostream_flags() {
     local vs="$1"
     eval 'echo $IOSTREAM_FLAGS_'$vs
 }
 
-# Copied from rmc script
-RMC_CXX="$COMPILER"
-RMC_CXX_VERSION=
-RMC_CXX_BASENAME=
-resolve_compiler() {
-    RMC_CXX_BASENAME=$(basename "$RMC_CXX" |perl -pe 's/-\d+(\.\d+)+//')
-
-    local real_name=$(realpath $(which "$RMC_CXX"))
-    if [ "$real_name" = "" ]; then
-	echo "$arg0: cannot find compiler: $RMC_CXX" >&2
-	exit 1
-    fi
-
-    local vers=$("$RMC_CXX" --version |\
-                        head -n1 |\
-                        perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-    if [ "$vers" = "" ]; then
-        echo "$arg0: no compiler version number for '$RMC_CXX'" >&2
-        exit 1
-    fi
-    RMC_CXX_VERSION="$vers"
+build_command() {
+    local vs="$1"
+    eval 'echo $BOOST_BUILD_COMMAND_'$vs
 }
 
 # Boost version string. Converts "1.50" -> "1_50_0"
@@ -69,7 +103,7 @@ get_source() {
     local vs=$(boost_version_string "$version")
     if [ ! -f "$HOME/Downloads/boost_$vs.tar.bz2" ]; then
 	wget -O "$HOME/Downloads/boost_$vs.tar.bz2" \
-	    "http://sourceforge.net/projects/boost/files/boost/$version/boost_$vs.tar.bz2/download"
+	    "http://sourceforge.net/projects/boost/files/boost/$version.0/boost_$vs.tar.bz2/download"
     fi
     ln -sf "$HOME/Downloads/boost_$vs.tar.bz2" "$destination"
 }
@@ -81,7 +115,7 @@ is_installed() {
 	echo "$arg0: failed to install (missing $hdr)" >&2
 	return 1
     fi
-    for f in $LIBRARIES; do
+    for f in $(libraries); do
 	lib="$prefix/lib/libboost_$f.so"
 	if [ ! -r "$lib" ]; then
 	    echo "$arg0: failed to install (missing $lib)" >&2
@@ -91,16 +125,18 @@ is_installed() {
     return 0
 }
 
-resolve_compiler
 for version in $VERSIONS; do
     (figlet -c "$version" || banner "$version") 2>/dev/null
-    prefix="$BOOST_BASE/$version/$RMC_CXX_BASENAME-$RMC_CXX_VERSION"
+
+    # Given a couple RMC_* variables, figure out the rest
+    eval $(RMC_BOOST_VERSION="$version" rmc resolve boost)
+
     vs=$(boost_version_string "$version")
     logfile="boost_$vs.log"
     date >"$logfile"
-    echo "boost-$version ($vs) for $prefix"
+    echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
     echo "log file is " $(realpath "$logfile")
-    if is_installed "$prefix" 2>/dev/null; then
+    if is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"
 	continue
@@ -130,15 +166,14 @@ for version in $VERSIONS; do
 	cd "$builddir"
 
 	echo "bootstrap..." >&2
-	commalibs=$(echo "$LIBRARIES" |tr ' ' ,)
-	(set -x; ./bootstrap.sh --prefix="$prefix" --with-libraries="$commalibs")
+	(set -x; ./bootstrap.sh --prefix="$RMC_BOOST_ROOT" --with-libraries=$(libraries "$vs" COMMAS))
 
 	echo "building..." >&2
 	iosflags=$(iostream_flags "$vs")
-	(set -x; ./b2 --prefix="$prefix" $iosflags)
+	(set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags)
 
 	echo "installing..." >&2
-	(set -x; ./b2 --prefix="$prefix" $iosflags install)
-	is_installed $prefix || exit 1
+	(set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags install)
+	is_installed "$RMC_BOOST_ROOT" || exit 1
     ) >>"$logfile"
 done

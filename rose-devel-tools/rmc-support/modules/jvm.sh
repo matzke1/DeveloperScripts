@@ -28,7 +28,7 @@ rmc_jvm_resolve() {
             echo "$arg0: libjvm directory is not valid: $RMC_JVM_ROOT" >&2
             exit 1
         fi
-        RMC_JVM_ROOT=$(realpath "$RMC_LIBJVM_ROOT")
+        RMC_JVM_ROOT=$(realpath "$RMC_JVM_ROOT")
     fi
 }
 

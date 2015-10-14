@@ -29,4 +29,8 @@ rmc_rosebld_check() {
 	echo "$arg0: ROSE build directory does not exist: $RMC_ROSEBLD_ROOT" >&2
 	exit 1
     fi
+
+    # Export a couple other variables that are used in documentation
+    export RG_BLD="$RMC_ROSEBLD_ROOT"
+    export ROSE_BUILD="$RMC_ROSEBLD_ROOT"
 }

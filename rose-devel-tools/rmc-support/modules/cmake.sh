@@ -8,14 +8,16 @@
 export RMC_CMAKE_BASEDIR
 export RMC_CMAKE_VERSION
 export RMC_CMAKE_ROOT
+export RMC_CMAKE_FILE
+
 rmc_cmake() {
     rmc_parse_version_or file cmake "$@"
 }
 
 # Obtain a version number from an installed package
 rmc_cmake_version() {
-    local cmake="$1"
-    local output=$("$cmake" --version 2>&1 |head -n1)
+    local root="$1"
+    local output=$("$root/cmake" --version 2>&1 |head -n1)
     perl -e '$ARGV[0] =~ /(\d+(\.\d+)+)/ && print $1' "$output"
 }
 
@@ -25,9 +27,26 @@ rmc_cmake_root() {
     echo "$base/$vers"
 }
 
+# Find file in installed package.
+rmc_cmake_file() {
+    local root="$1"
+    local try
+    for try in bin/cmake cmake; do
+	if [ ! -d "$root/$try" -a -r "$root/$try" ]; then
+	    echo "$root/$try"
+	    return 0
+	fi
+    done
+}
+
 # Resolve package variables
 rmc_cmake_resolve() {
     rmc_resolve_root_and_version cmake
+}
+
+# Find executable for "system" version
+rmc_cmake_find_in_system() {
+    which cmake
 }
 
 # Check that package is installed
@@ -60,20 +79,20 @@ rmc_cmake_run() {
     local cmake_build_type
     if [ "$RMC_OPTIM" = "yes" ]; then
         if [ "$RMC_DEBUG" = "yes" ]; then
-            echo "$arg0: warning: cmake builds cannot handle optimize + debug (assuming only optimize)" >&2
+            echo "$arg0: warning: cmake builds cannot handle optimize+debug (assuming \"Release\" build type)" >&2
         fi
         cmake_build_type="Release"
     elif [ "$RMC_DEBUG" = "yes" ]; then
         cmake_build_type="Debug"
     else
-        echo "$arg0: warning: camek builds cannot handle non-optimize + non-debug (assuming only debug)" >&2
+        echo "$arg0: warning: camek builds cannot handle nonoptimize+nondebug (assuming \"Debug\" build type)" >&2
         cmake_build_type="Debug"
     fi
 
     (
         set -e
         cd "$RMC_ROSEBLD_ROOT"
-        rmc_execute $dry_run $(rmc_find_root CMAKE cmake bin/cmake) "$RMC_ROSESRC_ROOT" \
+        rmc_execute $dry_run "$RMC_CMAKE_FILE" "$RMC_ROSESRC_ROOT" \
             -DCMAKE_BUILD_TYPE="$cmake_build_type" \
             -DCMAKE_INSTALL_PREFIX="$RMC_INSTALL_ROOT" \
             -DASSERTION_BEHAVIOR="$RMC_ASSERTIONS" \

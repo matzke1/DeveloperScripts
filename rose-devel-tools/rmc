@@ -230,7 +230,7 @@ do_init() {
             if [ "$show_instructions" != "" ]; then
                 echo "# Build system is either 'cmake' or 'autoconf'"
             fi
-            echo "rmc_build autoconf"
+            echo "rmc_build        autoconf"
 
             if [ "$show_instructions" != "" ]; then
                 echo
@@ -331,15 +331,15 @@ do_init() {
             fi
             echo "rmc_boost        1.50"
             echo "rmc_cmake        system"
-            echo "rmc_dlib         18.10"
-            echo "rmc_doxygen      1.8.10"
-            echo "rmc_edg          4.7"
+            echo "rmc_dlib         18.17"
+            echo "rmc_doxygen      system"
+            echo "rmc_edg          4.9"
             echo "rmc_magic        system"
             echo "rmc_python       /usr/bin/python3"
             echo "rmc_qt           no"
-            echo "rmc_readline     6.3"
+            echo "rmc_readline     system"
             echo "rmc_sqlite       system"
-            echo "rmc_wt           3.3.3"
+            echo "rmc_wt           3.3.4"
             echo "rmc_yaml         0.5.1"
             echo "rmc_yices        1.0.34"
         ) >"$CONFIG_BASE_NAME"

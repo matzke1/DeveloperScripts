@@ -6,6 +6,7 @@ YAML_VERSIONS="0.5.1"
 BOOST_VERSIONS="all"
 
 export RMC_CXX_NAME="g++"
+export RMC_CMAKE_VERSION=system
 
 TEMPDIR="$HOME/junk"
 
@@ -84,7 +85,8 @@ for yaml_version in $YAML_VERSIONS; do
 	    mkdir "$builddir/_build"
 	    cd "$builddir/_build"
 
-	    cmake .. -DBOOST_ROOT="$RMC_BOOST_ROOT" -DCMAKE_INSTALL_PREFIX="$RMC_YAML_ROOT"
+	    eval $(rmc resolve --require cmake)
+	    "$RMC_CMAKE_FILE" .. -DBOOST_ROOT="$RMC_BOOST_ROOT" -DCMAKE_INSTALL_PREFIX="$RMC_YAML_ROOT"
 
 	    make -j$RMC_PARALLELISM
 

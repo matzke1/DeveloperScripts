@@ -6,8 +6,8 @@ WT_VERSIONS="3.3.3 3.3.4"
 BOOST_VERSIONS="all"
 TEMPDIR="$HOME/junk"
 
-export RMC_WT_BASE="$HOME/GS-CAD/wt"
 export RMC_CXX_NAME="g++"
+export RMC_CMAKE_VERSION="system"
 
 
 
@@ -87,7 +87,8 @@ for wt_version in $WT_VERSIONS; do
 		    mkdir "$builddir/_build" || exit 1
 		    cd "$builddir/_build" || exit 1
 
-		    cmake .. \
+		    eval $(rmc resolve --require cmake)
+		    "$RMC_CMAKE_FILE" .. \
 			  -DBOOST_ROOT="$RMC_BOOST_ROOT" \
 			  -DWT_WRASTERIMAGE_IMPLEMENTATION=GraphicsMagick \
 			  -DCMAKE_INSTALL_PREFIX="$RMC_WT_ROOT" \

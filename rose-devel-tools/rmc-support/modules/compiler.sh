@@ -44,57 +44,52 @@ rmc_compiler_resolve() {
 	fi
     fi
 
-    # Default compiler if none specified
-    if [ "$RMC_CXX_NAME" = "" -a "$RMC_CXX_VENDOR" = "" -a "$RMC_CXX_VERSION" = "" ]; then
-	RMC_CXX_NAME=g++
+    # Find a default compiler if none was specified
+    if [ "$RMC_CXX_NAME" = "" ]; then
+	if [ "$RMC_CXX_VENDOR" = "" -a "$RMC_CXX_VERSION" = "" ]; then
+	    RMC_CXX_NAME=g++
+	elif [ "$RMC_CXX_VENDOR" != "" -a "$RMC_CXX_VERSION" != "" ]; then
+	    if [ "$RMC_CXX_VENDOR" = "gcc" ]; then
+		RMC_CXX_NAME="g++-$RMC_CXX_VERSION"
+	    else
+		echo "$arg0: cannot find $RMC_CXX_VENDOR C++ compiler version $RMC_CXX_VERSION" >&2
+		exit 1
+	    fi
+	fi
     fi
 
-    if [ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" ]; then
-        # Get the vendor and version information from the compiler name, which must be specified
-        if [ "$RMC_CXX_NAME" = "" ]; then
-            echo "$arg0: either a compiler name or vendor+version must be specified" >&2
-            exit 1
-        fi
+    # If we have a compiler command name, then try to obtain a vendor and version from the command
+    local cxx_vendor= cxx_version=
+    if [ "$RMC_CXX_NAME" != "" ]; then
         local cxx_realname=$(which "$RMC_CXX_NAME")
         if [ "$cxx_realname" = "" ]; then
             echo "$arg0: no such compiler command in path: $RMC_CXX_NAME" >&2
             exit 1
         fi
 
-	if [ "$RMC_CXX_VENDOR" = "" ]; then
-	    if "$cxx_realname" --version |grep 'Free Software Foundation' >/dev/null; then
-		RMC_CXX_VENDOR="gcc"
-	    else
-		echo "$arg0: cannot determine compiler vendor for $cxx_realname" >&2
-		exit 1
-	    fi
+	if "$cxx_realname" --version 2>&1 |grep 'Free Software Foundation' >/dev/null; then
+	    cxx_vendor="gcc"
+	else
+	    : need to figure out how to get this info
 	fi
 
-        if [ "$RMC_CXX_VERSION" = "" ]; then
-            RMC_CXX_VERSION=$("$cxx_realname" --version |\
-                              head -n1 |\
-                              perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
-            if [ "$RMC_CXX_VERSION" = "" ]; then
-                echo "$arg0: cannot obtain compiler version number from $cxx_realname" >&2
-                exit 1
-            fi
-        fi
+        cxx_version=$("$cxx_realname" --version |\
+                       head -n1 |\
+                       perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
     fi
 
-    if [ "$RMC_CXX_NAME" = "" ]; then
-	# Build a name from the vendor and version info, which we know are set
-	if [ "$RMC_CXX_VENDOR" = "gcc" ]; then
-	    RMC_CXX_NAME="g++-$RMC_CXX_VERSION"
-	else
-	    echo "$arg0: cannot find $RMC_CXX_VENDOR C++ compiler version $RMC_CXX_VERSION" >&2
-	    exit 1
-        fi
-
-	local cxx_realname=$(which $RMC_CXX_NAME)
-	if [ "$cxx_realname" = "" ]; then
-	    echo "$arg0: no such compiler in path: $RMC_CXX_NAME" >&2
-	    exit 1
-	fi
+    # Double check the user-supplied vendor/version info, or use the info we found above.
+    if [ "$RMC_CXX_VENDOR" = "" ]; then
+	RMC_CXX_VENDOR="$cxx_vendor"
+    elif [ "$RMC_CXX_VENDOR" != "$cxx_vendor" -a "$cxx_vendor" != "" ]; then
+	echo "$arg0: compiler vendor mismatch (expected $RMC_CXX_VENDOR but got $cxx_vendor)" >&2
+	exit 1
+    fi
+    if [ "$RMC_CXX_VERSION" = "" ]; then
+	RMC_CXX_VERSION="$cxx_version"
+    elif [ "$RMC_CXX_VERSION" != "$cxx_version" -a "$cxx_version" != "" ]; then
+	echo "$arg0: compiler version mismatch (expected $RMC_CXX_VERSION but got $cxx_version)" >&2
+	exit 1
     fi
 }
 

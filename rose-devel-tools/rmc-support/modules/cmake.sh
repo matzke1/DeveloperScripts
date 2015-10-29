@@ -79,14 +79,21 @@ rmc_cmake_run() {
     local cmake_build_type
     if [ "$RMC_OPTIM" = "yes" ]; then
         if [ "$RMC_DEBUG" = "yes" ]; then
-            echo "$arg0: warning: cmake builds cannot handle optimize+debug (assuming \"Release\" build type)" >&2
+            echo "$arg0: cmake builds cannot handle optimize+debug" >&2
+	    exit 1
         fi
         cmake_build_type="Release"
     elif [ "$RMC_DEBUG" = "yes" ]; then
         cmake_build_type="Debug"
     else
-        echo "$arg0: warning: camek builds cannot handle nonoptimize+nondebug (assuming \"Debug\" build type)" >&2
-        cmake_build_type="Debug"
+        echo "$arg0: cmake builds cannot handle nonoptimize+nondebug" >&2
+	exit 1
+    fi
+
+    # CMake is not fully supported yet
+    echo "$arg0: warning: cmake configuration is not fully implemented; it might not honor some settings" >&2
+    if [ "$dry_run" = "" ]; then
+	echo "$arg0: warning: I assume you've carefully checked the output from --dry-run already!" >&2
     fi
 
     (

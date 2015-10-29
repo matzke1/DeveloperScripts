@@ -27,11 +27,11 @@ rmc_sqlite_root() {
 # Resolve package variables
 rmc_sqlite_resolve() {
     rmc_resolve_root_and_version sqlite
+    rmc_add_library_path sqlite lib
 }
 
 # Check that package is installed
 rmc_sqlite_check() {
     rmc_sqlite_resolve
     rmc_check_root_and_version sqlite
-    add_library_path sqlite lib
 }

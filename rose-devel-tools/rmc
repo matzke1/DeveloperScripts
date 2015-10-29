@@ -17,6 +17,7 @@ arg0="${0##*/}"
 
 COMMAND=
 CONFIG_BASE_NAME=".rmc-main.cfg"
+export RMC_RMC_VERSION="0.1.0"
 
 
 # Load additional functionality. These files live in the same directory as this script.
@@ -558,8 +559,13 @@ do_make() {
 ########################################################################################################################
 
 command=
+directory=
 while [ "$#" -gt 0 ]; do
     case "$1" in
+	-C)
+	    directory="$2"
+	    shift; shift
+	    ;;
         -*)
             echo "$arg0: unknown global switch: '$1'" >&2
             exit 1
@@ -571,6 +577,10 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+if [ "$directory" != "" ]; then
+    cd "$directory" || exit 1
+fi
 
 case "$COMMAND" in
     init)

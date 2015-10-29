@@ -72,11 +72,23 @@ rmc_autoconf_run() {
 	qt_flags="$qt_flags --with-qt-lib --with-roseQt"
     fi
 
+    # C compiler based on C++ compiler
+    local cc_name=
+    case "$RMC_CXX_NAME" in
+	g++*)
+	    cc_name=gcc${RMC_CXX_NAME#g++}
+	    ;;
+	*)
+	    cc_name=$(echo "$RMC_CXX_NAME" |perl -pe 's/\+\+//g')
+	    ;;
+    esac
+
     # Run the configure command
     (
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run \
+ 	    CC="$cc_name" CXX="$RMC_CXX_NAME" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
             --enable-assertion-behavior=$RMC_ASSERTIONS \

@@ -30,9 +30,9 @@ rmc_jvm_resolve() {
         fi
         RMC_JVM_ROOT=$(realpath "$RMC_JVM_ROOT")
     fi
+    rmc_add_library_path jvm .
 }
 
 rmc_jvm_check() {
     rmc_jvm_resolve
-    rmc_add_library_path jvm .
 }

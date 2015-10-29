@@ -22,10 +22,10 @@ rmc_rose_root() {
 # Resolve package variables
 rmc_rose_resolve() {
     rmc_resolve_root_and_version ROSE
+    rmc_add_library_path ROSE lib
 }
 
 # Check that package is installed
 rmc_rose_check() {
     rmc_rose_resolve
-    rmc_add_library_path ROSE lib
 }

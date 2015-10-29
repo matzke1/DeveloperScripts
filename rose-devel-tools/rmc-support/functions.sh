@@ -140,6 +140,11 @@ rmc_resolve_root_and_version() {
 	    fi
 	fi
 
+	# Find optional canonical file if none specified
+	if [ "$file" = "" ]; then
+	    file=$(eval 'rmc_'$pkglc'_file' "$root" 2>/dev/null)
+	fi
+
 	# Find a version number (the root must exist if no version is specified)
 	if [ "$vers" = "" ]; then
 	    if [ ! -e "$root" ]; then
@@ -259,20 +264,15 @@ rmc_find_root() {
 }
 
 ########################################################################################################################
-# Add a package's library directory to the LD_LIBRARY_PATH if necessary.
+# Add a package's library directory to the LD_LIBRARY_PATH if necessary, even if the path doesn't exist.
 rmc_add_library_path() {
     local pkg="$1" path="$2"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     [ "$root" = "system" -o "$root" = "" ] && return 0
-    local full="$root/$path"
-    if [ ! -d "$full" ]; then
-        echo "$arg0: library path does not exist: $full" >&2
-        exit 1
-    fi
-    full=$(realpath "$full")
+    local full=$(realpath -m "$root/$path")
     for f in /lib /usr/lib /usr/local/lib; do
-        if [ "$full" = $(realpath "$f") ]; then
+        if [ "$full" = $(realpath -m "$f") ]; then
             return 0
         fi
     done

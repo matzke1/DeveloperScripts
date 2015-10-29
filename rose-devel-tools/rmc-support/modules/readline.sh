@@ -30,10 +30,10 @@ rmc_readline_root() {
 # Resolve package variables
 rmc_readline_resolve() {
     rmc_resolve_root_and_version readline
+    rmc_add_library_path readline lib
 }
 
 # Check that package is installed
 rmc_readline_check() {
     rmc_check_root_and_version readline
-    add_library_path readline lib
 }

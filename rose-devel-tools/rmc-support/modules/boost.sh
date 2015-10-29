@@ -44,11 +44,11 @@ rmc_boost_resolve() {
 	exit 1
     fi
     rmc_resolve_root_and_version boost
+    rmc_add_library_path boost lib
 }
 
 # Check boost consistency and existence
 rmc_boost_check() {
     rmc_boost_resolve
     rmc_check_root_and_version boost
-    rmc_add_library_path boost lib
 }

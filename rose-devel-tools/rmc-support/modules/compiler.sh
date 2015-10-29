@@ -5,7 +5,8 @@
 #        rmc_compiler NAME
 #
 # Vendors are:
-#        gcc      - GCC compilers
+#        gcc      - GCC compilers (e.g., g++)
+#        llvm     - LLVM compilers (e.g., clang++)
 #
 export RMC_CXX_VENDOR
 export RMC_CXX_VERSION
@@ -35,7 +36,7 @@ rmc_compiler_resolve() {
 	local version=$(echo "$RMC_CXX_NAME" |cut -d- -f2)
 	if rmc_is_version_string "$version"; then
 	    case "$vendor" in
-		gcc)
+		gcc|llvm)
 		    RMC_CXX_VENDOR="$vendor"
 		    RMC_CXX_VERSION="$version"
 		    RMC_CXX_NAME=
@@ -44,17 +45,37 @@ rmc_compiler_resolve() {
 	fi
     fi
 
-    # Find a default compiler if none was specified
+    # Find a default compiler if none was specified.
+    local cxx_vendor_commands
     if [ "$RMC_CXX_NAME" = "" ]; then
-	if [ "$RMC_CXX_VENDOR" = "" -a "$RMC_CXX_VERSION" = "" ]; then
-	    RMC_CXX_NAME=g++
-	elif [ "$RMC_CXX_VENDOR" != "" -a "$RMC_CXX_VERSION" != "" ]; then
-	    if [ "$RMC_CXX_VENDOR" = "gcc" ]; then
-		RMC_CXX_NAME="g++-$RMC_CXX_VERSION"
-	    else
-		echo "$arg0: cannot find $RMC_CXX_VENDOR C++ compiler version $RMC_CXX_VERSION" >&2
+	case "$RMC_CXX_VENDOR" in
+	    gcc)
+		cxx_vendor_commands="g++"
+		;;
+	    llvm)
+		cxx_vendor_commands="clang++"
+		;;
+	    "")
+		cxx_vendor_commands="c++"
+		;;
+	    *)
+		echo "$arg0: name of $RMC_CXX_VENDOR C++ compiler is unknown" >&2
 		exit 1
+		;;
+	esac
+	if [ "$RMC_CXX_VERSION" != "" ]; then
+	    cxx_vendor_commands="$cxx_vendor_commands-$RMC_CXX_VERSION $cxx_vendor_commands"
+	fi
+
+	for RMC_CXX_NAME in $cxx_vendor_commands; do
+	    if [ "$(which $RMC_CXX_NAME)" != "" ]; then
+		break
 	    fi
+	done
+
+	if [ "$RMC_CXX_NAME" = "" ]; then
+	    echo "$arg0: cannot find $RMC_CXX_VENDOR $RMC_CXX_VERSION C++ compiler command" >&2
+	    exit 1
 	fi
     fi
 
@@ -69,16 +90,19 @@ rmc_compiler_resolve() {
 
 	if "$cxx_realname" --version 2>&1 |grep 'Free Software Foundation' >/dev/null; then
 	    cxx_vendor="gcc"
+	elif "$cxx_realname" --version 2>&1 |grep 'based on LLVM' >/dev/null; then
+	    cxx_vendor="llvm"
 	else
 	    : need to figure out how to get this info
 	fi
 
         cxx_version=$("$cxx_realname" --version |\
                        head -n1 |\
-                       perl -ne '/(\d+(\.\d+){1,2})$/ && print $1')
+                       perl -ne '/(\d+(\.\d+){2,3})/ && print $1')
     fi
 
-    # Double check the user-supplied vendor/version info, or use the info we found above.
+    # Double check the user-supplied vendor/version info, or use the info we found above.  If the user specified
+    # "4.9" and the version reported by the compiler is "4.9.2" that's okay.
     if [ "$RMC_CXX_VENDOR" = "" ]; then
 	RMC_CXX_VENDOR="$cxx_vendor"
     elif [ "$RMC_CXX_VENDOR" != "$cxx_vendor" -a "$cxx_vendor" != "" ]; then
@@ -87,9 +111,13 @@ rmc_compiler_resolve() {
     fi
     if [ "$RMC_CXX_VERSION" = "" ]; then
 	RMC_CXX_VERSION="$cxx_version"
-    elif [ "$RMC_CXX_VERSION" != "$cxx_version" -a "$cxx_version" != "" ]; then
-	echo "$arg0: compiler version mismatch (expected $RMC_CXX_VERSION but got $cxx_version)" >&2
+    elif [ "$cxx_version" = "" -o "$cxx_version" = "$RMC_CXX_VERSION" ]; then
+	: okay
+    elif [ "${cxx_version#$RMC_CXX_VERSION.}" = "$cxx_version" ]; then
+	echo "$arg0: compiler version mismatch for $RMC_CXX_NAME (expected $RMC_CXX_VERSION but got $cxx_version)" >&2
 	exit 1
+    else
+	RMC_CXX_VERSION="$cxx_version"
     fi
 }
 

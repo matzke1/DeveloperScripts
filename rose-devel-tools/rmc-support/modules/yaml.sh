@@ -28,11 +28,11 @@ rmc_yaml_root() {
 rmc_yaml_resolve() {
     rmc_boost_check
     rmc_resolve_root_and_version yaml
+    rmc_add_library_path yaml lib
 }
 
 # Check that package is installed
 rmc_yaml_check() {
     rmc_yaml_resolve
     rmc_check_root_and_version yaml
-    rmc_add_library_path yaml lib
 }

@@ -8,6 +8,8 @@
 export RMC_DOXYGEN_BASEDIR
 export RMC_DOXYGEN_VERSION
 export RMC_DOXYGEN_ROOT
+export RMC_DOXYGEN_FILE
+
 rmc_doxygen() {
     rmc_parse_version_or file doxygen "$@"
 }
@@ -23,6 +25,13 @@ rmc_doxygen_version() {
 rmc_doxygen_root() {
     local base="$1" vers="$2"
     echo "$base/$vers"
+}
+
+# Find canonical installed file for package
+rmc_doxygen_file() {
+    local root="$1"
+    local file="$root/bin/doxygen"
+    [ -r "$file" ] && echo "$file"
 }
 
 # Resolve package variables

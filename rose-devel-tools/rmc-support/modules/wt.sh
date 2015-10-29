@@ -35,11 +35,11 @@ rmc_wt_resolve() {
         exit 1
     fi
     rmc_resolve_root_and_version Wt
+    rmc_add_library_path Wt lib
 }
 
 # Check that package is installed
 rmc_wt_check() {
     rmc_wt_resolve
     rmc_check_root_and_version Wt
-    add_library_path Wt lib
 }

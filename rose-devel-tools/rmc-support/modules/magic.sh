@@ -27,11 +27,11 @@ rmc_magic_version() {
 # Resolve package variables
 rmc_magic_resolve() {
     rmc_resolve_root_and_version magic
+    rmc_add_library_path magic lib
 }
 
 # Check that this package is installed
 rmc_magic_check() {
     rmc_magic_resolve
     rmc_check_root_and_version magic
-    rmc_add_library_path magic lib
 }

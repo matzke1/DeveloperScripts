@@ -28,10 +28,10 @@ rmc_qt_root() {
 rmc_qt_resolve() {
     rmc_compiler_check
     rmc_resolve_root_and_version Qt
+    rmc_add_library_path Qt lib
 }
 
 # Check that package is installed
 rmc_qt_check() {
     rmc_qt_resolve
-    rmc_add_library_path Qt lib
 }

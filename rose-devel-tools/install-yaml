@@ -4,6 +4,8 @@ arg0="${0##*/}"
 
 YAML_VERSIONS="0.5.1"
 BOOST_VERSIONS="all"
+COMPILERS="gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
+
 
 export RMC_CXX_NAME="g++"
 export RMC_CMAKE_VERSION=system
@@ -20,13 +22,13 @@ is_installed() {
     local prefix="$1"
     local hdr="$prefix/include/yaml-cpp/yaml.h"
     if [ ! -r "$hdr" ]; then
-	echo "$arg0: failed to install (missing $hdr)" >&2
-	return 1
+        echo "$arg0: failed to install (missing $hdr)" >&2
+        return 1
     fi
     local lib="$prefix/lib/libyaml-cpp.a"
     if [ ! -r "$lib" ]; then
-	echo "$arg0: failed to install (missing $lib)" >&2
-	return 1
+        echo "$arg0: failed to install (missing $lib)" >&2
+        return 1
     fi
     return 0
 }
@@ -35,9 +37,9 @@ if [ "$BOOST_VERSIONS" = "all" ]; then
     eval $(RMC_BOOST_VERSION=arbitrary rmc resolve boost)
     vnames=()
     for f in $(cd $RMC_BOOST_BASEDIR && ls); do
-	if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
-	    vnames=("${vnames[@]}" "$f")
-	fi
+        if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
+            vnames=("${vnames[@]}" "$f")
+        fi
     done
     BOOST_VERSIONS="${vnames[@]}"
     echo "$arg0: available boost versions: $BOOST_VERSIONS"
@@ -46,53 +48,59 @@ fi
 eval $(rmc resolve parallelism)
 for yaml_version in $YAML_VERSIONS; do
     for boost_version in $BOOST_VERSIONS; do
-	eval $(RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)
+        for compiler in $COMPILERS; do
+            eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)
 
-	(figlet -c "$yaml_version w/boost-$boost_version" || \
-	 banner "$yaml_version w/boost-$boost_version") 2>/dev/null
-	logfile="yaml-cpp-$yaml_version.log"
-	date >"$logfile"
-	echo "yaml-cpp-$yaml_version for $RMC_YAML_ROOT"
-	echo "log file is " $(realpath "$logfile")
-	if is_installed "$RMC_YAML_ROOT" 2>/dev/null; then
-	    echo "already installed; skipping"
-	    echo "already installed; skipping" >>"$logfile"
-	    continue
-	fi
+            (figlet -c "$yaml_version w/boost-$boost_version" || \
+             banner "$yaml_version w/boost-$boost_version") 2>/dev/null
+            logfile="yaml-cpp-$yaml_version.log"
+            date >"$logfile"
+            echo "yaml-cpp-$yaml_version for $RMC_YAML_ROOT"
+            echo "log file is " $(realpath "$logfile")
+            if is_installed "$RMC_YAML_ROOT" 2>/dev/null; then
+                echo "already installed; skipping"
+                echo "already installed; skipping" >>"$logfile"
+                continue
+            fi
 
-	mkdir -p "$TEMPDIR"
-	(
-	    set -e
-	    cd "$TEMPDIR"
+            mkdir -p "$TEMPDIR"
+            (
+                set -e
+                cd "$TEMPDIR"
 
-	    echo "downloading yaml-cpp-$yaml_version..." >&2
-	    tarball="yaml-cpp-$yaml_version.tar.gz"
-	    get_source "$yaml_version" "$tarball"
-	    if [ ! -f "$tarball" ]; then
-		echo "$arg0: couldn't download $tarball" >&2
-		exit 1
-	    fi
+                echo "downloading yaml-cpp-$yaml_version..." >&2
+                tarball="yaml-cpp-$yaml_version.tar.gz"
+                get_source "$yaml_version" "$tarball"
+                if [ ! -f "$tarball" ]; then
+                    echo "$arg0: couldn't download $tarball" >&2
+                    exit 1
+                fi
 
-	    builddir="yaml-cpp-$yaml_version"
-	    echo "unpacking into $builddir..." >&2
-	    rm -rf "$builddir"
-	    tar xf "$tarball"
-	    if [ ! -d "$builddir" ]; then
-		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
-		exit 1
-	    fi
+                builddir="yaml-cpp-$yaml_version"
+                echo "unpacking into $builddir..." >&2
+                rm -rf "$builddir"
+                tar xf "$tarball"
+                if [ ! -d "$builddir" ]; then
+                    echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+                    exit 1
+                fi
 
-	    mkdir "$builddir/_build"
-	    cd "$builddir/_build"
+                mkdir "$builddir/_build"
+                cd "$builddir/_build"
 
-	    eval $(rmc resolve --require cmake)
-	    "$RMC_CMAKE_FILE" .. -DBOOST_ROOT="$RMC_BOOST_ROOT" -DCMAKE_INSTALL_PREFIX="$RMC_YAML_ROOT"
+                eval $(rmc resolve --require cmake)
+                "$RMC_CMAKE_FILE" .. \
+                                  -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
+                                  -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
+                                  -DBOOST_ROOT="$RMC_BOOST_ROOT" \
+                                  -DCMAKE_INSTALL_PREFIX="$RMC_YAML_ROOT"
 
-	    make -j$RMC_PARALLELISM
+                make -j$RMC_PARALLELISM
 
-	    make install
-	    is_installed "$RMC_YAML_ROOT" || exit 1
+                make install
+                is_installed "$RMC_YAML_ROOT" || exit 1
 
-	) |tee -a "$logfile"
+            ) |tee -a "$logfile"
+        done
     done
 done

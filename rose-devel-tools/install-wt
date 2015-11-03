@@ -4,6 +4,8 @@ arg0="${0##*/}"
 
 WT_VERSIONS="3.3.3 3.3.4"
 BOOST_VERSIONS="all"
+COMPILERS="gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
+
 TEMPDIR="$HOME/junk"
 
 export RMC_CXX_NAME="g++"
@@ -15,8 +17,8 @@ export RMC_CMAKE_VERSION="system"
 get_source() {
     local version="$1" destination="$2"
     if [ ! -f "$HOME/Downloads/wt-$version.tar.gz" ]; then
-	wget -O "$HOME/Downloads/wt-$version.tar.gz" \
-	    "http://prdownloads.sourceforge.net/witty/wt-$version.tar.gz?download"
+        wget -O "$HOME/Downloads/wt-$version.tar.gz" \
+            "http://prdownloads.sourceforge.net/witty/wt-$version.tar.gz?download"
     fi
     ln -sf "$HOME/Downloads/wt-$version.tar.gz" "$destination"
 }
@@ -25,13 +27,13 @@ is_installed() {
     local prefix="$1"
     local hdr="$prefix/include/Wt/WConfig.h"
     if [ ! -r "$hdr" ]; then
-	echo "$arg0: failed to install (missing $hdr)" >&2
-	return 1
+        echo "$arg0: failed to install (missing $hdr)" >&2
+        return 1
     fi
     local lib="$prefix/lib/libwt.so"
     if [ ! -r "$lib" ]; then
-	echo "$arg0: failed to install (missing $lib)" >&2
-	return 1
+        echo "$arg0: failed to install (missing $lib)" >&2
+        return 1
     fi
     return 0
 }
@@ -40,9 +42,9 @@ if [ "$BOOST_VERSIONS" = "all" ]; then
     eval $(RMC_BOOST_VERSION=arbitrary rmc resolve boost)
     vnames=()
     for f in $(cd $RMC_BOOST_BASEDIR && ls); do
-	if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
-	    vnames=("${vnames[@]}" "$f")
-	fi
+        if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
+            vnames=("${vnames[@]}" "$f")
+        fi
     done
     BOOST_VERSIONS="${vnames[@]}"
     echo "$arg0: available boost versions: $BOOST_VERSIONS"
@@ -52,53 +54,57 @@ eval $(rmc resolve parallelism)
 
 for wt_version in $WT_VERSIONS; do
     for boost_version in $BOOST_VERSIONS; do
-	# Set up the RMC_* variables
-	eval $(RMC_BOOST_VERSION="$boost_version" RMC_WT_VERSION="$wt_version" rmc resolve wt)
+        for compiler in $COMPILERS; do
+            # Set up the RMC_* variables
+            eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_WT_VERSION="$wt_version" rmc resolve wt)
 
-	(figlet -c "$wt_version w/boost-$boost_version" || \
-	 banner "$yaml_version w/boost-$boost_version") 2>/dev/null
-	logfile="wt-$wt_version.log"
-	date >"$logfile"
-	echo "wt-$wt_version for $RMC_WT_ROOT"
-	echo "log file is " $(realpath "$logfile")
-	if is_installed "$RMC_WT_ROOT" 2>/dev/null; then
-	    echo "already installed; skipping"
-	    echo "already installed; skipping" >>"$logfile"
-	    continue
-	fi
+            (figlet -c "$wt_version w/boost-$boost_version" || \
+             banner "$yaml_version w/boost-$boost_version") 2>/dev/null
+            logfile="wt-$wt_version.log"
+            date >"$logfile"
+            echo "wt-$wt_version for $RMC_WT_ROOT"
+            echo "log file is " $(realpath "$logfile")
+            if is_installed "$RMC_WT_ROOT" 2>/dev/null; then
+                echo "already installed; skipping"
+                echo "already installed; skipping" >>"$logfile"
+                continue
+            fi
 
-	mkdir -p "$TEMPDIR"
-	(
-	    cd "$TEMPDIR" || exit 1
+            mkdir -p "$TEMPDIR"
+            (
+                cd "$TEMPDIR" || exit 1
 
-	    echo "downloading wt-$wt_version..." >&2
-	    tarball="wt-$wt_version.tar.gz"
-	    get_source "$wt_version" "$tarball"
-	    if [ ! -f "$tarball" ]; then
-		echo "$arg0: couldn't download $tarball" >&2
-	    else
-		builddir="wt-$wt_version"
-		echo "unpacking into $builddir..." >&2
-		rm -rf "$builddir"
-		tar xf "$tarball" || exit 1
-		if [ ! -d "$builddir" ]; then
-		    echo "$arg0: unpacking failed for $tarball into $builddir" >&2
-		else
-		    mkdir "$builddir/_build" || exit 1
-		    cd "$builddir/_build" || exit 1
+                echo "downloading wt-$wt_version..." >&2
+                tarball="wt-$wt_version.tar.gz"
+                get_source "$wt_version" "$tarball"
+                if [ ! -f "$tarball" ]; then
+                    echo "$arg0: couldn't download $tarball" >&2
+                else
+                    builddir="wt-$wt_version"
+                    echo "unpacking into $builddir..." >&2
+                    rm -rf "$builddir"
+                    tar xf "$tarball" || exit 1
+                    if [ ! -d "$builddir" ]; then
+                        echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+                    else
+                        mkdir "$builddir/_build" || exit 1
+                        cd "$builddir/_build" || exit 1
 
-		    eval $(rmc resolve --require cmake)
-		    "$RMC_CMAKE_FILE" .. \
-			  -DBOOST_ROOT="$RMC_BOOST_ROOT" \
-			  -DWT_WRASTERIMAGE_IMPLEMENTATION=GraphicsMagick \
-			  -DCMAKE_INSTALL_PREFIX="$RMC_WT_ROOT" \
-			  -DCONFIGDIR="$RMC_WT_ROOT/etc/wt"
+                        eval $(rmc resolve --require cmake)
+                        "$RMC_CMAKE_FILE" .. \
+                              -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
+                              -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
+                              -DBOOST_ROOT="$RMC_BOOST_ROOT" \
+                              -DWT_WRASTERIMAGE_IMPLEMENTATION=GraphicsMagick \
+                              -DCMAKE_INSTALL_PREFIX="$RMC_WT_ROOT" \
+                              -DCONFIGDIR="$RMC_WT_ROOT/etc/wt"
 
-		    make -j$RMC_PARALLELISM
-		    make install
-		    is_installed "$RMC_WT_ROOT" || exit 1
-		fi
-	    fi
-	) |tee -a "$logfile"
+                        make -j$RMC_PARALLELISM
+                        make install
+                        is_installed "$RMC_WT_ROOT" || exit 1
+                    fi
+                fi
+            ) |tee -a "$logfile"
+	done
     done
 done

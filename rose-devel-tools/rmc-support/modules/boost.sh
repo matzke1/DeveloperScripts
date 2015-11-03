@@ -22,7 +22,7 @@ rmc_boost_version() {
 # Boost installation root from version number
 rmc_boost_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers/$RMC_CXX_VENDOR-$RMC_CXX_VERSION"
+    echo "$base/$vers/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE"
 }
 
 # Find canonical installed file for package

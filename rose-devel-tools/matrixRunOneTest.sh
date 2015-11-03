@@ -120,11 +120,15 @@ filter_output() {
 # Send results back to the database. Arguments are passed to the matrixTestResult command.
 report_results() {
     local kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))
+    local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
+    if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
+	rose_version="$rose_version+local"
+    fi
     rmc -C $ROSE_TOOLS ./matrixTestResult --database=$DATABASE "$@" \
 	"${kvpairs[@]}" \
-	rose=$(cd $ROSE_SRC && git rev-parse HEAD) \
+	rose="$rose_version" \
 	rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
-	tester=$(whoami)
+	tester="$(whoami) using $arg0"
 }
 
 ########################################################################################################################
@@ -149,7 +153,7 @@ setup_workspace() {
     ) 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1
 
-    report_results --dry-run -L 'tool(>=trace)' status=query
+    report_results --dry-run -L 'tool(>=trace)' status=setup
 }
 
 ########################################################################################################################
@@ -186,6 +190,9 @@ run_test() {
 	    local nwarnings=$(grep 'warning:' "$LOG_FILE" |wc -l)
 	    testid=$(report_results -L 'tool(>=info)' \
 				    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
+	    local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
+	    tail -n 500 "$LOG_FILE" >"$abbr_output"
+	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Final output" $testid "$abbr_output"
 	fi
     fi
 

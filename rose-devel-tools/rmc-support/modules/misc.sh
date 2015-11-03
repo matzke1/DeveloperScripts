@@ -20,7 +20,7 @@ rmc_install_resolve() {
             RMC_INSTALL_ROOT="/DO_NOT_INSTALL"
             ;;
         *)
-            RMC_INSTALL_ROOT=$(cd "$RMC_ROSEBLD_ROOT" && realpath -s "$RMC_INSTALL_ROOT")
+            RMC_INSTALL_ROOT=$(cd "$RMC_ROSEBLD_ROOT" && rmc_realpath "$RMC_INSTALL_ROOT")
             ;;
     esac
 }

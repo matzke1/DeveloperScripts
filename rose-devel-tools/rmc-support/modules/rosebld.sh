@@ -13,7 +13,7 @@ rmc_rosebld_resolve() {
         if [ "$dir" = "/" ]; then
 	    return 0
         fi
-        dir=$(realpath "$dir/..")
+        dir=$(rmc_realpath "$dir/..")
     done
     RMC_ROSEBLD_ROOT="$dir"
 }

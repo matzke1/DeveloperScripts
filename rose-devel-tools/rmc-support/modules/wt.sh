@@ -14,7 +14,7 @@ rmc_wt() {
 # Obtain installation directory name from version. Directory need not exist.
 rmc_wt_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION"
+    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE"
 }
 
 

@@ -62,7 +62,6 @@ rmc_autoconf_run() {
 	fi
     fi
 
-
     # Qt detections is somewhat broken in ROSE's config system. For one thing, it doesn't
     # understand "--without-qt"
     local qt_flags=$(rmc_autoconf_with qt)
@@ -88,7 +87,7 @@ rmc_autoconf_run() {
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run \
- 	    CC="$cc_name" CXX="$RMC_CXX_NAME" \
+ 	    CC="$cc_name" CXX="$RMC_CXX_NAME" CXXFLAGS="$RMC_CXX_SWITCHES" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
             --enable-assertion-behavior=$RMC_ASSERTIONS \

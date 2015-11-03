@@ -4,7 +4,7 @@ arg0="${0##*/}"
 
 # boost-1.54 has known bugs that prevent building boost without zlib.
 VERSIONS="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
-COMPILERS="gcc-4.8 gcc-4.9 llvm-3.5"
+COMPILERS="gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
 
 
 export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
@@ -158,7 +158,7 @@ for version in $VERSIONS; do
 	eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$version" rmc resolve boost)
 
 	vs=$(boost_version_string "$version")
-	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}.log"
+	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"
 	date >"$logfile"
 	echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
 	echo "log file is " $(realpath "$logfile")
@@ -201,7 +201,7 @@ for version in $VERSIONS; do
 		    toolset=clang
 		    ;;
 	    esac
-	    echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME ;" > "$user_jam"
+	    echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam"
 	    if [ ! -r "$user_jam" ]; then
 		echo "$arg0: cannot create Boost.Build user Jam file: $user_jam" >&2
 		exit 1

@@ -21,7 +21,7 @@ rmc_yaml_version() {
 # Obtain an installation directory name from a version. Directory need not exist.
 rmc_yaml_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION"
+    echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE"
 }
 
 # Resolve package variables

@@ -101,33 +101,33 @@ do_resolve_help() {
 do_resolve() {
     local require=
     while [ "$#" -gt 0 ]; do
-	case "$1" in
-	    -h|--help)
-		do_resolve_help
-		exit 0
-		;;
-	    --require)
-		require=yes
-		shift
-		;;
-	    -*)
-		echo "$arg0 $COMMAND: unknown switch: $1" >&2
-		exit 1
-		;;
-	    *)
-		break
-		;;
-	esac
+        case "$1" in
+            -h|--help)
+                do_resolve_help
+                exit 0
+                ;;
+            --require)
+                require=yes
+                shift
+                ;;
+            -*)
+                echo "$arg0 $COMMAND: unknown switch: $1" >&2
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
     done
     if [ "$#" -ne 1 ]; then
-	echo "$arg0 $COMMAND: incorrect usage; see --help" >&2
-	exit 1
+        echo "$arg0 $COMMAND: incorrect usage; see --help" >&2
+        exit 1
     fi
     local pkg="$1"
     if [ "$require" != "" ]; then
-	eval 'rmc_'$pkg'_check'
+        eval 'rmc_'$pkg'_check'
     else
-	eval 'rmc_'$pkg'_resolve'
+        eval 'rmc_'$pkg'_resolve'
     fi
     export |sed -n '/^declare -x RMC_[a-zA-Z_0-9]*=/ s/declare -x //p'
 }
@@ -390,10 +390,10 @@ do_config() {
 
     case "$RMC_BUILD_SYSTEM" in
         autoconf)
-	    rmc_autoconf_run $dry_run
+            rmc_autoconf_run $dry_run
             ;;
         cmake)
-	    rmc_cmake_run $dry_run
+            rmc_cmake_run $dry_run
             ;;
 
         *)
@@ -508,6 +508,67 @@ do_make() {
                   "-C $RMC_ROSEBLD_ROOT/projects/BinaryCloneDetection"
             )
             ;;
+        source)
+            dirs=("-C $RMC_ROSEBLD_ROOT/src"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/PHPTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/ROSETTA"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/abstractMemoryObjectTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astFileIOTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astInliningTests"
+
+                  # 2015-12-07
+                  # rose_inputbuildVariableDeclaration.C fails
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/astInterfaceTests"
+
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astLValueTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astMergeTests"
+
+                  # 2015-12-07
+                  # seq7a_test2001_01.C fails: for a function-style cast, remove the redundant "::A"
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/astOutliningTests"
+
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astPerformanceTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astProcessingTests"
+
+                  # 2015-12-07
+                  # testQuery3_input1.C fails: assert numberOfStatementsInSimple == numberOfStatements
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/astQueryTestsTests"
+
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astRewriteTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astSnippetTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astSymbolTableTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/astTokenStreamTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/binaryTests"
+
+                  # 2015-12-07
+                  # fileLocation_test2001_01.C fails: cannot call constructor A::A directly
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/fileLocation_tests"
+
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/graph_tests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/loopProcessingTests"
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/mergeTraversal_tests"
+
+                  # 2015-12-07
+                  # array-one.o: fails: segfault in Java runtime
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/ompLoweringTests"
+
+                  # 2015-12-07
+                  # test02-10 fails: "You didn't heed the BIG FAT WARNING from above!"
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/programAnalysisTests"
+
+                  # 2015-12-07
+                  # test2001_01.C fails: for a function-style cast, remove the redundant "::A"
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/programTransformationTests"
+
+                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/roseHPCToolkitTests"
+
+		  # 2015-12-07
+		  # testQuery3_input.C: assert numberOfStatementsInSimple == numberOfStatements
+                  #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/utilTests"
+            )
+            ;;
+                  
+                  
         here)
             dirs=("")
             have_C=
@@ -562,10 +623,10 @@ command=
 directory=
 while [ "$#" -gt 0 ]; do
     case "$1" in
-	-C)
-	    directory="$2"
-	    shift; shift
-	    ;;
+        -C)
+            directory="$2"
+            shift; shift
+            ;;
         -*)
             echo "$arg0: unknown global switch: '$1'" >&2
             exit 1
@@ -599,8 +660,8 @@ case "$COMMAND" in
         do_shell "$@"
         ;;
     resolve)
-	do_resolve "$@"
-	;;
+        do_resolve "$@"
+        ;;
     "")
         do_shell
         ;;

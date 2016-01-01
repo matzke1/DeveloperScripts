@@ -214,6 +214,7 @@ The return value is a symbol indicating the language construct that is being ope
 		       ((looking-back "\\bswitch[ \t\n\r]*")            'switch)
 		       ((looking-back "\\bwhile[ \t\n\r]*")   	    	'while)
 		       ((looking-back "\\bcatch[ \t\n\r]*")             'catch)
+		       ((looking-back "\\][ \t\n\r]*")                  'lambda)
 		       (t t)))
 		(t t))))))
 
@@ -817,6 +818,12 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
 	   (looking-back ":[ \t]*[\n\r]+[ \t]*{\\([ \t\n\r]*\\)"))
       (replace-match (concat ": {" (match-string 1)) t t))
 
+    ;; A '{' after a ')' is probably the opening of a lambda body, so make sure both are on the same line.
+    (when (and
+	   (eq language-construct 'lambda)
+	   (looking-back ")[ \t]*[\n\r]+[ \t]*{\\([ \t\n\r]*\\)"))
+      (replace-match (concat ") {" (match-string 1)) t t))
+
     ;; Insert the appropriate amount of white space left of the curly brace
     (when (and (stringp white-space)
 	       (not (looking-back "^[ \t]*{[ \t\n\r]*"))
@@ -905,7 +912,12 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
   (cond
    ;; Consecutive parentheses should not have intervening white space
    ((and (looking-back ")[ \t]+)") (pilf-nonliteral-p))
-    (replace-match "))" t t))))
+    (replace-match "))" t t))
+
+   ;; "})" is the end of a lambda expression as the last argument of a function. Make sure the two characters are nestled
+   ;; together.
+   ((looking-back "}[ \t\n\r]+)")
+    (replace-match "})" t t))))
 
 
 (pilf-register-fixup 'pilf-fixup-comma ?,)

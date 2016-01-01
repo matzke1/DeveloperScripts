@@ -54,8 +54,9 @@ rmc_autoconf_run() {
     if [ "$RMC_WARNINGS" = "yes" ]; then
 	if [ "$RMC_CXX_VENDOR" = "gcc" ]; then
 	    cxx_warn="-Wall"
+	    # Turn off some warnings from 3rd-party headers (mostly boost)
 	    if rmc_versions_ordered "$RMC_CXX_VERSION" ge "4.8.0"; then
-		cxx_warn="$cxx_warn -Wno-unused-local-typedefs"
+		cxx_warn="$cxx_warn -Wno-unused-local-typedefs -Wno-attributes"
 	    fi
 	    cxx_warn="'$cxx_warn'"
 	    c_warn="-Wall"

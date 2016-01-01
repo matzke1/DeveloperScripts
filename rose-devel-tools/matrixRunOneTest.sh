@@ -5,24 +5,24 @@
 # User configuration.     This section has settings that can be adjusted by the user.
 
 # The name of the database that stores the results.
-DATABASE="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"
+: ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
 
 # The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
-WORKSPACE="$HOME/junk"
+: ${WORKSPACE="$HOME/junk"}
 
 # Whether to save tarballs of the build directories after each test (set to "yes" or empty). The tarballs are placed in
 # the $WORKSPACE directory.
-SAVE_BUILD_DIR=
+: ${SAVE_BUILD_DIR:=}
 
 # The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
-ROSE_SRC=$HOME/GS-CAD/ROSE/matrix/source-repo
+: ${ROSE_SRC:=$HOME/GS-CAD/ROSE/matrix/source-repo}
 
 # The ROSE project build directory that contains the matrix testing tools, configured with RMC
-ROSE_TOOLS=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting
+: ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
 
 # Maximum parallelism switch for "make" commands. If this is empty then "rmc make" uses the maximum parallelism for
 # the machine where it's running.  None empty values should include the "-j" part of the switch, as in "-j20"
-MAX_PARALLELISM_SWITCH=
+: ${MAX_PARALLELISM_SWITCH:=}
 
 # The list of steps. Each step also has a function named "run_${STEP}_commands". If the function fails then the test status
 # is set to $STEP.  If all functions pass then the status is the last step that was started (thus the last step should

@@ -32,24 +32,29 @@ BUILD_STEPS=(configure library-build libtest-build libtest-check project-bintool
 
 run_configure_commands() {
     # Runs either autoconf or cmake to generate the makefiles
+    rmc config --dry-run >>"$COMMAND_DRIBBLE" 2>&1
     rmc config --dry-run && rmc config
 }
 
 run_library-build_commands() {
     # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
     # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
+    rmc make -C src $MAX_PARALLELISM_SWITCH --dry-run >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C src $MAX_PARALLELISM_SWITCH || rmc make -C src -j1
 }
 
 run_libtest-build_commands() {
+    rmc make -C tests $MAX_PARALLELISM_SWITCH --dry-run >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C tests $MAX_PARALLELISM_SWITCH || rmc make -C tests -j1
 }
     
 run_libtest-check_commands() {
+    rmc make -C tests $MAX_PARALLELISM_SWITCH --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C tests $MAX_PARALLELISM_SWITCH check || rmc make -C tests -j1 check
 }
 
 run_project-bintools_commands() {
+    rmc make -C projects/BinaryAnalysisTools $MAX_PARALLELISM_SWITCH --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects/BinaryAnalysisTools $MAX_PARALLELISM_SWITCH check || rmc make -C BinaryAnalysisTools -j1 check
 }
 
@@ -96,6 +101,7 @@ OUTPUT_SECTION_SEPARATOR='=================-================='
 
 TEST_SUBDIR="matrix-test-$$"
 LOG_FILE="$WORKSPACE/$TEST_SUBDIR.log"
+COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
 TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
 
@@ -193,6 +199,7 @@ run_test() {
 	    local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
 	    tail -n 500 "$LOG_FILE" >"$abbr_output"
 	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Final output" $testid "$abbr_output"
+	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
 	fi
     fi
 
@@ -205,6 +212,7 @@ run_test() {
     if [ "$testid" != "" ]; then
 	mv "$TARBALL" "$WORKSPACE/matrix-result-$testid.tar.gz" 2>/dev/null
 	mv "$LOG_FILE" "$WORKSPACE/matrix-result-$testid.log" 2>/dev/null
+	mv "$COMMAND_DRIBBLE" "$WORKSPACE/matrix-result-$testid.cmds" 2>/dev/null
     fi
 }
 

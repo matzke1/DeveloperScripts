@@ -4,7 +4,7 @@ arg0="${0##*/}"
 
 WT_VERSIONS="3.3.3 3.3.4"
 BOOST_VERSIONS="all"
-COMPILERS="gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
+COMPILERS="gcc-4.4 gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
 
 TEMPDIR="$HOME/junk"
 

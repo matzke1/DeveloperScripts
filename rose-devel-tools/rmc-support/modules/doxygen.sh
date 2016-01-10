@@ -6,7 +6,7 @@
 #    or: rmc_doxygen no
 #
 export RMC_DOXYGEN_BASEDIR
-export RMC_DOXYGEN_VERSION
+export RMC_DOXYGEN_VERSION="none"
 export RMC_DOXYGEN_ROOT
 export RMC_DOXYGEN_FILE
 
@@ -34,6 +34,11 @@ rmc_doxygen_file() {
     [ -r "$file" ] && echo "$file"
 }
 
+# Find executable for "system" version
+rmc_doxygen_find_in_system() {
+    which doxygen
+}
+
 # Resolve package variables
 rmc_doxygen_resolve() {
     rmc_resolve_root_and_version doxygen
@@ -42,5 +47,5 @@ rmc_doxygen_resolve() {
 # Check that package is installed
 rmc_doxygen_check() {
     rmc_doxygen_resolve
-    rmc_resolve_root_and_version doxygen
+    rmc_check_root_and_version doxygen
 }

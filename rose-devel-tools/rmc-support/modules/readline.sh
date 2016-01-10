@@ -6,7 +6,7 @@
 #    or: rmc_readline no
 #
 export RMC_READLINE_BASEDIR
-export RMC_READLINE_VERSION
+export RMC_READLINE_VERSION="none"
 export RMC_READLINE_ROOT
 rmc_readline() {
     rmc_parse_version_or directory readline "$@"
@@ -27,6 +27,18 @@ rmc_readline_root() {
     echo "$base/$vers"
 }
 
+# Find canonical installed file for package
+rmc_readline_file() {
+    local root="$1"
+    local file="$root/include/readline/readline.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find installation root in filesystem
+rmc_readline_find_in_system() {
+    : not implemented
+}
+
 # Resolve package variables
 rmc_readline_resolve() {
     rmc_resolve_root_and_version readline
@@ -35,5 +47,6 @@ rmc_readline_resolve() {
 
 # Check that package is installed
 rmc_readline_check() {
+    rmc_readline_resolve
     rmc_check_root_and_version readline
 }

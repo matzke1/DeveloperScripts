@@ -6,7 +6,7 @@
 #    or: rmc_sqlite no
 #
 export RMC_SQLITE_BASEDIR
-export RMC_SQLITE_VERSION
+export RMC_SQLITE_VERSION="none"
 export RMC_SQLITE_ROOT
 rmc_sqlite() {
     rmc_parse_version_or directory sqlite "$@"
@@ -22,6 +22,11 @@ rmc_sqlite_version() {
 rmc_sqlite_root() {
     local base="$1" vers="$2"
     : cannot do this yet
+}
+
+# Find installation root in filesystem
+rmc_sqlite_find_in_system() {
+    [ -r "/usr/include/sqlite3.h" ] && echo "/usr"
 }
 
 # Resolve package variables

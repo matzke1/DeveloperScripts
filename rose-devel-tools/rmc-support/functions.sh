@@ -238,16 +238,18 @@ rmc_check_root_and_version() {
 	file=$(eval 'rmc_'$pkglc'_file' "$root")
     fi
 
-    # Check for existence
-    if [ "$root" = "" -a "$file" = "" ]; then
-	echo "$arg0: $pkg is required" >&2
-	exit 1
-    elif [ ! -e "$root" -a ! -e "$file" ]; then
-	echo "$arg0: $pkg installation is missing: $root" >&2
-	exit 1
-    elif [ "$vers" = "" ]; then
-	echo "$arg0: $pkg version number is unknown" >&2
-	exit 1
+    # Check for existence, but only if the user wants it (i.e., version was not "none", but is "system" or something specific)
+    if [ "$vers" != "" ]; then
+	if [ "$root" = "" -a "$file" = "" ]; then
+	    echo "$arg0: $pkg is required" >&2
+	    exit 1
+	elif [ ! -e "$root" -a ! -e "$file" ]; then
+	    echo "$arg0: $pkg installation is missing: $root" >&2
+	    exit 1
+	elif [ "$vers" = "" ]; then
+	    echo "$arg0: $pkg version number is unknown" >&2
+	    exit 1
+	fi
     fi
 
     eval 'RMC_'$pkguc'_ROOT="$root"'
@@ -358,17 +360,17 @@ resolve() {
     rmc_languages_resolve
     rmc_boost_check
     rmc_edg_check
-    rmc_wt_resolve
-    rmc_magic_resolve
-    rmc_yaml_resolve
-    rmc_dlib_resolve
-    rmc_yices_resolve
-    rmc_python_resolve
+    rmc_wt_check
+    rmc_magic_check
+    rmc_yaml_check
+    rmc_dlib_check
+    rmc_yices_check
+    rmc_python_check
     rmc_jvm_check
-    rmc_readline_resolve
-    rmc_sqlite_resolve
-    rmc_qt_resolve
-    rmc_doxygen_resolve
+    rmc_readline_check
+    rmc_sqlite_check
+    rmc_qt_check
+    rmc_doxygen_check
     resolve_so_paths
 }
 

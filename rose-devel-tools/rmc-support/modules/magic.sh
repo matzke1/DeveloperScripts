@@ -6,7 +6,7 @@
 #    or: rmc_magic no
 #
 export RMC_MAGIC_BASEDIR
-export RMC_MAGIC_VERSION
+export RMC_MAGIC_VERSION="none"
 export RMC_MAGIC_ROOT
 rmc_magic() {
     rmc_parse_version_or directory magic "$@"
@@ -16,6 +16,21 @@ rmc_magic() {
 rmc_magic_root() {
     local base="$1" vers="$2"
     echo "$base/$vers"
+}
+
+# Find canonical installed file for package
+rmc_magic_file() {
+    local root="$1"
+    local file="$root/include/magic.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find installation directory for libmagic
+rmc_magic_find_in_system() {
+    local root="/usr";
+    if [ -r "$root/include/magic.h" ]; then
+	echo "$root"
+    fi
 }
 
 # Obtain version number from an installation of this package

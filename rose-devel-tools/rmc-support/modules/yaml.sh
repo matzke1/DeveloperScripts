@@ -6,7 +6,7 @@
 #    or: rmc_yaml no
 #
 export RMC_YAML_BASEDIR
-export RMC_YAML_VERSION
+export RMC_YAML_VERSION="none"
 export RMC_YAML_ROOT
 rmc_yaml() {
     rmc_parse_version_or directory yaml "$@"
@@ -22,6 +22,18 @@ rmc_yaml_version() {
 rmc_yaml_root() {
     local base="$1" vers="$2"
     echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE"
+}
+
+# Find canonical installed file for package
+rmc_yaml_file() {
+    local root="$1"
+    local file="$root/include/yaml-cpp/yaml.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find installation root in filesystem
+rmc_yaml_find_in_system() {
+    : not implemented
 }
 
 # Resolve package variables

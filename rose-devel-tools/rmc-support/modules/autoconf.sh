@@ -91,6 +91,7 @@ rmc_autoconf_run() {
  	    CC="$cc_name" CXX="$RMC_CXX_NAME" CXXFLAGS="$RMC_CXX_SWITCHES" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
+	    --disable-gcc-version-check \
             --enable-assertion-behavior=$RMC_ASSERTIONS \
             --enable-edg_union_struct_debugging \
             --enable-languages="$RMC_LANGUAGES" \

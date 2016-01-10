@@ -5,7 +5,7 @@
 #    or: rmc_web_toolkit no
 #
 export RMC_WT_BASEDIR
-export RMC_WT_VERSION
+export RMC_WT_VERSION="none"
 export RMC_WT_ROOT
 rmc_wt() {
     rmc_parse_version_or directory Wt "$@"
@@ -17,6 +17,12 @@ rmc_wt_root() {
     echo "$base/$vers/boost-$RMC_BOOST_VERSION/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE"
 }
 
+# Find canonical installed file for package
+rmc_wt_file() {
+    local root="$1"
+    local file="$root/include/Wt/WConfig.h"
+    [ -r "$file" ] && echo "$file"
+}
 
 # Obtain a version number from an installation of Wt
 rmc_wt_version() {

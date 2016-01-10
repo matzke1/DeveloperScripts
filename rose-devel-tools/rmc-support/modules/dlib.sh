@@ -6,7 +6,7 @@
 #    or: rmc_dlib no
 #
 export RMC_DLIB_BASEDIR
-export RMC_DLIB_VERSION
+export RMC_DLIB_VERSION="none"
 export RMC_DLIB_ROOT
 rmc_dlib() {
     rmc_parse_version_or directory dlib "$@"
@@ -25,6 +25,18 @@ rmc_dlib_version() {
 rmc_dlib_root() {
     local base="$1" vers="$2"
     echo "$base/$vers"
+}
+
+# Find canonical installed file for package
+rmc_dlib_file() {
+    local root="$1"
+    local file="$root/dlib/revision.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find library root in filesystem
+rmc_dlib_find_in_system() {
+    : not implemented
 }
 
 # Resolve package variables

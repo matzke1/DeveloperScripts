@@ -847,7 +847,7 @@ while [ "$#" -gt 0 ]; do
             directory="$2"
             shift; shift
             ;;
-	--help|-h)
+	help|--help|-h)
 	    help=--help
 	    shift
 	    ;;
@@ -897,7 +897,11 @@ case "$COMMAND" in
         do_resolve $help "$@"
         ;;
     "")
-        do_shell $help
+	if [ "$help" != "" ]; then
+	    rmc_help
+	else
+            do_shell
+	fi
         ;;
     *)
         do_shell $help "$COMMAND" "$@"

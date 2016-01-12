@@ -787,21 +787,31 @@ do_list_help() {
     echo "    Lists installed versions of some dependency, such as 'boost'.  The switches are:"
     echo "        --help | -h"
     echo "            Show this documentation."
-    echo "        --format=human|subdir|shell"
-    echo "            Show the results in a human readable format, as installation subdirectories (relative to"
-    echo "            RMC_RMC_DEPENDENCIES), or as shell commands to set RMC variables."
+    echo "        --format=human|shell"
+    echo "            Show the results in a human readable format or as shell commands to set RMC variables. The human"
+    echo "            format is the same as the shell format except it shows only the values of the shell variables and"
+    echo "            separates them by tab characters for better alignment."
+    echo "        --terse"
+    echo "            Show only the primary version number. For instance, Wt is normally listed as a triplet containing"
+    echo "            the Wt version number, the boost version number, and the C++ compiler name, but this switch would"
+    echo "            cause only the Wt version number to be shown. Terse human format shows the version number space-"
+    echo "            separated on a single line."
 }
 
 do_list() {
-    local format=human
+    local format=human terse=
     while [ "$#" -gt 0 ]; do
 	case "$1" in
 	    --help|-h)
 		do_list_help
 		exit 1
 		;;
-	    --format=human|--format=subdir|--format=shell)
+	    --format=human|--format=shell)
 		format="${1#--format=}"
+		shift
+		;;
+	    --terse)
+		terse=yes
 		shift
 		;;
 	    --)
@@ -824,7 +834,19 @@ do_list() {
 	exit 1
     fi
 
-    rmc_list "$dependency" "$format"
+    if [ "$terse" != "" ]; then
+	case "$format" in
+	    shell)
+		rmc_list "$dependency" shell |cut -d' ' -f1 |sort |uniq
+		;;
+	    human)
+		local versions=$(rmc_list "$dependency" human |cut       -f1 |sort |uniq)
+		echo $versions
+		;;
+	esac
+    else
+	rmc_list "$dependency" "$format"
+    fi
 }
 
 	    

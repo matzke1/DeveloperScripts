@@ -5,7 +5,7 @@
 #    or: rmc_web_toolkit no
 #
 export RMC_WT_BASEDIR
-export RMC_WT_VERSION="none"
+export RMC_WT_VERSION
 export RMC_WT_ROOT
 rmc_wt() {
     rmc_parse_version_or directory Wt "$@"

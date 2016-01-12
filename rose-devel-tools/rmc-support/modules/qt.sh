@@ -6,7 +6,7 @@
 #    or: rmc_qt no
 #
 export RMC_QT_BASEDIR
-export RMC_QT_VERSION="none"
+export RMC_QT_VERSION
 export RMC_QT_ROOT
 rmc_qt() {
     rmc_parse_version_or directory Qt "$@"

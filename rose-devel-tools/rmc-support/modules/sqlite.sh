@@ -6,7 +6,7 @@
 #    or: rmc_sqlite no
 #
 export RMC_SQLITE_BASEDIR
-export RMC_SQLITE_VERSION="none"
+export RMC_SQLITE_VERSION
 export RMC_SQLITE_ROOT
 rmc_sqlite() {
     rmc_parse_version_or directory sqlite "$@"

@@ -6,7 +6,7 @@
 #    or: rmc_doxygen no
 #
 export RMC_DOXYGEN_BASEDIR
-export RMC_DOXYGEN_VERSION="none"
+export RMC_DOXYGEN_VERSION
 export RMC_DOXYGEN_ROOT
 export RMC_DOXYGEN_FILE
 

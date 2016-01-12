@@ -6,7 +6,7 @@
 #    or: rmc_yices no
 #
 export RMC_YICES_BASEDIR
-export RMC_YICES_VERSION="none"
+export RMC_YICES_VERSION
 export RMC_YICES_ROOT
 rmc_yices() {
     rmc_parse_version_or directory yices "$@"

@@ -6,7 +6,7 @@
 #    or: rmc_readline no
 #
 export RMC_READLINE_BASEDIR
-export RMC_READLINE_VERSION="none"
+export RMC_READLINE_VERSION
 export RMC_READLINE_ROOT
 rmc_readline() {
     rmc_parse_version_or directory readline "$@"

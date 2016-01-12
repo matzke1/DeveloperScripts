@@ -6,7 +6,7 @@
 #    or: rmc_dlib no
 #
 export RMC_DLIB_BASEDIR
-export RMC_DLIB_VERSION="none"
+export RMC_DLIB_VERSION
 export RMC_DLIB_ROOT
 rmc_dlib() {
     rmc_parse_version_or directory dlib "$@"

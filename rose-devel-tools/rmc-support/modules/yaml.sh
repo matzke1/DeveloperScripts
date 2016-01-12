@@ -6,7 +6,7 @@
 #    or: rmc_yaml no
 #
 export RMC_YAML_BASEDIR
-export RMC_YAML_VERSION="none"
+export RMC_YAML_VERSION
 export RMC_YAML_ROOT
 rmc_yaml() {
     rmc_parse_version_or directory yaml "$@"

@@ -3,12 +3,9 @@
 arg0="${0##*/}"
 
 # boost-1.54 has known bugs that prevent building boost without zlib.
-VERSIONS="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
-COMPILERS="gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
+VERSIONS="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"
+COMPILERS="gcc-4.4-default gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5-default"
 
-
-export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
-export RMC_CXX_NAME="g++"
 
 TEMPDIR="$HOME/junk"
 
@@ -32,6 +29,7 @@ LIBRARIES_1_56_0="chrono date_time filesystem iostreams program_options random r
 LIBRARIES_1_57_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 LIBRARIES_1_58_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 LIBRARIES_1_59_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_60_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way
@@ -53,6 +51,7 @@ IOSTREAM_FLAGS_1_56_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_58_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_59_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_60_0="-sNO_BZIP2=1"
 
 # The name of boost's build system has changed over time.
 BOOST_BUILD_COMMAND_1_43_0="./bjam"
@@ -72,6 +71,7 @@ BOOST_BUILD_COMMAND_1_56_0="./b2"
 BOOST_BUILD_COMMAND_1_57_0="./b2"
 BOOST_BUILD_COMMAND_1_58_0="./b2"
 BOOST_BUILD_COMMAND_1_59_0="./b2"
+BOOST_BUILD_COMMAND_1_60_0="./b2"
 
 # The relative name for user-specific config (see "./b2 --debug-configuration")
 BOOST_USERCONFIG_FILE_1_43_0=tools/build/v2/user-config.jam
@@ -91,6 +91,7 @@ BOOST_USERCONFIG_FILE_1_56_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_57_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_58_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_59_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_60_0=tools/build/src/user-config.jam
 
 
 libraries() {
@@ -155,7 +156,11 @@ for version in $VERSIONS; do
 	(figlet -c "$version with $compiler" || banner "$version with $compiler") 2>/dev/null
 
 	# Given a couple RMC_* variables, figure out the rest
+	eval $(rmc clear)
+	export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
 	eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$version" rmc resolve boost)
+	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
+	[ "$RMC_BOOST_ROOT" = "" ] && continue
 
 	vs=$(boost_version_string "$version")
 	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"

@@ -97,7 +97,7 @@ rmc_resolve_root_and_version() {
     local pkg="$1"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    local base="$HOME/GS-CAD/$pkglc"
+    local base="$RMC_RMC_DEPENDENCIES/$pkglc"
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     local file=$(eval echo '$RMC_'$pkguc'_FILE')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
@@ -341,10 +341,9 @@ resolve() {
 }
 
 resolve_so_paths() {
-    # These are necessary if you want to run an executable directly without going through
-    # the GNU libtool shell scripts. It's sometimes necessary if you want to use GDB
-    # on a program that hasn't been installed yet (on the other hand, nemiver seems to
-    # be able to debug through the libtool script).
+    # These are necessary if you want to run an executable directly without going through the GNU libtool shell scripts. It's
+    # sometimes necessary if you want to use GDB on a program that hasn't been installed yet (on the other hand, older versions
+    # of nemiver seem to be able to debug through the libtool script).
     for f in src/.libs \
              libltdl/.libs \
              src/3rdPartyLibraries/libharu-2.1.0/src/.libs \

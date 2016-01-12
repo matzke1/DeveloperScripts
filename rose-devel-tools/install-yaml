@@ -3,12 +3,10 @@
 # Install versions of the C++ YAML library
 arg0="${0##*/}"
 
-YAML_VERSIONS="0.5.1"
-BOOST_VERSIONS="all"
-COMPILERS="gcc-4.4-default gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"
-
-
-TEMPDIR="$HOME/junk"
+: ${YAML_VERSIONS:="0.5.1"}
+: ${BOOST_VERSIONS:="all"}
+: ${COMPILERS:="gcc-4.4-default gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
+: ${TEMPDIR:="$HOME/junk"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -33,15 +31,8 @@ is_installed() {
 
 if [ "$BOOST_VERSIONS" = "all" ]; then
     echo "$arg0: looking for boost versions (this may take a while)..."
-    eval $(RMC_BOOST_VERSION=arbitrary rmc resolve boost)
-    vnames=()
-    for f in $(cd $RMC_BOOST_BASEDIR && ls); do
-        if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
-            vnames=("${vnames[@]}" "$f")
-        fi
-    done
-    BOOST_VERSIONS="${vnames[@]}"
-    echo "$arg0: available boost versions: $BOOST_VERSIONS"
+    BOOST_VERSIONS=$(rmc list --terse boost)
+    echo "$arg0: boost versions: $BOOST_VERSIONS"
 fi
 
 for yaml_version in $YAML_VERSIONS; do

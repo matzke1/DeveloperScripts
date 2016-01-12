@@ -774,6 +774,63 @@ do_make() {
 }
 
 ########################################################################################################################
+#		  	 _     _     _   
+#		  	| |   (_)___| |_ 
+#		  	| |   | / __| __|
+#		  	| |___| \__ \ |_ 
+#		  	|_____|_|___/\__|
+#                 
+########################################################################################################################
+
+do_list_help() {
+    echo "usage: $arg0 $COMMAND [SWITCHES] DEPENDENCY"
+    echo "    Lists installed versions of some dependency, such as 'boost'.  The switches are:"
+    echo "        --help | -h"
+    echo "            Show this documentation."
+    echo "        --format=human|subdir|shell"
+    echo "            Show the results in a human readable format, as installation subdirectories (relative to"
+    echo "            RMC_RMC_DEPENDENCIES), or as shell commands to set RMC variables."
+}
+
+do_list() {
+    local format=human
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --help|-h)
+		do_list_help
+		exit 1
+		;;
+	    --format=human|--format=subdir|--format=shell)
+		format="${1#--format=}"
+		shift
+		;;
+	    --)
+		shift
+		break
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: $1" >&2
+		exit 1
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+
+    local dependency="$1"; shift
+    if [ "$dependency" = "" ]; then
+	echo "$arg0 $COMMAND: incorrect usage; see '$arg0 $COMMAND --help' for details" >&2
+	exit 1
+    fi
+
+    rmc_list "$dependency" "$format"
+}
+
+	    
+	    
+
+########################################################################################################################
 #                        __  __       _
 #                       |  \/  | __ _(_)_ __
 #                       | |\/| |/ _` | | '_ \
@@ -824,6 +881,9 @@ case "$COMMAND" in
     config)
         do_config $help "$@"
         ;;
+    list)
+	do_list $help "$@"
+	;;
     make)
         do_make "here" $help "$@"
         ;;

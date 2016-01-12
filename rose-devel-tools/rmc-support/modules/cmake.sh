@@ -118,3 +118,13 @@ rmc_cmake_run() {
             -Denable-cuda:BOOL=OFF
     )
 }
+
+# List installed versions
+rmc_cmake_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name cmake -type f -perm -100 |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_CMAKE_VERSION='$version'"
+    done
+}

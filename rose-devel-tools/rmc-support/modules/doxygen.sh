@@ -49,3 +49,13 @@ rmc_doxygen_check() {
     rmc_doxygen_resolve
     rmc_check_root_and_version doxygen
 }
+
+# List installed versions
+rmc_doxygen_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name doxygen -type f -perm -100 |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_DOXYGEN_VERSION='$version'"
+    done
+}

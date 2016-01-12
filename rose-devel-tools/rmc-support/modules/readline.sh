@@ -50,3 +50,13 @@ rmc_readline_check() {
     rmc_readline_resolve
     rmc_check_root_and_version readline
 }
+
+# List installed versions
+rmc_readline_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name readline.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_READLINE_VERSION='$version'"
+    done
+}

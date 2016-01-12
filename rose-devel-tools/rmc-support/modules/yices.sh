@@ -46,3 +46,13 @@ rmc_yices_check() {
     rmc_yices_resolve
     rmc_check_root_and_version yices
 }
+
+# List installed versions
+rmc_yices_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name yices_c.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_YICES_VERSION='$version'"
+    done
+}

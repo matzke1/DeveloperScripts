@@ -2,14 +2,11 @@
 # Install versions of the Wt web toolkit
 arg0="${0##*/}"
 
-WT_VERSIONS="3.3.3 3.3.4 3.3.5"
-BOOST_VERSIONS="all"
-COMPILERS="gcc-4.4 gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11 llvm-3.5"
+: ${WT_VERSIONS:="3.3.3 3.3.4 3.3.5"}
+: ${BOOST_VERSIONS:="all"}
+: ${COMPILERS:="gcc-4.4 gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
+: ${TEMPDIR:="$HOME/junk"}
 
-TEMPDIR="$HOME/junk"
-
-export RMC_CXX_NAME="g++"
-export RMC_CMAKE_VERSION="system"
 
 
 
@@ -45,27 +42,26 @@ is_installed() {
 }
 
 if [ "$BOOST_VERSIONS" = "all" ]; then
-    eval $(RMC_BOOST_VERSION=arbitrary rmc resolve boost)
-    vnames=()
-    for f in $(cd $RMC_BOOST_BASEDIR && ls); do
-        if [ $(find "$RMC_BOOST_BASEDIR/$f" -name version.hpp |wc -l) -gt 0 ]; then
-            vnames=("${vnames[@]}" "$f")
-        fi
-    done
-    BOOST_VERSIONS="${vnames[@]}"
-    echo "$arg0: available boost versions: $BOOST_VERSIONS"
+    echo "$arg0: looking for boost versions (this may take a while)..."
+    BOOST_VERSIONS=$(rmc list --terse boost)
+    echo "$arg0: boost versions: $BOOST_VERSIONS"
 fi
-
-eval $(rmc resolve parallelism)
 
 for wt_version in $WT_VERSIONS; do
     for boost_version in $BOOST_VERSIONS; do
         for compiler in $COMPILERS; do
-            # Set up the RMC_* variables
-            eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_WT_VERSION="$wt_version" rmc resolve wt)
-
             (figlet -c "$wt_version w/boost-$boost_version" || \
              banner "$yaml_version w/boost-$boost_version") 2>/dev/null
+
+            # Set up the RMC_* variables
+	    eval $(rmc clear)
+	    eval $(rmc resolve parallelism)
+	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION=system rmc resolve --require cmake)
+            eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_WT_VERSION="$wt_version" rmc resolve wt)
+	    [ "$RMC_CMAKE_FILE" = "" ] && continue
+	    [ "$RMC_CXX_NAME" = "" ] && continue
+	    [ "$RMC_WT_ROOT" = "" ] && continue
+
             logfile="wt-$wt_version.log"
             date >"$logfile"
             echo "wt-$wt_version for $RMC_WT_ROOT"

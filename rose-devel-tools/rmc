@@ -1,23 +1,61 @@
 #!/bin/bash
-
-# ROSE meta configuration.  This script permits meta-config information to be stored in a build directory and easily
-# edited. ROSE is then configured and built from this meta-config info.  This script also sets up environments for
-# running various build commands, or can also run thse commands itself.
-#
-# Synopsis:
-#
-#    $ mkdir $ROSE_BUILD
-#    $ cd $ROSE_BUILD
-#    $ rmc init $ROSE_SOURCE  # initialize meta-config info
-#    $ rmc config             # run configure or cmake
-#    $ rmc make               # run parallel build
-#    $ rmc                    # start a subshell
-
 arg0="${0##*/}"
 
+rmc_help() {
+    echo "usage $arg0 [GLOBAL_SWITCHES] COMMAND [ARGS...]"
+    echo "   $arg0 is the ROSE Meta Configuration system whose purpose is to set up an environment for compiling and/or"
+    echo "   using ROSE. The basic idea is that one creates a ROSE build directory, places an RMC configuration file in"
+    echo "   that directory, and uses $arg0 to create a subshell (or run commands) in which certain environment variables"
+    echo "   are initialized."
+    echo
+    echo "   The GLOBAL_SWITCHES are:"
+    echo "       -C DIRECTORY"
+    echo "           Change to DIRECTORY before doing anything else. DIRECTORY can be any directory in the build tree"
+    echo "           since the $CONFIG_BASE_NAME configuration file is found by traversing upward until the root of the"
+    echo "           build tree. This is useful for commands like '$arg0 -C DIRECTORY make' which runs 'make' in DIRECTORY"
+    echo "           and also finds the configuration file, and is shorter than '$arg0 -C BUILD_ROOT make -C DIRECTORY'"
+    echo "           but does essentially the same thing."
+    echo "       --help | -h"
+    echo "           Shows this documentation, or if a subcommand is specified, the documentation for that subcommand."
+    echo "       --version | -V"
+    echo "           Prints the RMC version number to standard output and exits."
+    echo
+    echo "    The following subcommands are implemented. Documentation for a subcommand is shown by running"
+    echo "    '$arg0 --help COMMAND'."
+    echo "        init    -- creates a stub $CONFIG_BASE_NAME configuration file in the current working directory."
+    echo "        config  -- generates and runs ROSE's 'configure' command."
+    echo "        make    -- runs an enhanced version of 'make' (multiple targets, parallelism, etc)."
+    echo "        shell   -- starts a shell suitable for ROSE development."
+    echo "        resolve -- similar to 'shell' but emits shell commands to set environment variables instead."
+    echo "        clear   -- emits a shell 'unset' command to clear all RMC environment variables."
+    echo
+    echo "    If no COMMAND is specified then 'shell' is assumed.  The $arg0 command can be nested. The author's mode"
+    echo "    of operation is to create various build directories on a local filesystem that point to shared source"
+    echo "    directories mounted with NFS.  He initializes the build directories with '$rmc init ROSE_SRC_DIR' (only"
+    echo "    when first creating it) and enters a build environment by running '$rmc' anywhere in the build tree. To"
+    echo "    configure ROSE he runs '$arg0 config' and builds with '$arg0 make-binary', which builds the ROSE library"
+    echo "    and those tests and projects related to binary analysis. From within a non-build environment such as"
+    echo "    Emacs, he compiles with '$arg0 -C DIRECTORY make' where DIRECTORY is any directory in the build tree."
+}
+
+# rmc subcommand to be executed; the first non-switch argument
 COMMAND=
+
+# Name of RMC configuration file to be found/created at the top of the build directory. The config is what causes rmc to create
+# the same environment every time it runs in a particular build directory. The user is welcome to adjust the contents of this
+# directory, but then he should also exit and re-enter the rmc environment so that the changes are picked up. He'll also maybe
+# want to run ROSE's "build", "configure", and "make clean" steps after changing this file.
 CONFIG_BASE_NAME=".rmc-main.cfg"
-export RMC_RMC_VERSION="0.1.0"
+
+# All exported rmc environment variables begin with the letters "RMC_" followed by a module name. Module names are things like
+# "BOOST", "YAML", etc.  Environment variables for rmc itself begin with "RMC_RMC_", like RMC_RMC_VERSION, which is the version
+# number of rmc.
+export RMC_RMC_VERSION="0.2.0"
+
+# Directory where dependencies are installed (e.g., boost is installed under $RMC_RMC_DEPENDENCIES/boost/). Rmc will use any
+# value provided by the user, which must be an existing directory.
+: ${RMC_RMC_DEPENDENCIES:="$HOME/GS-CAD"}
+export RMC_RMC_DEPENDENCIES
 
 
 # Load additional functionality. These files live in the same directory as this script.
@@ -69,7 +107,29 @@ do_shell_help() {
 }
 
 do_shell() {
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --help|-h)
+		do_shell_help
+		exit 0
+		;;
+	    --)
+		shift
+		break
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: $1" >&2
+		exit 1
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+
     rmc_load_configuration
+
+    # This is used by Robb's bash prompt. It adds the base name of the build directory to the prompt.
     export PS1_STACK="${RMC_ROSEBLD_ROOT##*/} $PS1_STACK"
 
     if [ "$#" -eq 0 ]; then
@@ -92,17 +152,30 @@ do_shell() {
 
 do_resolve_help() {
     echo "usage: $arg0 $COMMAND [--require] WHAT"
-    echo "  This command prints environment variables without reading any config file. It"
-    echo "  can be used to query things like directory names when building ROSE software"
-    echo "  dependencies."
-    
+    echo "    This command prints environment variables without reading any config file. It can be used to query things"
+    echo "    like directory names when building ROSE software dependencies. To use it, set the RMC_* environment variables"
+    echo "    corresponding the 'rmc_*' lines that would normally be part of a configuration file. For instance, if you"
+    echo "    need to find the boost installation directory given a boost version number and a compiler, you could do"
+    echo "    something like this:"
+    echo '        (eval $(RMC_BOOST_VERSION=1.60 '"$arg0"' resolve boost) && echo $RMC_BOOST_ROOT)'
+    echo "    which might print"
+    echo "        /home/matzke/GS-CAD/boost/1.60/gcc-4.8.4-default"
+    echo "    since you didn't specify a compiler and 'g++' runs the C++ compiler from GCC-4.8.4 without any particular"
+    echo "    language option. If you wanted a particular compiler you would set additional environment variables. This"
+    echo "    command is most useful in shell scripts where running a subshell would be inconvenient."
+    echo
+    echo "    Another way to do almost the same thing is to have $arg0 invoke a bash command that prints the"
+    echo "    environment. The difference is that invoking a shell command, as with most $arg0 commands, requires a"
+    echo "    $CONFIG_BASE_NAME configuration file to be present. Here's how you could get a list of all the"
+    echo "    relevant environment variables for a configured subshell:"
+    echo "        $arg0 bash -c export |grep ' RMC_'"
 }
 
 do_resolve() {
     local require=
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            -h|--help)
+            --help|-h)
                 do_resolve_help
                 exit 0
                 ;;
@@ -110,6 +183,10 @@ do_resolve() {
                 require=yes
                 shift
                 ;;
+	    --)
+		shift
+		break
+		;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: $1" >&2
                 exit 1
@@ -132,6 +209,52 @@ do_resolve() {
     export |sed -n '/^declare -x RMC_[a-zA-Z_0-9]*=/ s/declare -x //p'
 }
 
+########################################################################################################################
+#			  ____ _
+#			 / ___| | ___  __ _ _ __
+#			| |   | |/ _ \/ _` | '__|
+#			| |___| |  __/ (_| | |
+#			 \____|_|\___|\__,_|_|
+#
+########################################################################################################################
+
+do_clear_help() {
+    echo "usage: $arg0 $COMMAND"
+    echo "    Emits shell code to erase all RMC environment variables. The output of this command should be"
+    echo "    passed to the Bash 'eval' function or cut and pasted into a shell prompt. This command is intended"
+    echo "    to be used in shell scripts to undo the effects of a previous '$arg0 resolve'; users will probably"
+    echo "    not use this command since they're more apt to start a subshell instead, and exiting from that subshell"
+    echo "    will automatically undo all the RMC environment variables."
+}
+
+do_clear() {
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --help|-h)
+		do_clear_help
+		exit 0
+		;;
+	    --)
+		shift
+		break
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
+		exit 1
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    if [ "$#" -ne 0 ]; then
+	echo "$arg0 $COMMAND: incorrect usage (see $arg0 $COMMAND --help)" >&2
+	exit 1
+    fi
+	
+    local varnames=$(export |sed -n 's/^declare -x \(RMC_[a-zA-Z_0-9]\+\).*/\1/gp' |tr '\n' ' ')
+    echo "unset $varnames";
+}
 
 ########################################################################################################################
 #                        ___       _ _
@@ -144,22 +267,20 @@ do_resolve() {
 
 do_init_help() {
     echo "usage: $arg0 $COMMAND [SWITCHES] SOURCE_DIR"
-    echo "    Initializes the current working directory so it can be used to compile ROSE."
-    echo "    If a configuration file already exists, ($CONFIG_BASE_NAME), then"
-    echo "    this command refuses to run unless the '--force' flag is also given. The"
-    echo "    $CONFIG_BASE_NAME file is created in the CWD by copying it from"
-    echo "    ~/.rmc-defaults.cfg or by creating it from scratch and then the user's editor"
-    echo "    is invoked."
+    echo "    Initializes the current working directory so it can be used to compile ROSE. If a configuration file,"
+    echo "    $CONFIG_BASE_NAME, already exists in the current working directory then this command refuses to run unless"
+    echo "    the '--force' flag is also given. The $CONFIG_BASE_NAME file is created in the CWD by copying it from"
+    echo "    ~/.rmc-defaults.cfg or by creating it from scratch and then invoking the user's editor on the file. When"
+    echo "    it's created from scratch the settings are only guesses -- they'll need to be edited to reflect the software"
+    echo "    that's actually installed."
     echo
     echo "  Switches:"
-    echo "    --force | -f"
-    echo "      Force creation of a new configuration even though this build directory"
-    echo "      seems to already be initialized."
-    echo
-    echo "    --instructions"
-    echo "    --no-instructions | -s"
-    echo "      When creating a new configuration file, either include comments about what"
-    echo "      each line does and how to use it, or create a mostly comment-free file."
+    echo "      --force | -f"
+    echo "          Force creation of a new configuration even though this build directory seems to already be initialized."
+    echo "      --instructions"
+    echo "      --no-instructions | -s"
+    echo "          When creating a new configuration file, either include comments about what each line does and how to"
+    echo "          use it, or create a mostly comment-free file."
 }
 
 do_init() {
@@ -184,6 +305,10 @@ do_init() {
                 show_instructions=
                 shift
                 ;;
+	    --)
+		shift
+		break
+		;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
                 exit 1
@@ -337,7 +462,7 @@ do_init() {
             echo "rmc_edg          4.9"
             echo "rmc_magic        system"
             echo "rmc_python       /usr/bin/python3"
-            echo "rmc_qt           no"
+            echo "rmc_qt           none"
             echo "rmc_readline     system"
             echo "rmc_sqlite       system"
             echo "rmc_wt           3.3.4"
@@ -359,6 +484,12 @@ do_init() {
 #
 ########################################################################################################################
 
+do_config_help() {
+    echo "usage: $arg0 [--dry-run] $COMMAND"
+    echo "    Runs (or shows) the ROSE configuration command. If the build system (RMC_BUILD_SYSTEM) is set to 'cmake'"
+    echo "    then a 'cmake' command is used; if the build system is 'autoconf' then a 'configure' command is used. The"
+    echo "    --dry-run switch prints the command rather than executing it."
+}
 
 # Subcommand to configure the build directory (autoconf, cmake, etc)
 #
@@ -372,10 +503,18 @@ do_config() {
     local cmd dry_run
     while [ "$#" -gt 0 ]; do
         case "$1" in
+	    --help|-h)
+		do_config_help
+		exit 0
+		;;
             --dry-run)
                 dry_run="--dry-run"
                 shift
                 ;;
+	    --)
+		shift
+		break
+		;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: '$1'" >&2
                 exit 1
@@ -412,21 +551,44 @@ do_config() {
 #
 ########################################################################################################################
 
-#   make[-WHAT] [SWITCHES] [TARGETS]
-#      Runs "make" for each of the TARGETS sequentially in directories
-#      specific to WHAT (or the CWD). For instance, saying "build-binary
-#      clean all" runs "make clean" in all directories associated with
-#      "binary", and then runs "make all" in those same directories.  The
-#      same make switches are passed to each invocation of make (e.g., "-k").
+do_make_help() {
+    echo "usage: $arg0 $COMMAND[-WHAT] [SWITCHES] [TARGETS...]"
+    echo "    Runs an extended version of 'make' (if you want the normal 'make' then either run it in an interactive"
+    echo "    subshell or use '$arg0 shell make ...').  The extended version differs from the normal 'make' command in"
+    echo "    a few ways:"
+    echo "        * The command can be 'make-binary', 'make-source', 'make-here', or 'make-lib' which run 'make' in"
+    echo "          various ROSE build subdirectories. For instance, 'make-binary' will build the library, binary analysis"
+    echo "          test directories, and certain binary analysis projects.  These are meant only a conveniences; the"
+    echo "          user could just as well specify the directories manually."
+    echo "        * The --dry-run switch is intercepted by $arg0 and prints the commands that would be executed. This"
+    echo "          is a good way to see what 'make-binary' etc. actually do."
+    echo "        * The '--jobs=N' switch is automatically added based on the parallelism specified in the config file"
+    echo "          or detected automatically. If a --jobs or -j switch is specified by the user then the user's choice"
+    echo "          takes precedence."
+    echo "        * The '--silent' switch is automatically added (unless the user says '--no-silent'), which causes"
+    echo "          GNU make to not be so verbose.  This is nice for interactive use, but if you want to see the"
+    echo "          commands flying by use '--no-silent' and 'V=1 VERBOSE=1'."
+    echo "        * Multiple targets can be specified and they're run sequentially. This is different than plain 'make'"
+    echo "          which builds the targets concurrently if --jobs is greater than one, and is useful for targets that"
+    echo "          don't produce artifacts. For instance, you can say '$arg0 make clean all' to first clean the"
+    echo "          build tree and then rebuild the artifacts (plain make might try to do these in parallel, which is"
+    echo "          nonsense)."
+    echo "    If multiple directories and multiple targets are both specified then a nested loop is used with the outer"
+    echo "    loop processing directories and the inner loop processing the targets.  Use '--dry-run' to see what happens."
+}
+
 do_make() {
     local where="$1"; shift
-    rmc_load_configuration
 
     # Parse "make" switches, keeping track of a couple special ones.
     local make_switches=()
     local have_C have_j dry_run have_silent=--silent
     while [ "$#" -gt 0 ]; do
         case "$1" in
+	    --help|-h)
+		do_make_help
+		exit 0
+		;;
             --dry-run)
                 # Steal this for ourselves. Users can still run "make"
                 # the normal way if they really want --dry-run to be
@@ -498,6 +660,7 @@ do_make() {
     fi
 
     # Choose the directories were we'll run "make"
+    rmc_load_configuration
     local dirs=()
     case "$where" in
         binary)
@@ -611,6 +774,85 @@ do_make() {
 }
 
 ########################################################################################################################
+#		  	 _     _     _   
+#		  	| |   (_)___| |_ 
+#		  	| |   | / __| __|
+#		  	| |___| \__ \ |_ 
+#		  	|_____|_|___/\__|
+#                 
+########################################################################################################################
+
+do_list_help() {
+    echo "usage: $arg0 $COMMAND [SWITCHES] DEPENDENCY"
+    echo "    Lists installed versions of some dependency, such as 'boost'.  The switches are:"
+    echo "        --help | -h"
+    echo "            Show this documentation."
+    echo "        --format=human|shell"
+    echo "            Show the results in a human readable format or as shell commands to set RMC variables. The human"
+    echo "            format is the same as the shell format except it shows only the values of the shell variables and"
+    echo "            separates them by tab characters for better alignment."
+    echo "        --terse"
+    echo "            Show only the primary version number. For instance, Wt is normally listed as a triplet containing"
+    echo "            the Wt version number, the boost version number, and the C++ compiler name, but this switch would"
+    echo "            cause only the Wt version number to be shown. Terse human format shows the version number space-"
+    echo "            separated on a single line."
+}
+
+do_list() {
+    local format=human terse=
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --help|-h)
+		do_list_help
+		exit 1
+		;;
+	    --format=human|--format=shell)
+		format="${1#--format=}"
+		shift
+		;;
+	    --terse)
+		terse=yes
+		shift
+		;;
+	    --)
+		shift
+		break
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: $1" >&2
+		exit 1
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+
+    local dependency="$1"; shift
+    if [ "$dependency" = "" ]; then
+	echo "$arg0 $COMMAND: incorrect usage; see '$arg0 $COMMAND --help' for details" >&2
+	exit 1
+    fi
+
+    if [ "$terse" != "" ]; then
+	case "$format" in
+	    shell)
+		rmc_list "$dependency" shell |cut -d' ' -f1 |sort |uniq
+		;;
+	    human)
+		local versions=$(rmc_list "$dependency" human |cut       -f1 |sort |uniq)
+		echo $versions
+		;;
+	esac
+    else
+	rmc_list "$dependency" "$format"
+    fi
+}
+
+	    
+	    
+
+########################################################################################################################
 #                        __  __       _
 #                       |  \/  | __ _(_)_ __
 #                       | |\/| |/ _` | | '_ \
@@ -619,7 +861,7 @@ do_make() {
 #
 ########################################################################################################################
 
-command=
+help=
 directory=
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -627,13 +869,21 @@ while [ "$#" -gt 0 ]; do
             directory="$2"
             shift; shift
             ;;
+	help|--help|-h)
+	    help=--help
+	    shift
+	    ;;
+	--version|-V)
+	    echo "$arg0-$RMC_RMC_VERSION"
+	    exit 0
+	    ;;
         -*)
             echo "$arg0: unknown global switch: '$1'" >&2
             exit 1
             ;;
         *)
-            COMMAND="$1"
-            shift
+	    COMMAND="$1"
+	    shift
             break
             ;;
     esac
@@ -645,27 +895,37 @@ fi
 
 case "$COMMAND" in
     init)
-        do_init "$@"
+        do_init $help "$@"
         ;;
+    clear)
+	do_clear $help "$@"
+	;;
     config)
-        do_config "$@"
+        do_config $help "$@"
         ;;
+    list)
+	do_list $help "$@"
+	;;
     make)
-        do_make "here" "$@"
+        do_make "here" $help "$@"
         ;;
     make-*)
-        do_make "${COMMAND#make-}" "$@"
+        do_make "${COMMAND#make-}" $help "$@"
         ;;
     shell)
-        do_shell "$@"
+        do_shell $help "$@"
         ;;
     resolve)
-        do_resolve "$@"
+        do_resolve $help "$@"
         ;;
     "")
-        do_shell
+	if [ "$help" != "" ]; then
+	    rmc_help
+	else
+            do_shell
+	fi
         ;;
     *)
-        do_shell "$COMMAND" "$@"
+        do_shell $help "$COMMAND" "$@"
         ;;
 esac

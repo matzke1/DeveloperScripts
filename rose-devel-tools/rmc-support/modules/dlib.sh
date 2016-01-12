@@ -6,7 +6,7 @@
 #    or: rmc_dlib no
 #
 export RMC_DLIB_BASEDIR
-export RMC_DLIB_VERSION="none"
+export RMC_DLIB_VERSION
 export RMC_DLIB_ROOT
 rmc_dlib() {
     rmc_parse_version_or directory dlib "$@"
@@ -48,4 +48,14 @@ rmc_dlib_resolve() {
 rmc_dlib_check() {
     rmc_dlib_resolve
     rmc_check_root_and_version dlib
+}
+
+# List installed versions
+rmc_dlib_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name revision.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_DLIB_VERSION='$version'"
+    done
 }

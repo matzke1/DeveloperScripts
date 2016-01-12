@@ -6,7 +6,7 @@
 #    or: rmc_python no
 #
 export RMC_PYTHON_BASEDIR
-export RMC_PYTHON_VERSION="none"
+export RMC_PYTHON_VERSION
 export RMC_PYTHON_ROOT
 export RMC_PYTHON_FILE
 

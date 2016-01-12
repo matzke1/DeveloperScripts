@@ -6,7 +6,7 @@
 #    or: rmc_magic no
 #
 export RMC_MAGIC_BASEDIR
-export RMC_MAGIC_VERSION="none"
+export RMC_MAGIC_VERSION
 export RMC_MAGIC_ROOT
 rmc_magic() {
     rmc_parse_version_or directory magic "$@"

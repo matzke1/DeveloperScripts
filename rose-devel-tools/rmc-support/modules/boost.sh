@@ -52,3 +52,14 @@ rmc_boost_check() {
     rmc_boost_resolve
     rmc_check_root_and_version boost
 }
+
+# List existing versions of boost
+rmc_boost_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name lib -type d |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	local compiler=$(echo "$dir" |cut -d/ -f3)
+	echo "RMC_BOOST_VERSION='$version' RMC_CXX_NAME='$compiler'"
+    done
+}

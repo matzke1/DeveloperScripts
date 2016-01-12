@@ -130,7 +130,7 @@ rmc_resolve_root_and_version() {
     local pkg="$1"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    local base="$HOME/GS-CAD/$pkglc"
+    local base="$RMC_RMC_DEPENDENCIES/$pkglc"
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     local file=$(eval echo '$RMC_'$pkguc'_FILE')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
@@ -338,6 +338,31 @@ rmc_execute() {
 }
 
 ########################################################################################################################
+# List installed versions of some dependency.
+rmc_list() {
+    local pkg="$1" format="$2"
+    local pkglc=$(echo "$pkg" |tr A-Z a-z)
+    local base="$RMC_RMC_DEPENDENCIES/$pkglc"
+    [ -d "$base" ] || return 0
+    case "$format" in
+	shell)
+	    # RMC environment variable settings like "RMC_BOOST_VERSION='1.50' RMC_CXX_NAME='gcc-4.4.5-default'
+	    eval 'rmc_'$pkg'_list' "$base"
+	    ;;
+	human)
+	    # Same as "shell" format but show only the variable values (not names, equal signs, or quotes) and use TAB
+	    # to separate values from one another.
+	    eval 'rmc_'$pkg'_list' "$base" |\
+		sed "s/RMC_[A-Za-z_0-9]\+='\([^']*\)'/\1/g" |\
+		tr ' ' '\t'
+	    ;;
+	*)
+	    echo "rmc_list: invalid format: $format" >&2
+	    exit 1
+    esac
+}
+
+########################################################################################################################
 # The following functions are to resolve interdependencies in the user's configuration settings and to adjust variables
 # to their final values.  This is also where we check that the certain desired packages are actually available. The check
 # is performed when it is easy to do, otherwise we leave most of the checking up to the configure/cmake steps (that's
@@ -375,10 +400,9 @@ resolve() {
 }
 
 resolve_so_paths() {
-    # These are necessary if you want to run an executable directly without going through
-    # the GNU libtool shell scripts. It's sometimes necessary if you want to use GDB
-    # on a program that hasn't been installed yet (on the other hand, nemiver seems to
-    # be able to debug through the libtool script).
+    # These are necessary if you want to run an executable directly without going through the GNU libtool shell scripts. It's
+    # sometimes necessary if you want to use GDB on a program that hasn't been installed yet (on the other hand, older versions
+    # of nemiver seem to be able to debug through the libtool script).
     for f in src/.libs \
              libltdl/.libs \
              src/3rdPartyLibraries/libharu-2.1.0/src/.libs \

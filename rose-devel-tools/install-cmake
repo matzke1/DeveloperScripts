@@ -2,10 +2,9 @@
 # Install versions of CMake
 arg0="${0##*/}"
 
-CMAKE_VERSIONS="2.8.12-rc4 3.1.0"
-
-export RMC_CXX_NAME="g++"
-TEMPDIR="$HOME/junk"
+: ${CMAKE_VERSIONS:="2.8.12-rc4 3.1.0"}
+: ${TEMPDIR:="$HOME/junk"}
+: ${COMPILERS:="g++"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -29,10 +28,14 @@ is_installed() {
     return 0
 }
 
-eval $(rmc resolve parallelism)
 for cmake_version in $CMAKE_VERSIONS; do
-    eval $(RMC_CMAKE_VERSION="$cmake_version" rmc resolve cmake)
     (figlet -c "$cmake_version" || banner "$cmake_version") 2>/dev/null
+
+    eval $(rmc clean)
+    eval $(rmc resolve parallelism)
+    eval $(RMC_CMAKE_VERSION="$cmake_version" rmc resolve cmake)
+    [ "$RMC_CMAKE_ROOT" = "" ] && continue
+
     logfile="cmake-$cmake_version.log"
     date >"$logfile"
     echo "cmake-$cmake_version for $RMC_CMAKE_ROOT"

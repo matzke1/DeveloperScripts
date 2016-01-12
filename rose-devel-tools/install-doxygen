@@ -2,11 +2,8 @@
 # Install versions of doxygen
 arg0="${0##*/}"
 
-DOXYGEN_VERSIONS="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"
-
-export RMC_CXX_NAME="g++"
-export RMC_CMAKE_VERSION="system"
-TEMPDIR="$HOME/junk"
+: ${DOXYGEN_VERSIONS:="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"}
+: ${TEMPDIR:="$HOME/junk"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -28,10 +25,13 @@ is_installed() {
     return 0
 }
 
-eval $(rmc resolve parallelism)
 for doxygen_version in $DOXYGEN_VERSIONS; do
-    eval $(RMC_DOXYGEN_VERSION="$doxygen_version" rmc resolve doxygen)
     (figlet -c "$doxygen_version" || banner "$doxygen_version") 2>/dev/null
+
+    eval $(rmc clear)
+    eval $(rmc resolve parallelism)
+    eval $(RMC_DOXYGEN_VERSION="$doxygen_version" rmc resolve doxygen)
+
     logfile="doxygen-$doxygen_version.log"
     date >"$logfile"
     echo "doxygen-$doxygen_version for $RMC_DOXYGEN_VERSION"
@@ -62,7 +62,7 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
 		mkdir "$builddir/_build" || exit 1
 		cd "$builddir/_build" || exit 1
 
-		eval $(rmc resolve --require cmake)
+		eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION=system rmc resolve --require cmake)
 		"$RMC_CMAKE_FILE" .. -DCMAKE_INSTALL_PREFIX="$RMC_DOXYGEN_ROOT" -Dbuild_search=YES
 
 		make -j$RMC_PARALLELISM || exit 1

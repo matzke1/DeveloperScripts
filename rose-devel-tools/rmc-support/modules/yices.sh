@@ -6,7 +6,7 @@
 #    or: rmc_yices no
 #
 export RMC_YICES_BASEDIR
-export RMC_YICES_VERSION="none"
+export RMC_YICES_VERSION
 export RMC_YICES_ROOT
 rmc_yices() {
     rmc_parse_version_or directory yices "$@"
@@ -45,4 +45,14 @@ rmc_yices_resolve() {
 rmc_yices_check() {
     rmc_yices_resolve
     rmc_check_root_and_version yices
+}
+
+# List installed versions
+rmc_yices_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name yices_c.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_YICES_VERSION='$version'"
+    done
 }

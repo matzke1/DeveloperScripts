@@ -1,7 +1,0 @@
-#!/bin/bash
-
-dir0="${0%/*}"
-
-for what in boost dlib doxygen readline wt yaml yices; do
-    "$dir0/list-$what"
-done

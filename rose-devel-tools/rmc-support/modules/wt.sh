@@ -5,7 +5,7 @@
 #    or: rmc_web_toolkit no
 #
 export RMC_WT_BASEDIR
-export RMC_WT_VERSION="none"
+export RMC_WT_VERSION
 export RMC_WT_ROOT
 rmc_wt() {
     rmc_parse_version_or directory Wt "$@"
@@ -48,4 +48,16 @@ rmc_wt_resolve() {
 rmc_wt_check() {
     rmc_wt_resolve
     rmc_check_root_and_version Wt
+}
+
+# List installed versions
+rmc_wt_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 6 -name WConfig.h |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	local boost=$(echo "$dir" |cut -d/ -f3 |cut -d- -f2-)
+	local compiler=$(echo "$dir" |cut -d/ -f4)
+	echo "RMC_WT_VERSION='$version' RMC_BOOST_VERSION='$boost' RMC_CXX_NAME='$compiler'"
+    done
 }

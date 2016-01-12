@@ -6,7 +6,7 @@
 #    or: rmc_yaml no
 #
 export RMC_YAML_BASEDIR
-export RMC_YAML_VERSION="none"
+export RMC_YAML_VERSION
 export RMC_YAML_ROOT
 rmc_yaml() {
     rmc_parse_version_or directory yaml "$@"
@@ -47,4 +47,16 @@ rmc_yaml_resolve() {
 rmc_yaml_check() {
     rmc_yaml_resolve
     rmc_check_root_and_version yaml
+}
+
+# List installed versions
+rmc_yaml_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 6 -name yaml.h |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	local boost=$(echo "$dir" |cut -d/ -f3 |cut -d- -f2-)
+	local compiler=$(echo "$dir" |cut -d/ -f4)
+	echo "RMC_YAML_VERSION='$version' RMC_BOOST_VERSION='$boost' RMC_CXX_NAME='$compiler'"
+    done
 }

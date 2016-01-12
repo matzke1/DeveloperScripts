@@ -6,7 +6,7 @@
 #    or: rmc_readline no
 #
 export RMC_READLINE_BASEDIR
-export RMC_READLINE_VERSION="none"
+export RMC_READLINE_VERSION
 export RMC_READLINE_ROOT
 rmc_readline() {
     rmc_parse_version_or directory readline "$@"
@@ -49,4 +49,14 @@ rmc_readline_resolve() {
 rmc_readline_check() {
     rmc_readline_resolve
     rmc_check_root_and_version readline
+}
+
+# List installed versions
+rmc_readline_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name readline.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_READLINE_VERSION='$version'"
+    done
 }

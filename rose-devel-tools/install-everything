@@ -1,0 +1,317 @@
+#!/bin/bash
+arg0="${0##*/}"
+
+# Installs ROSE on a newly provisioned machine.
+#  Assumes that the current user is the one that will be developing ROSE
+#  Assumes that the current user has sudo privileges for installing additional software
+
+
+########################################################################################################################
+# Prints an operating system name. Values are:
+#    debian-X where X is the major version number (e.g., 8 for Jessie)
+operating_system() {
+    if [ -r /etc/debian_version ]; then
+	local version=$(cat /etc/debian_version)
+	local major=${version%%.*}
+	echo "debian-$major"
+    else
+	echo "operating_system: unknown operating system" >&2
+	exit 1
+    fi
+}
+
+########################################################################################################################
+# Make sure the operating system is up to date
+update_operating_system() {
+    echo "$arg0: updating the operating system to latest software"
+    case "$OS" in
+	debian-*)
+	    sudo apt-get update
+	    sudo apt-get --assume-yes upgrade
+	    ;;
+	*)
+	    echo "$arg0 update_operating_system not implemented for $OS" >&2
+	    exit 1
+	    ;;
+    esac
+}
+
+########################################################################################################################
+# Install dependencies publically in the operating system.
+install_system_dependencies() {
+    echo "$arg0: installing system dependencies"
+    case "$OS" in
+	debian-8)
+	    sudo apt-get --assume-yes install \
+		git wget \
+		g++-4.8 gfortran-4.8 \
+		libtool automake cmake flex bison \
+		default-jdk \
+		python3-dev \
+		doxygen graphviz-dev \
+		libqt4-dev qt4-dev-tools \
+		libgraphicsmagick-dev libreadline-dev libmagic-dev \
+		libsqlite3-dev libpqxx3-dev postgresql \
+		libssl-dev libgcrypt11-dev libxml2-dev \
+		libfcgi-dev realpath figlet perl-doc freeglut3-dev libpango1.0-dev
+
+	    # Make gcc-4.8.4 the default compiler (otherwise ROSE's config complains about not finding gfortran)
+	    # Update 2016-01-12: ROSE is about to support gcc-4.9 in which case this will no longer be necesssary
+	    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 100
+	    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100
+	    sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-4.8 100
+	    ;;
+
+	*)
+	    echo "$arg0 install_system_dependencies not implemented for $OS" >&2
+	    exit 1
+    esac
+}
+
+########################################################################################################################
+install_jre() {
+    if javac -version 2>&1 |grep 1.7.0 >/dev/null; then
+	return 0
+    fi
+    echo "$arg0: installing Sun Java 7 runtime"
+
+    case "$OS" in
+	debian-8)
+	    mkdir -p $HOME/Downloads
+	    while [ ! -f "$HOME/Downloads/jdk-7u51-linux-x64.tar.gz" ]; do
+		echo
+		echo "ROSE requires Sun Java 7 JRE."
+		read -p "Download as ~/Downloads/jdk-7u51-linux-x64.tar.gz. [Enter to continue] "
+	    done
+	    sudo mkdir -p /usr/lib/jvm
+	    (
+		cd /usr/lib/jvm
+		sudo tar xf ~/Downloads/jdk-7u51-linux-x64.tar.gz
+		sudo ln -s jdk1.7.0_51 java-7-sun
+		cd java-7-sun/bin
+		for f in $(find . -maxdepth 1 -type f -perm -500 -printf '%f\n'); do
+		    if [ "$f" != "apt" ]; then
+			sudo update-alternatives --install /usr/bin/$f $f /usr/lib/jvm/java-7-sun/bin/$f 1072
+		    fi
+		done
+	    )
+	    ;;
+	*)
+	    echo "$arg0 install_jre not implemented for $OS" >&2
+	    exit 1
+	    ;;
+    esac
+    if ! javac -version 2>&1 |grep 1.7.0 >/dev/null; then
+	echo "JRE installation failed" >&2
+	exit 1
+    fi
+}
+
+########################################################################################################################
+# Robb uses some scripts for installing the hard stuff (boost, yaml, wt, etc) since these must be compiled on this
+# machine. This function installs or updates those scripts.
+install_or_update_developer_scripts() {
+    echo "$arg0: installing (or updating) Robb's developer scripts"
+    local DEVELOPER_SCRIPTS_URL=https://github.com/matzke1/DeveloperScripts
+    local DEVELOPER_SCRIPTS_DIR="$HOME/DeveloperScripts"
+    if [ -d "$DEVELOPER_SCRIPTS_DIR" ]; then
+	# Update the scripts, but ignore any failures.
+	git -C "$DEVELOPER_SCRIPTS_DIR" fetch "$DEVELOPER_SCRIPTS_URL" master && \
+	    git -C "$DEVELOPER_SCRIPTS_DIR" merge FETCH_HEAD
+    else
+	# Get the scripts and make links to install them
+	git clone https://github.com/matzke1/DeveloperScripts "$DEVELOPER_SCRIPTS_DIR"
+	mkdir -p $HOME/bin
+	(
+	    cd $HOME/bin
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/args-adjust .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/command-name .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/mv-lower .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/mv-renumber .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/path-adjust .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/prune .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/randargs .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/raw2jpg .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/rg-clone .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/rg-findfile .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/scripts/rg-search .
+
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/rmc .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-boost .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-wt .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-yaml .
+	)
+
+	# There are also scripts to make better use of bash, such as "mkcd", bash promts, etc. These are optional.
+	(
+	    cd $HOME
+	    for f in bash_env bash_logout bash_profile bashrc environment; do
+		[ -f ".$f" ] && mv ".$f" ".${f}.bak"
+		ln -sf "$DEVELOPER_SCRIPTS_DIR/bash/$f" ".$f"
+	    done
+	)
+    fi
+}
+
+########################################################################################################################
+: ${RMC_RMC_DEPENDENCIES:=$HOME/GS-CAD}
+export RMC_RMC_DEPENDENCIES
+
+make_dependencies_root() {
+    while [ ! -d "$RMC_RMC_DEPENDENCIES" ]; do
+	echo
+	echo "ROSE-specific software dependencies (those not installed publically in the OS) are"
+	echo "installed in a special directory. This location can be NFS mounted and shared between"
+	echo "different platforms."
+
+	read -p "Dependency root: " -e -i "$RMC_RMC_DEPENDENCIES" RMC_RMC_DEPENDENCIES
+	mkdir -p "$RMC_RMC_DEPENDENCIES"
+    done
+}
+
+########################################################################################################################
+# Choose which compilers to use
+choose_compilers() {
+    export COMPILERS
+    : ${COMPILERS:="gcc-4.4 gcc-4.8 gcc-4.8-c++11 gcc-4.9 gcc-4.9-c++11"}
+
+    while true; do
+	echo
+	echo "Which compilers whould you like to use to install ROSE dependencies? Use a"
+	echo "space-separated list of triples VENDOR-VERSION-LANGUAGE where VENDOR is the"
+	echo "name of the compiler vendor (like 'gcc'), VERSION is a version number (you"
+	echo "may omit the patch number and use just major.minor), and LANGUAGE (which is"
+	echo "optional) is 'default', 'c++11', 'c++14', etc.  It's fine if some of these"
+	echo "compilers don't exist on this system."
+
+	read -p "Compilers: " -e -i "$COMPILERS" COMPILERS
+	[ "$COMPILERS" != "" ] && break
+    done
+}
+
+########################################################################################################################
+# Install versions of boost under $RMC_RMC_DEPENDENCIES
+install_boost() {
+    export BOOST_VERSIONS
+    : ${BOOST_VERSIONS:=all}
+
+    echo
+    echo "What versions of boost would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "Boost is a required dependency, so you must choose at least one version."
+    echo "Use space separated major.minor versions, like \"1.50 1.56 1.60\"; use"
+    echo "\"all\" to install all supported versions."
+    while true; do
+	read -p "Boost versions: " -e -i "$BOOST_VERSIONS" BOOST_VERSIONS
+	[ "$BOOST_VERSIONS" != "" ] && break
+    done
+
+    [ "$BOOST_VERSIONS" = 'all' ] && BOOST_VERSIONS=
+    mkdir -p $HOME/junk $HOME/Downloads
+    (
+	cd $HOME/junk
+	~/bin/install-boost
+    )
+
+    local installed=$(rmc list --terse boost)
+    if [ "$installed" = "" ]; then
+	echo "$arg0: no versions of boost were installed" >&2
+	exit 1
+    fi
+}
+
+
+########################################################################################################################
+# Install versions of yaml-cpp under $RMC_RMC_DEPENDENCIES
+install_yaml() {
+    export YAML_VERSIONS
+    : ${YAML_VERSIONS:=all}
+
+    echo
+    echo "What versions of yaml-cpp would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "Yaml-cpp is an optional dependency. Use space separated version numbers or the word"
+    echo "\"all\" to install all supported versions. An empty string installs nothing."
+    read -p "Yaml-cpp versions: " -e -i "$YAML_VERSIONS" YAML_VERSIONS
+
+    [ "$YAML_VERSIONS" = "" ] && return 0
+    [ "$YAML_VERSIONS" = 'all' ] && YAML_VERSIONS=
+    mkdir -p $HOME/junk $HOME/Downloads
+    (
+	cd $HOME/junk
+	~/bin/install-yaml
+    )
+}
+
+########################################################################################################################
+# Install wt
+install_wt() {
+    export WT_VERSIONS
+    : ${WT_VERSIONS:=all}
+
+    echo
+    echo "What versions of Wt (web toolkit) would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "Wt is an optional dependency. Use space separated version numbers or the word"
+    echo "\"all\" to install all supported versions. An empty string installs nothing."
+    read -p "Wt versions: " -e -i "$WT_VERSIONS" WT_VERSIONS
+
+    [ "$WT_VERSIONS" = "" ] && return 0
+    [ "$WT_VERSIONS" = 'all' ] && YAML_VERSIONS=
+    mkdir -p $HOME/junk $HOME/Downloads
+    (
+	cd $HOME/junk
+	~/bin/install-wt
+    )
+}
+
+########################################################################################################################
+# List installed versions
+list_installed() {
+    echo "Boost versions installed:"
+    rmc list boost |sed 's/^/        /'
+
+    echo "Yaml-cpp versions installed:"
+    rmc list yaml |sed 's/^/        /'
+
+    echo "Wt versions installed:"
+    rmc list wt |sed 's/^/        /'
+}
+
+########################################################################################################################
+# Obtain the development version of ROSE
+obtain_devel_rose() {
+    ROSE_URL=https://github.com/rose-compiler/rose-develop
+    ROSE_SRC_DIR="$RMC_RMC_DEPENDENCIES/ROSE/sources"
+    if [ ! -d "$ROSE_SRC_DIR/devel" ]; then
+	echo "$arg0: downloading ROSE source code"
+	mkdir -p "$ROSE_SRC_DIR"
+	git -C "$ROSE_SRC_DIR" clone https://github.com/rose-compiler/rose-develop devel
+    fi
+    echo "$arg0: ROSE has been downloaded to $ROSE_SRC_DIR"
+}
+
+########################################################################################################################
+
+OS=$(operating_system)
+[ "$OS" = "" ] && exit 1
+
+if [ "$(whoami)" = "root" ]; then
+    echo "Compiling ROSE as root is not advisable." >&2
+    exit 1
+fi
+
+# This stuff requires root permission (the functions may ask for a root password)
+update_operating_system
+install_system_dependencies
+install_jre
+
+# Install ROSE dependencies
+install_or_update_developer_scripts
+eval $($HOME/bin/path-adjust --append $HOME/bin)
+make_dependencies_root
+choose_compilers
+install_boost
+install_yaml
+install_wt
+list_installed
+
+# Obtain the ROSE source code
+obtain_devel_rose

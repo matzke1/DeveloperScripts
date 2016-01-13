@@ -155,7 +155,6 @@ for version in $BOOST_VERSIONS; do
 
 	# Given a couple RMC_* variables, figure out the rest
 	eval $(rmc clear)
-	export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
 	eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$version" rmc resolve boost)
 	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
 	[ "$RMC_BOOST_ROOT" = "" ] && continue

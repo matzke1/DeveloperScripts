@@ -14,7 +14,8 @@ get_source() {
     if [ ! -f "$HOME/Downloads/yaml-cpp-$version.tar.gz" ]; then
 	rm -rf "$HOME/Downloads/yaml-cpp-$version"
 	git clone -b "release-$version" https://github.com/jbeder/yaml-cpp "$HOME/Downloads/yaml-cpp-$version"
-	git -C "$HOME/Downloads/yaml-cpp-$version" archive --format=tar --prefix="yaml-cpp-$version/" HEAD |\
+	# "git -C DIRECTORY" is not always available
+	(cd "$HOME/Downloads/yaml-cpp-$version" && git archive --format=tar --prefix="yaml-cpp-$version/" HEAD) |\
 	    gzip > "$HOME/Downloads/yaml-cpp-$version.tar.gz"
 	rm -rf "$HOME/Downloads/yaml-cpp-$version"
     fi

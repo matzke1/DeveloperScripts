@@ -441,8 +441,9 @@ do_init() {
 
             if [ "$show_instructions" != "" ]; then
                 echo "# These directives all take the same kinds of arguments:"
-                echo "#   'no'          -- ROSE should not use this software"
+                echo "#   'none'        -- ROSE should not look for or use this dependency"
                 echo "#   'system'      -- Use the publicly installed version; a.k.a. 'yes'"
+		echo "#   'ambivalent'  -- Do not specify anthing in the ROSE configure command"
                 echo "#   directory     -- Look in the directory for includes and libs"
                 echo "#   file          -- Use the specified file (not for libraries)"
                 echo "#   vesion        -- Look for a particular version"
@@ -458,7 +459,7 @@ do_init() {
             echo "rmc_boost        1.50"
             echo "rmc_cmake        system"
             echo "rmc_dlib         18.17"
-            echo "rmc_doxygen      system"
+            echo "rmc_doxygen      ambivalent"
             echo "rmc_edg          4.9"
             echo "rmc_magic        system"
             echo "rmc_python       /usr/bin/python3"

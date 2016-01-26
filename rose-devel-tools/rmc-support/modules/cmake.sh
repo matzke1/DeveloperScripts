@@ -63,7 +63,7 @@ rmc_cmake_define() {
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
 
-    if [ "$vers" = "system" -o "$vers" = "no" -o "$vers" = "none" ]; then
+    if [ "$vers" = "system" -o "$vers" = "no" -o "$vers" = "none" -o "$vers" = "ambivalent" ]; then
 	: nothing
     elif [ "$root" != "" ]; then
         echo "-D${switch_name}_ROOT=$(rmc_find_root "$pkguc" "$pkg" "$subname")"

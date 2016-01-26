@@ -20,6 +20,8 @@ rmc_autoconf_with() {
         echo "--with-$switch_name"
     elif [ "$vers" = "no" -o "$vers" = "none" ]; then
         echo "--without-$switch_name"
+    elif [ "$vers" = "ambivalent" ]; then
+	: nothing
     elif [ "$value" != "" ]; then
 	echo "--with-$switch_name='$value'";
     elif [ "$root" != "" ]; then

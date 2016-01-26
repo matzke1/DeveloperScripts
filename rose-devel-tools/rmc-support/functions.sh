@@ -53,6 +53,7 @@ rmc_parse_version_or() {
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
     elif [ "$arg1" = "system" -o "$arg1" = "yes" ]; then
+	# User is requesting that we use a version installed in his system.
 	if [ "$arg2" != "" ]; then
 	    echo "rmc_$pkg: cannot specify both '$arg' and a location" >&2
 	    exit 1
@@ -60,6 +61,16 @@ rmc_parse_version_or() {
         eval 'RMC_'$pkguc'_VERSION=system'
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
+    elif [ "$arg1" = "ambivalent" ]; then
+	# User doesn't care; use a system version if available, otherwise don't use any (this is indicated by not specifying
+	# any configuration option for this package when it comes time to configure ROSE).
+	if [ "$arg2" != "" ]; then
+	    echo "$rmc_$pkg: cannot specify both '$arg' and a location" >&2
+	    exit 1
+	fi
+	eval 'RMC_'$pkguc'_VERSION=ambivalent'
+	eval 'RMC_'$pkguc'_BASEDIR='
+	eval 'RMC_'$pkguc'_ROOT='
     elif rmc_is_version_string "$arg1"; then
         eval 'RMC_'$pkguc'_VERSION="$arg1"'
         eval 'RMC_'$pkguc'_BASEDIR="$arg2"'
@@ -126,7 +137,7 @@ rmc_resolve_root_and_version() {
 	root=
 	base=
 	file=
-    elif [ "$vers" = "system" ]; then
+    elif [ "$vers" = "system" -o "$vers" = "ambivalent" ]; then
 	root=
 	base=
 	file=
@@ -208,8 +219,10 @@ rmc_check_root_and_version() {
     # Check for existence, but only if the user wants it (i.e., version was not "none", but is "system" or something specific)
     if [ "$vers" != "" ]; then
 	if [ "$root" = "" -a "$file" = "" ]; then
-	    echo "$arg0: $pkg is required" >&2
-	    exit 1
+	    if [ "$vers" != "ambivalent" ]; then
+		echo "$arg0: $pkg is required" >&2
+		exit 1
+	    fi
 	elif [ ! -e "$root" -a ! -e "$file" ]; then
 	    echo "$arg0: $pkg installation is missing: $root" >&2
 	    exit 1

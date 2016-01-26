@@ -93,7 +93,6 @@ for yaml_version in $YAML_VERSIONS; do
                 mkdir "$builddir/_build"
                 cd "$builddir/_build"
 
-                eval $(rmc resolve --require cmake)
                 "$RMC_CMAKE_FILE" .. \
                                   -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
                                   -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \

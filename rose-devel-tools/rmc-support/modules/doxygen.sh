@@ -6,7 +6,7 @@
 #    or: rmc_doxygen no
 #
 export RMC_DOXYGEN_BASEDIR
-export RMC_DOXYGEN_VERSION=ambivalent
+export RMC_DOXYGEN_VERSION
 export RMC_DOXYGEN_ROOT
 export RMC_DOXYGEN_FILE
 
@@ -24,7 +24,7 @@ rmc_doxygen_version() {
 # Obtain an installation directory name from a version. Directory need not exist.
 rmc_doxygen_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers"
+    echo "$base/$vers/$RMC_OS_NAME"
 }
 
 # Find canonical installed file for package
@@ -41,6 +41,7 @@ rmc_doxygen_find_in_system() {
 
 # Resolve package variables
 rmc_doxygen_resolve() {
+    rmc_os_check
     rmc_resolve_root_and_version doxygen
 }
 

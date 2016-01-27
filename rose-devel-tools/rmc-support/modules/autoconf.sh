@@ -96,8 +96,8 @@ rmc_autoconf_run() {
 	    --disable-gcc-version-check \
             --enable-assertion-behavior=$RMC_ASSERTIONS \
             --enable-edg_union_struct_debugging \
+            --enable-edg_version="$RMC_EDG_VERSION" \
             --enable-languages="$RMC_LANGUAGES" \
-            --enable-rosehpc \
             --prefix="$RMC_INSTALL_ROOT" \
             --with-CFLAGS=-fPIC \
             --with-CXXFLAGS=-fPIC \
@@ -111,8 +111,6 @@ rmc_autoconf_run() {
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \
             $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
-            --with-edg_source_code=true \
-            --with-edg_version="$RMC_EDG_VERSION" \
             --with-java=/usr/lib/jvm/java-7-sun \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \

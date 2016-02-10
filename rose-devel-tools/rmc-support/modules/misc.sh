@@ -1,3 +1,20 @@
+# Tool chain location
+#
+# usage: rmc_toolchain DIRECTORY
+#
+# Indicates which directory contains the ROSE dependencies known by RMC.
+#
+: ${RMC_RMC_TOOLCHAIN:="$HOME/GS-CAD"}
+export RMC_RMC_TOOLCHAIN
+rmc_toolchain() {
+    local dir="$1"
+    if [ ! -d "$dir/." ]; then
+	echo "$arg0: tool chain directory does not exist: $dir" >&2
+	exit 1
+    fi
+    RMC_RMC_TOOLCHAIN="$1"
+}
+
 # Installation prefix.
 #
 # usage: rmc_install yes|no|DIRECTORY

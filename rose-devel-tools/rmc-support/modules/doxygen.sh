@@ -55,8 +55,9 @@ rmc_doxygen_check() {
 rmc_doxygen_list() {
     local base="$1"
     local dir
-    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name doxygen -type f -perm -100 |sort); do
+    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name doxygen -type f -perm -100 |sort); do
 	local version=$(echo "$dir" |cut -d/ -f2)
-	echo "RMC_DOXYGEN_VERSION='$version'"
+	local os=$(echo "$dir" |cut -d/ -f3)
+	echo "RMC_DOXYGEN_VERSION='$version' RMC_OS_NAME='$os'"
     done
 }

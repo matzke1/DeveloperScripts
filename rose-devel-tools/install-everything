@@ -154,18 +154,18 @@ install_or_update_developer_scripts() {
 }
 
 ########################################################################################################################
-: ${RMC_RMC_DEPENDENCIES:=$HOME/GS-CAD}
-export RMC_RMC_DEPENDENCIES
+: ${RMC_RMC_TOOLCHAIN:=$HOME/GS-CAD}
+export RMC_RMC_TOOLCHAIN
 
 make_dependencies_root() {
-    while [ ! -d "$RMC_RMC_DEPENDENCIES" ]; do
+    while [ ! -d "$RMC_RMC_TOOLCHAIN" ]; do
 	echo
 	echo "ROSE-specific software dependencies (those not installed publically in the OS) are"
 	echo "installed in a special directory. This location can be NFS mounted and shared between"
 	echo "different platforms."
 
-	read -p "Dependency root: " -e -i "$RMC_RMC_DEPENDENCIES" RMC_RMC_DEPENDENCIES
-	mkdir -p "$RMC_RMC_DEPENDENCIES"
+	read -p "Dependency root: " -e -i "$RMC_RMC_TOOLCHAIN" RMC_RMC_TOOLCHAIN
+	mkdir -p "$RMC_RMC_TOOLCHAIN"
     done
 }
 
@@ -190,13 +190,13 @@ choose_compilers() {
 }
 
 ########################################################################################################################
-# Install versions of boost under $RMC_RMC_DEPENDENCIES
+# Install versions of boost under $RMC_RMC_TOOLCHAIN
 install_boost() {
     export BOOST_VERSIONS
     : ${BOOST_VERSIONS:=all}
 
     echo
-    echo "What versions of boost would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "What versions of boost would you like to install in $RMC_RMC_TOOLCHAIN?"
     echo "Boost is a required dependency, so you must choose at least one version."
     echo "Use space separated major.minor versions, like \"1.50 1.56 1.60\"; use"
     echo "\"all\" to install all supported versions."
@@ -221,13 +221,13 @@ install_boost() {
 
 
 ########################################################################################################################
-# Install versions of yaml-cpp under $RMC_RMC_DEPENDENCIES
+# Install versions of yaml-cpp under $RMC_RMC_TOOLCHAIN
 install_yaml() {
     export YAML_VERSIONS
     : ${YAML_VERSIONS:=all}
 
     echo
-    echo "What versions of yaml-cpp would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "What versions of yaml-cpp would you like to install in $RMC_RMC_TOOLCHAIN?"
     echo "Yaml-cpp is an optional dependency. Use space separated version numbers or the word"
     echo "\"all\" to install all supported versions. An empty string installs nothing."
     read -p "Yaml-cpp versions: " -e -i "$YAML_VERSIONS" YAML_VERSIONS
@@ -248,7 +248,7 @@ install_wt() {
     : ${WT_VERSIONS:=all}
 
     echo
-    echo "What versions of Wt (web toolkit) would you like to install in $RMC_RMC_DEPENDENCIES?"
+    echo "What versions of Wt (web toolkit) would you like to install in $RMC_RMC_TOOLCHAIN?"
     echo "Wt is an optional dependency. Use space separated version numbers or the word"
     echo "\"all\" to install all supported versions. An empty string installs nothing."
     read -p "Wt versions: " -e -i "$WT_VERSIONS" WT_VERSIONS
@@ -279,7 +279,7 @@ list_installed() {
 # Obtain the development version of ROSE
 obtain_devel_rose() {
     ROSE_URL=https://github.com/rose-compiler/rose-develop
-    ROSE_SRC_DIR="$RMC_RMC_DEPENDENCIES/ROSE/sources"
+    ROSE_SRC_DIR="$RMC_RMC_TOOLCHAIN/ROSE/sources"
     if [ ! -d "$ROSE_SRC_DIR/devel" ]; then
 	echo "$arg0: downloading ROSE source code"
 	mkdir -p "$ROSE_SRC_DIR"

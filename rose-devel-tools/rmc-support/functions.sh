@@ -141,7 +141,7 @@ rmc_resolve_root_and_version() {
     local pkg="$1"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    local base="$RMC_RMC_DEPENDENCIES/$pkglc"
+    local base="$RMC_RMC_TOOLCHAIN/$pkglc"
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     local file=$(eval echo '$RMC_'$pkguc'_FILE')
     local vers=$(eval echo '$RMC_'$pkguc'_VERSION')
@@ -355,7 +355,7 @@ rmc_execute() {
 rmc_list() {
     local pkg="$1" format="$2"
     local pkglc=$(echo "$pkg" |tr A-Z a-z)
-    local base="$RMC_RMC_DEPENDENCIES/$pkglc"
+    local base="$RMC_RMC_TOOLCHAIN/$pkglc"
     [ -d "$base" ] || return 0
     case "$format" in
 	shell)

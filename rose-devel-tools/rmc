@@ -52,12 +52,6 @@ CONFIG_BASE_NAME=".rmc-main.cfg"
 # number of rmc.
 export RMC_RMC_VERSION="0.2.0"
 
-# Directory where dependencies are installed (e.g., boost is installed under $RMC_RMC_DEPENDENCIES/boost/). Rmc will use any
-# value provided by the user, which must be an existing directory.
-: ${RMC_RMC_DEPENDENCIES:="$HOME/GS-CAD"}
-export RMC_RMC_DEPENDENCIES
-
-
 # Load additional functionality. These files live in the same directory as this script.
 arg0_realname=$(realpath $0)
 source ${arg0_realname%/*}/rmc-support/functions.sh || exit 1
@@ -344,14 +338,24 @@ do_init() {
         cp "$HOME/.rmc-defaults.cfg" "$CONFIG_BASE_NAME" || exit 1
     else
         (
-            echo "# ROSE meta config (auto generated) -*- shell-script -*-"
-            echo "#-------------------------------------------------------"
+            echo "# ROSE meta config                  -*- shell-script -*-"
+            echo
+	    echo "# Source code is found here:"
             echo "rmc_rosesrc $srcdir"
             echo
             echo "#----------------------------------"
             echo "#         General stuff"
             echo "#----------------------------------"
             echo
+
+	    if [ "$show_instructions" != "" ]; then
+		echo
+		echo "# Location of software dependencies. ROSE can use system-installed"
+		echo "# dependencies, or locally installed dependencies. Locally installed"
+		echo "# dependencies should follow a specific naming scheme known to RMC"
+		echo "# so that the user can specify a dependency by just a version number."
+	    fi
+	    echo "rmc_toolchain    $HOME/GS-CAD"
 
             if [ "$show_instructions" != "" ]; then
                 echo "# Build system is either 'cmake' or 'autoconf'"

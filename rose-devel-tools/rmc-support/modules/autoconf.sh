@@ -95,7 +95,6 @@ rmc_autoconf_run() {
             --disable-boost-version-check \
 	    --disable-gcc-version-check \
             --enable-assertion-behavior=$RMC_ASSERTIONS \
-            --enable-edg_union_struct_debugging \
             --enable-edg_version="$RMC_EDG_VERSION" \
             --enable-languages="$RMC_LANGUAGES" \
             --prefix="$RMC_INSTALL_ROOT" \

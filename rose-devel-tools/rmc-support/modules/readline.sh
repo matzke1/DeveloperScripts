@@ -36,7 +36,7 @@ rmc_readline_file() {
 
 # Find installation root in filesystem
 rmc_readline_find_in_system() {
-    : not implemented
+    [ -r /usr/include/readline/readline.h ] && echo /usr/include/readline/readline.h
 }
 
 # Resolve package variables

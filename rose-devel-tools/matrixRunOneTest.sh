@@ -8,7 +8,7 @@
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
 
 # The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
-: ${WORKSPACE="$HOME/junk"}
+: ${WORKSPACE="$HOME/junk/matrix-testing"}
 
 # Whether to save tarballs of the build directories after each test (set to "yes" or empty). The tarballs are placed in
 # the $WORKSPACE directory.
@@ -200,6 +200,7 @@ run_test() {
 	    tail -n 500 "$LOG_FILE" >"$abbr_output"
 	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Final output" $testid "$abbr_output"
 	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
+	    rmc -C $ROSE_TOOLS ./matrixErrors update
 	fi
     fi
 

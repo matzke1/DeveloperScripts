@@ -17,8 +17,11 @@
 # The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
 : ${ROSE_SRC:=$HOME/GS-CAD/ROSE/matrix/source-repo}
 
-# The ROSE project build directory that contains the matrix testing tools, configured with RMC
+# The ROSE project build directory that contains the matrix testing tools, configured with RMC. It should have a
+# corresponding source directory where things like shell scripts would exist. The ROSE_TOOLS_SRC is the empty string
+# then it will be obtained by running an rmc command in the build directory.
 : ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
+: ROSE_TOOLS_SRC
 
 # Maximum parallelism switch for "make" commands. If this is empty then "rmc make" uses the maximum parallelism for
 # the machine where it's running.  None empty values should include the "-j" part of the switch, as in "-j20"
@@ -105,7 +108,14 @@ COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
 TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
 
-
+# Get the source directory corresponding to the tools build directory.
+if [ "$ROSE_TOOLS_SRC" = "" ]; then
+    ROSE_TOOLS_SRC=$(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC')
+    if [ "$ROSE_TOOLS_SRC" = "" ]; then
+	echo "$arg0: cannot find ROSE_TOOLS_SRC for tools build directory $ROSE_TOOLS" >&2
+	exit 1
+    fi
+fi
 
 
 ########################################################################################################################
@@ -125,7 +135,7 @@ filter_output() {
 ########################################################################################################################
 # Send results back to the database. Arguments are passed to the matrixTestResult command.
 report_results() {
-    local kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))
+    local kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
     if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
 	rose_version="$rose_version+local"

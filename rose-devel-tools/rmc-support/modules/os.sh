@@ -1,6 +1,8 @@
 # Sets the operating system name.  This is normally detected automatically.
 
 export RMC_OS_NAME
+export RMC_OS_NAME_FILE
+
 rmc_os() {
     RMC_OS_NAME="$1"
 }
@@ -21,6 +23,9 @@ rmc_os_resolve() {
     # All others, fall back to the Linux kernel version
     [ "$RMC_OS_NAME" = "" ] && \
 	RMC_OS_NAME="Unknown $(uname -s)"
+
+    # Create a version that can be easily used as part of file names.
+    RMC_OS_NAME_FILE=$(echo -n "$RMC_OS_NAME" |tr -c '[+_.=a-zA-Z0-9-]' '_')
 }
 
 rmc_os_check() {

@@ -6,27 +6,21 @@ rmc_os() {
 }
 
 rmc_os_resolve() {
-    # Ubuntu-like systems
-    if [ "$RMC_OS_NAME" = ""  -a -f /etc/os-release ]; then
-	RMC_OS_NAME=$(
-	    source /etc/os-release
-	    if [ "$PRETTY_NAME" != "" ]; then
-		echo "$PRETTY_NAME"
-	    elif [ "$NAME" != "" -a "$VERSION_ID" != "" ]; then
-		echo "$NAME $VERSION_ID"
-	    fi
-	)
-    fi
+    # Debian/Ubuntu-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/os-release ] && \
+	RMC_OS_NAME=$(source /etc/os-release; echo $NAME $VERSION_ID)
 
-    # Debian-like systems (other than Ubuntu-like, above)
-    if [ "$RMC_OS_NAME" = "" -a -f /etc/debian_version ]; then
-	RMC_OS_NAME="debian-$(cat /etc/debian_version)"
-    fi
+    # Other debian-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/debian_version ] && \
+	RMC_OS_NAME="Debian $(cat /etc/debian_version)"
 
-    # Other systems: use the kernel version just so we have something even though it isn't the OS version
-    if [ "$RMC_OS_NAME" = "" ]; then
-	    local kernel=$(uname -s)
-    fi
+    # Redhat-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/redhat-release ] && \
+	RMC_OS_NAME=$(cat /etc/redhat-release)
+
+    # All others, fall back to the Linux kernel version
+    [ "$RMC_OS_NAME" = "" ] && \
+	RMC_OS_NAME="Unknown $(uname -s)"
 }
 
 rmc_os_check() {

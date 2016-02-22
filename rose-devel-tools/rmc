@@ -391,7 +391,7 @@ do_init() {
         echo "$arg0 $COMMAND: directory does not appear to be top of ROSE source code: $srcdir" >&2
         exit 1
     fi
-    srcdir=$(rmc_rel2abs "$srcdir")
+    srcdir=$(rmc_realpath "$srcdir")
 
     # Create and edit the config file
     if [ -e "$CONFIG_BASE_NAME" -a "$force" = "" ]; then

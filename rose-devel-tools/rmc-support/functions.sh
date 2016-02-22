@@ -357,6 +357,7 @@ resolve() {
     rmc_install_resolve
     rmc_parallelism_check
     rmc_build_check
+    rmc_code_coverage_check
     rmc_compiler_check
     rmc_debug_resolve
     rmc_warnings_resolve

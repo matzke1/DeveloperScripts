@@ -113,36 +113,37 @@ CONFIG_BASE_NAME=".rmc-main.cfg"
 # All exported rmc environment variables begin with the letters "RMC_" followed by a module name. Module names are things like
 # "BOOST", "YAML", etc.  Environment variables for rmc itself begin with "RMC_RMC_", like RMC_RMC_VERSION, which is the version
 # number of rmc.
-export RMC_RMC_VERSION="0.2.0"
+export RMC_RMC_VERSION="0.2.1"
 
 # Load additional functionality. These files live in the same directory as this script.
 arg0_realname=$(rmc_realpath $0)
 source ${arg0_realname%/*}/rmc-support/functions.sh || exit 1
 
 # RMC modules
-source ${arg0_realname%/*}/rmc-support/modules/autoconf.sh    || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/boost.sh       || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/build.sh       || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/compiler.sh    || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/cmake.sh       || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/dlib.sh        || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh     || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/edg.sh         || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/jvm.sh         || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/magic.sh       || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/misc.sh        || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/os.sh          || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/python.sh      || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/qt.sh          || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/readline.sh    || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rose.sh        || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rosebld.sh     || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rosesrc.sh     || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/sqlite.sh      || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/wt.sh          || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/yaml.sh        || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/yices.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/autoconf.sh    	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/boost.sh       	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/build.sh       	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/compiler.sh    	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/code_coverage.sh || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/cmake.sh       	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/dlib.sh        	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh     	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/edg.sh         	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/jvm.sh         	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/magic.sh       	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/misc.sh        	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/os.sh          	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh 	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/python.sh      	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/qt.sh          	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/readline.sh    	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rose.sh        	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosebld.sh     	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosesrc.sh     	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/sqlite.sh      	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/wt.sh          	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yaml.sh        	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yices.sh       	|| exit 1
 
 
 ########################################################################################################################
@@ -489,6 +490,15 @@ do_init() {
                 echo "# about questionable source code."
             fi
             echo "rmc_warnings     yes"
+
+	    if [ "$show_instructions" != "" ]; then
+		echo
+		echo "# Whether to generate code-coverage results. When code coverage is"
+		echo "# enabled, the compiler is adjusted so it instruments programs, and"
+		echo "# running said programs will produce output which can be analyzed by"
+		echo "# tools like gcov and lcov.  The value should be 'yes' or 'no'."
+	    fi
+	    echo "rmc_code_coverage no"
 
             if [ "$show_instructions" != "" ]; then
                 echo

@@ -44,6 +44,8 @@ rmc_help() {
 # link to some other directory, and it's this other directory that contains all the supporting files.
 rmc_realpath() {
     local path="$1"
+    local debug=
+    [ "$debug" = "" ] || echo "ROBB: rmc_relpath '$path'" >&2
     [ "${path#/}" = "$path" ] && path="$(pwd)/$path" # make it absolute
 
     # Split the name into components
@@ -56,16 +58,16 @@ rmc_realpath() {
     # Process components one at a time to build the output
     local output=()
     while [ "${#input[@]}" -gt 0 ]; do
-        ##echo "ROBB: input = ${input[*]}" >&2
+        [ "$debug" = "" ] || echo "      input = ${input[*]}" >&2
         local in_part="${input[0]}"
         input=("${input[@]:1:${#input[@]}}") # shift first item off array
-        ##echo "        in_part='$in_part'" >&2
+        [ "$debug" = "" ] || echo "        in_part='$in_part'" >&2
 
         # Append to the output name
         if [ "$in_part" = "." -o "$in_part" = "" ]; then
             continue
         elif [ "$in_part" = ".." ]; then
-            [ ${#output[*]} -gt 0 ] && unset output[-1]
+            [ ${#output[*]} -gt 0 ] && unset output[${#output[@]}-1]
             continue
         else
             output=("${output[@]}" "$in_part")
@@ -73,28 +75,30 @@ rmc_realpath() {
 
         # Output path
         local output_path="/$(IFS=/; echo "${output[*]}")"
-        ##echo "        output_path=$output_path" >&2
+        [ "$debug" = "" ] || echo "        output_path=$output_path" >&2
 
         # Handle symbolic links
         if [ -h "$output_path" ]; then
             local target_path=$(readlink "$output_path")
-            ##echo "        is a symbolic link to $target_path" >&2
+            [ "$debug" = "" ] || echo "        is a symbolic link to $target_path" >&2
             old_IFS="$IFS"
             IFS="/"
             set - $target_path
             IFS="$old_IFS"
             local target=("$@")
-            ##echo "        target parts = ${target[*]}" >&2
+            [ "$debug" = "" ] || echo "        target parts = ${target[*]}" >&2
 
             input=("${target[@]}" "${input[@]}")
             if [ "${target_path#/}" = "$target_path" ]; then
-                unset output[-1] # link target is relative
+                unset output[${#output[@]}-1] # link target is relative
             else
                 output=() # link target is absolute
             fi
         fi
     done
-    (IFS=/; echo "/${output[*]}")
+    local result=$(IFS=/; echo "/${output[*]}")
+    [ "$debug" = "" ] || echo "      result='$result'" >&2
+    echo "$result"
 }
 
 # rmc subcommand to be executed; the first non-switch argument

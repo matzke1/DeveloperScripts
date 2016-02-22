@@ -180,11 +180,15 @@ run_test() {
     if setup_workspace; then
 	# Try to run each testing step
 	(
-	    set -e
 	    cd "$TEST_DIRECTORY"
 	    for step in "${BUILD_STEPS[@]}"; do
 		output_section_heading "$step"
+		local begin=$SECONDS
 		eval "(run_${step}_commands)"
+		local status=$?
+		local end=$SECONDS
+		extended_hms $[end-begin] >>"$COMMAND_DRIBBLE"
+		[ $status -ne 0 ] && break
 	    done
 	) 2>&1 |tee -a "$LOG_FILE" | filter_output >&2
 

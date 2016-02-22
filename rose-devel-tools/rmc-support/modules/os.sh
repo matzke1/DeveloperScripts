@@ -6,13 +6,21 @@ rmc_os() {
 }
 
 rmc_os_resolve() {
-    if [ "$RMC_OS_NAME" = "" ]; then
-	if [ -f /etc/debian_version ]; then
-	    RMC_OS_NAME="debian-$(cat /etc/debian_version)"
-        else
-	    local kernel=$(uname -s)
-	fi
-    fi
+    # Debian/Ubuntu-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/os-release ] && \
+	RMC_OS_NAME=$(source /etc/os-release; echo $NAME $VERSION_ID)
+
+    # Other debian-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/debian_version ] && \
+	RMC_OS_NAME="Debian $(cat /etc/debian_version)"
+
+    # Redhat-like systems
+    [ "$RMC_OS_NAME" = "" -a -r /etc/redhat-release ] && \
+	RMC_OS_NAME=$(cat /etc/redhat-release)
+
+    # All others, fall back to the Linux kernel version
+    [ "$RMC_OS_NAME" = "" ] && \
+	RMC_OS_NAME="Unknown $(uname -s)"
 }
 
 rmc_os_check() {

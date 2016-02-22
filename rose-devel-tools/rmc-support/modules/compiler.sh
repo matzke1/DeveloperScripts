@@ -33,6 +33,9 @@ rmc_compiler() {
 # Resolve compiler variables
 rmc_compiler_resolve() {
     rmc_code_coverage_resolve
+    rmc_debug_resolve
+    rmc_optim_resolve
+    rmc_warnings_resolve
 
     # If it looks like the user said something like "rmc_compiler gcc-4.8.4[-c++11]", then split the
     # name apart into vendor, version, and language instead.
@@ -127,11 +130,16 @@ rmc_compiler_resolve() {
 	RMC_CXX_VERSION="$cxx_version"
     fi
 
-    # Do we need to add any switches to the command?
+    # Extra compiler switches for various things.
+    local del_switches=() add_switches=()
+
+    # Switches affecting the language
+    export RMC_CXX_SWITCHES_LANGUAGE
     if [ "$RMC_CXX_LANGUAGE" != "default" ]; then
 	case "$RMC_CXX_VENDOR" in
 	    gcc|llvm)
-		RMC_CXX_SWITCHES=$(args-adjust "-std=$RMC_CXX_LANGUAGE" $RMC_CXX_SWITCHES)
+		RMC_CXX_SWITCHES_LANGUAGE="-std=$RMC_CXX_LANGUAGE"
+		add_switches=("${add_switches[@]}" "-std=$RMC_CXX_LANGUAGE")
 		;;
 	    *)
 		echo "$arg0: not sure how to specify \"$RMC_CXX_LANGUAGE\" to $RMC_CXX_VENDOR compiler" >&2
@@ -140,26 +148,113 @@ rmc_compiler_resolve() {
 	esac
     fi
 
-    case "$RMC_CODE_COVERAGE" in
-	no)
-	    : no extra switches needed
-	    ;;
-	yes)
-	    case "$RMC_CXX_VENDOR" in
-		gcc|llvm)
-		    RMC_CXX_SWITCHES=$(args-adjust "-fprofile-arcs -ftest-coverage" $RMC_CXX_SWITCHES)
-		    ;;
-		*)
-		    echo "$arg0: not sure how to specify code coverage for $RMC_CXX_VENDOR compiler" >&2
-		    exit 1
-		    ;;
-	    esac
+    # Switches affecting debugging
+    export RMC_CXX_SWITCHES_DEBUG
+    if [ "$RMC_DEBUG" != "no" -a "$RMC_DEBUG" != "yes" ]; then
+	echo "$arg0: not sure what RMC_DEBUG=$RMC_DEBUG means" >&2
+	exit 1
+    fi
+    case "$RMC_CXX_VENDOR" in
+	gcc|llvm)
+	    if [ "$RMC_DEBUG" = "no" ]; then
+		del_switches=("${del_switches[@]}" "-g")
+	    else
+		RMC_CXX_SWITCHES_DEBUG="-g"
+		add_switches=("${add_switches[@]}" "-g")
+	    fi
 	    ;;
 	*)
-	    echo "$arg0: not sure what switches are needed for RMC_CODE_COVERAGE=$RMC_CODE_COVERAGE" >&2
+	    echo "$arg0: not sure how to specify debugging for $RMC_CXX_VENDOR compiler" >&2
 	    exit 1
 	    ;;
     esac
+
+    # Switches affecting optimization
+    export RMC_CXX_SWITCHES_OPTIM
+    if [ "$RMC_OPTIM" != "no" -a "$RMC_OPTIM" != "yes" ]; then
+	echo "$arg0: not sure what RMC_OPTIM=$RMC_OPTIM means" >&2
+	exit 1
+    fi
+    case "$RMC_CXX_VENDOR" in
+	gcc|llvm)
+	    if [ "$RMC_OPTIM" = "no" ]; then
+		RMC_CXX_SWITCHES_OPTIM="-O0"
+		del_switches=("${del_switches[@]}" "-O" "-O1" "-O2" "-O3" "-Os" "-Og" "-Ofast" "-fomit-frame-pointer")
+		add_switches=("${add_switches[@]}" "-O0")
+	    else
+		RMC_CXX_SWITCHES_OPTIM="-O3 -fomit-frame-pointer"
+		del_switches=("${del_switches[@]}" "-O" "-O0" "-O1" "-O2" "-Os" "-Og" "-Ofast")
+		add_switches=("${add_switches[@]}" "-O3" "-fomit-frame-pointer")
+	    fi
+	    ;;
+	*)
+	    echo "$arg0: not sure how to specify optimization level for $RMC_CXX_VENDOR compiler" >&2
+	    exit 1
+	    ;;
+    esac
+
+    # Switches affecting reporting of warnings
+    export RMC_CXX_SWITCHES_WARN
+    if [ "$RMC_WARNINGS" != "no" -a "$RMC_WARNINGS" != "yes" ]; then
+	echo "$arg0: not sure what RMC_WARNINGS=$RMC_WARNINGS means" >&2
+	exit 1
+    fi
+    case "$RMC_CXX_VENDOR" in
+	gcc)
+	    if [ "$RMC_WARNINGS" = "no" ]; then
+		del_switches=("${del_switches[@]}" "-Wall" "-Wno-unused-local-typedefs" "-Wno-attributes")
+	    else
+		RMC_CXX_SWITCHES_WARN="-Wall"
+		add_switches=("${add_switches[@]}" "-Wall")
+		if rmc_versions_ordered "$RMC_CXX_VERSION" ge "4.8.0"; then
+		    RMC_CXX_SWITCHES_WARN="$RMC_CXX_SWITCHES_WARN -Wno-unused-local-typedefs -Wno-attributes"
+		    add_switches=("${add_switches[@]}" "-Wno-unused-local-typedefs" "-Wno-attributes")
+		fi
+	    fi
+	    ;;
+	llvm)
+	    if [ "$RMC_WARNINGS" = "no" ]; then
+		del_switches=("${del_switches[@]}" "-Wall")
+	    else
+		add_switches=("${add_switches[@]}" "-Wall")
+	    fi
+	    ;;
+	*)
+	    echo "$arg0: not sure how to specify warnings for $RMC_CXX_VENDOR compiler" >&2
+	    exit 1
+	    ;;
+    esac
+
+    # Switches affecting code coverage analysis
+    export RMC_CXX_SWITCHES_COVERAGE
+    if [ "$RMC_CODE_COVERAGE" != "no" -a "$RMC_CODE_COVERAGE" != "yes" ]; then
+	echo "$arg0: not sure what RMC_CODE_COVERAGE=$RMC_CODE_COVERAGE means" >&2
+	exit 1
+    fi
+    case "$RMC_CXX_VENDOR" in
+	gcc|llvm)
+	    if [ "$RMC_CODE_COVERAGE" = "no" ]; then
+		del_switches=("${del_switches[@]}" "-fprofile-arcs" "-ftest-coverage")
+	    else
+		RMC_CXX_SWITCHES_COVERAGE="-fprofile-arcs -ftest-coverage"
+		add_switches=("${add_switches[@]}" "-fprofile-arcs" "-ftest-coverage")
+	    fi
+	    ;;
+	*)
+	    echo "$arg0: not sure how to specify code coverage for $RMC_CXX_VENDOR compiler" >&2
+	    exit 1
+	    ;;
+    esac
+
+    # Update the list of all switches based on what needs to be deleted and added. When adding switches, do so in the
+    # reverse order as listed since order might be important and "args-adjust" prepends.
+    local switch i
+    for switch in "${del_switches[@]}"; do
+	RMC_CXX_SWITCHES=$(args-adjust del "$switch" $RMC_CXX_SWITCHES)
+    done
+    for i in $(seq $[${#add_switches[@]}-1] -1 0); do
+	RMC_CXX_SWITCHES=$(args-adjust "${add_switches[$i]}" $RMC_CXX_SWITCHES)
+    done
 }
 
 # Check existence

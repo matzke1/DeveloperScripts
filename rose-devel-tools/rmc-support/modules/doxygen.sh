@@ -24,7 +24,7 @@ rmc_doxygen_version() {
 # Obtain an installation directory name from a version. Directory need not exist.
 rmc_doxygen_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers/$RMC_OS_NAME"
+    echo "$base/$vers/$RMC_OS_NAME_FILE"
 }
 
 # Find canonical installed file for package

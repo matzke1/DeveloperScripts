@@ -39,7 +39,7 @@ for cmake_version in $CMAKE_VERSIONS; do
     logfile="cmake-$cmake_version.log"
     date >"$logfile"
     echo "cmake-$cmake_version for $RMC_CMAKE_ROOT"
-    echo "log file is " $(realpath "$logfile")
+    echo "log file is " $(rmc realpath "$logfile")
     if is_installed "$RMC_CMAKE_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"

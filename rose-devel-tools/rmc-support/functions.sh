@@ -1,39 +1,6 @@
 export LD_LIBRARY_PATH
 
 ########################################################################################################################
-# Convert relative path to absolute path, and remove extra "." and ".." components.
-rmc_realpath_command=
-rmc_realpath() {
-    if [ "$rmc_realpath_command" = "" ]; then
-	if [ "$(which realpath)" = "" ]; then
-	    echo "$arg0: \"realpath\" is not installed; please install it" >&2
-	    exit 1
-	fi
-	# Old versions of realpath (~2009) don't support "-m", produce an error message, but exit with success.
-	if realpath -m abc 2>&1 |grep 'invalid option' >/dev/null; then
-	    rmc_realpath_command=builtin
-	else
-	    rmc_realpath_command=realpath
-	fi
-    fi
-
-    if [ "$rmc_realpath_command" = "builtin" ]; then
-	if [ "$1" = "-m" ]; then
-	    [ "$2" = "" ] && return 0
-	    if [ "${2#/}" = "$2" ]; then
-		echo "$(pwd)/$2"
-	    else
-		echo "$2"
-	    fi
-        else
-            realpath "$@"
-	fi
-    else
-	realpath "$@"
-    fi
-}
-
-########################################################################################################################
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
     perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
@@ -318,10 +285,10 @@ rmc_add_library_path() {
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
     [ "$root" = "system" -o "$root" = "" ] && return 0
-    local full=$(rmc_realpath -m "$root/$path")
+    local full=$(rmc_realpath "$root/$path")
 
     for f in /lib /usr/lib /usr/local/lib; do
-        if [ "$full" = "$(rmc_realpath -m "$f")" ]; then
+        if [ "$full" = "$(rmc_realpath "$f")" ]; then
             return 0
         fi
     done

@@ -65,7 +65,7 @@ for wt_version in $WT_VERSIONS; do
             logfile="wt-$wt_version.log"
             date >"$logfile"
             echo "wt-$wt_version for $RMC_WT_ROOT"
-            echo "log file is " $(realpath "$logfile")
+            echo "log file is " $(rmc realpath "$logfile")
             if is_installed "$RMC_WT_ROOT" 2>/dev/null; then
                 echo "already installed; skipping"
                 echo "already installed; skipping" >>"$logfile"

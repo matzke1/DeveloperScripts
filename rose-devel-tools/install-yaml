@@ -61,7 +61,7 @@ for yaml_version in $YAML_VERSIONS; do
             logfile="yaml-cpp-$yaml_version.log"
             date >"$logfile"
             echo "yaml-cpp-$yaml_version for $RMC_YAML_ROOT"
-            echo "log file is " $(realpath "$logfile")
+            echo "log file is " $(rmc realpath "$logfile")
             if is_installed "$RMC_YAML_ROOT" 2>/dev/null; then
                 echo "already installed; skipping"
                 echo "already installed; skipping" >>"$logfile"

@@ -36,7 +36,7 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
     date >"$logfile"
     echo "doxygen-$doxygen_version for $RMC_DOXYGEN_VERSION"
     echo "doxygen root directory is $RMC_DOXYGEN_ROOT"
-    echo "log file is " $(realpath "$logfile")
+    echo "log file is " $(rmc realpath "$logfile")
     if is_installed "$RMC_DOXYGEN_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"

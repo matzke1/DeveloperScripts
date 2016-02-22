@@ -163,7 +163,7 @@ for version in $BOOST_VERSIONS; do
 	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"
 	date >"$logfile"
 	echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
-	echo "log file is " $(realpath "$logfile")
+	echo "log file is " $(rmc realpath "$logfile")
 	if is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
 	    echo "already installed; skipping"
 	    echo "already installed; skipping" >>"$logfile"

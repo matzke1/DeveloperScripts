@@ -22,12 +22,13 @@ rmc_help() {
     echo
     echo "    The following subcommands are implemented. Documentation for a subcommand is shown by running"
     echo "    '$arg0 --help COMMAND'."
-    echo "        init    -- creates a stub $CONFIG_BASE_NAME configuration file in the current working directory."
-    echo "        config  -- generates and runs ROSE's 'configure' command."
-    echo "        make    -- runs an enhanced version of 'make' (multiple targets, parallelism, etc)."
-    echo "        shell   -- starts a shell suitable for ROSE development."
-    echo "        resolve -- similar to 'shell' but emits shell commands to set environment variables instead."
-    echo "        clear   -- emits a shell 'unset' command to clear all RMC environment variables."
+    echo "        init     -- creates a stub $CONFIG_BASE_NAME configuration file in the current working directory."
+    echo "        config   -- generates and runs ROSE's 'configure' command."
+    echo "        make     -- runs an enhanced version of 'make' (multiple targets, parallelism, etc)."
+    echo "        shell    -- starts a shell suitable for ROSE development."
+    echo "        resolve  -- similar to 'shell' but emits shell commands to set environment variables instead."
+    echo "        realpath -- expand symbolic links, '.', and '..' in file names."
+    echo "        clear    -- emits a shell 'unset' command to clear all RMC environment variables."
     echo
     echo "    If no COMMAND is specified then 'shell' is assumed.  The $arg0 command can be nested. The author's mode"
     echo "    of operation is to create various build directories on a local filesystem that point to shared source"
@@ -36,6 +37,64 @@ rmc_help() {
     echo "    configure ROSE he runs '$arg0 config' and builds with '$arg0 make-binary', which builds the ROSE library"
     echo "    and those tests and projects related to binary analysis. From within a non-build environment such as"
     echo "    Emacs, he compiles with '$arg0 -C DIRECTORY make' where DIRECTORY is any directory in the build tree."
+}
+
+# Convert a relative file name to an absolute file name while resolving symbolic links. This is defined here because we need
+# it in order to find the rmc-function.sh file. For example, rmc might be installed in ~/bin (value of "$0") as a symbolic
+# link to some other directory, and it's this other directory that contains all the supporting files.
+rmc_realpath() {
+    local path="$1"
+    [ "${path#/}" = "$path" ] && path="$(pwd)/$path" # make it absolute
+
+    # Split the name into components
+    local old_IFS="$IFS"
+    IFS="/"
+    set - $path
+    IFS="$old_IFS"
+    local input=("$@");
+
+    # Process components one at a time to build the output
+    local output=()
+    while [ "${#input[@]}" -gt 0 ]; do
+        ##echo "ROBB: input = ${input[*]}" >&2
+        local in_part="${input[0]}"
+        input=("${input[@]:1:${#input[@]}}") # shift first item off array
+        ##echo "        in_part='$in_part'" >&2
+
+        # Append to the output name
+        if [ "$in_part" = "." -o "$in_part" = "" ]; then
+            continue
+        elif [ "$in_part" = ".." ]; then
+            [ ${#output[*]} -gt 0 ] && unset output[-1]
+            continue
+        else
+            output=("${output[@]}" "$in_part")
+        fi
+
+        # Output path
+        local output_path="/$(IFS=/; echo "${output[*]}")"
+        ##echo "        output_path=$output_path" >&2
+
+        # Handle symbolic links
+        if [ -h "$output_path" ]; then
+            local target_path=$(readlink "$output_path")
+            ##echo "        is a symbolic link to $target_path" >&2
+            old_IFS="$IFS"
+            IFS="/"
+            set - $target_path
+            IFS="$old_IFS"
+            local target=("$@")
+            ##echo "        target parts = ${target[*]}" >&2
+
+            input=("${target[@]}" "${input[@]}")
+            if [ "${target_path#/}" = "$target_path" ]; then
+                unset output[-1] # link target is relative
+            else
+                output=() # link target is absolute
+            fi
+        fi
+    done
+    (IFS=/; echo "/${output[*]}")
 }
 
 # rmc subcommand to be executed; the first non-switch argument
@@ -53,7 +112,7 @@ CONFIG_BASE_NAME=".rmc-main.cfg"
 export RMC_RMC_VERSION="0.2.0"
 
 # Load additional functionality. These files live in the same directory as this script.
-arg0_realname=$(realpath $0)
+arg0_realname=$(rmc_realpath $0)
 source ${arg0_realname%/*}/rmc-support/functions.sh || exit 1
 
 # RMC modules
@@ -102,23 +161,23 @@ do_shell_help() {
 
 do_shell() {
     while [ "$#" -gt 0 ]; do
-	case "$1" in
-	    --help|-h)
-		do_shell_help
-		exit 0
-		;;
-	    --)
-		shift
-		break
-		;;
-	    -*)
-		echo "$arg0 $COMMAND: unknown switch: $1" >&2
-		exit 1
-		;;
-	    *)
-		break
-		;;
-	esac
+        case "$1" in
+            --help|-h)
+                do_shell_help
+                exit 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                echo "$arg0 $COMMAND: unknown switch: $1" >&2
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
     done
 
     rmc_load_configuration
@@ -177,10 +236,10 @@ do_resolve() {
                 require=yes
                 shift
                 ;;
-	    --)
-		shift
-		break
-		;;
+            --)
+                shift
+                break
+                ;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: $1" >&2
                 exit 1
@@ -204,11 +263,11 @@ do_resolve() {
 }
 
 ########################################################################################################################
-#			  ____ _
-#			 / ___| | ___  __ _ _ __
-#			| |   | |/ _ \/ _` | '__|
-#			| |___| |  __/ (_| | |
-#			 \____|_|\___|\__,_|_|
+#                         ____ _
+#                        / ___| | ___  __ _ _ __
+#                       | |   | |/ _ \/ _` | '__|
+#                       | |___| |  __/ (_| | |
+#                        \____|_|\___|\__,_|_|
 #
 ########################################################################################################################
 
@@ -223,29 +282,29 @@ do_clear_help() {
 
 do_clear() {
     while [ "$#" -gt 0 ]; do
-	case "$1" in
-	    --help|-h)
-		do_clear_help
-		exit 0
-		;;
-	    --)
-		shift
-		break
-		;;
-	    -*)
-		echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
-		exit 1
-		;;
-	    *)
-		break
-		;;
-	esac
+        case "$1" in
+            --help|-h)
+                do_clear_help
+                exit 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
     done
     if [ "$#" -ne 0 ]; then
-	echo "$arg0 $COMMAND: incorrect usage (see $arg0 $COMMAND --help)" >&2
-	exit 1
+        echo "$arg0 $COMMAND: incorrect usage (see $arg0 $COMMAND --help)" >&2
+        exit 1
     fi
-	
+        
     local varnames=$(export |sed -n 's/^declare -x \(RMC_[a-zA-Z_0-9]\+\).*/\1/gp' |tr '\n' ' ')
     echo "unset $varnames";
 }
@@ -299,10 +358,10 @@ do_init() {
                 show_instructions=
                 shift
                 ;;
-	    --)
-		shift
-		break
-		;;
+            --)
+                shift
+                break
+                ;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: '$1' (see $arg0 $COMMAND --help)" >&2
                 exit 1
@@ -327,7 +386,7 @@ do_init() {
         echo "$arg0 $COMMAND: directory does not appear to be top of ROSE source code: $srcdir" >&2
         exit 1
     fi
-    srcdir=$(rmc_realpath "$srcdir")
+    srcdir=$(rmc_rel2abs "$srcdir")
 
     # Create and edit the config file
     if [ -e "$CONFIG_BASE_NAME" -a "$force" = "" ]; then
@@ -340,7 +399,7 @@ do_init() {
         (
             echo "# ROSE meta config                  -*- shell-script -*-"
             echo
-	    echo "# Source code is found here:"
+            echo "# Source code is found here:"
             echo "rmc_rosesrc $srcdir"
             echo
             echo "#----------------------------------"
@@ -348,14 +407,14 @@ do_init() {
             echo "#----------------------------------"
             echo
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Location of software dependencies. ROSE can use system-installed"
-		echo "# dependencies, or locally installed dependencies. Locally installed"
-		echo "# dependencies should follow a specific naming scheme known to RMC"
-		echo "# so that the user can specify a dependency by just a version number."
-	    fi
-	    echo "rmc_toolchain    $HOME/GS-CAD"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Location of software dependencies. ROSE can use system-installed"
+                echo "# dependencies, or locally installed dependencies. Locally installed"
+                echo "# dependencies should follow a specific naming scheme known to RMC"
+                echo "# so that the user can specify a dependency by just a version number."
+            fi
+            echo "rmc_toolchain    $HOME/GS-CAD"
 
             if [ "$show_instructions" != "" ]; then
                 echo "# Build system is either 'cmake' or 'autoconf'"
@@ -447,7 +506,7 @@ do_init() {
                 echo "# These directives all take the same kinds of arguments:"
                 echo "#   'none'        -- ROSE should not look for or use this dependency"
                 echo "#   'system'      -- Use the publicly installed version; a.k.a. 'yes'"
-		echo "#   'ambivalent'  -- Do not specify anthing in the ROSE configure command"
+                echo "#   'ambivalent'  -- Do not specify anthing in the ROSE configure command"
                 echo "#   directory     -- Look in the directory for includes and libs"
                 echo "#   file          -- Use the specified file (not for libraries)"
                 echo "#   vesion        -- Look for a particular version"
@@ -508,18 +567,18 @@ do_config() {
     local cmd dry_run
     while [ "$#" -gt 0 ]; do
         case "$1" in
-	    --help|-h)
-		do_config_help
-		exit 0
-		;;
+            --help|-h)
+                do_config_help
+                exit 0
+                ;;
             --dry-run)
                 dry_run="--dry-run"
                 shift
                 ;;
-	    --)
-		shift
-		break
-		;;
+            --)
+                shift
+                break
+                ;;
             -*)
                 echo "$arg0 $COMMAND: unknown switch: '$1'" >&2
                 exit 1
@@ -590,10 +649,10 @@ do_make() {
     local have_C have_j dry_run have_silent=--silent
     while [ "$#" -gt 0 ]; do
         case "$1" in
-	    --help|-h)
-		do_make_help
-		exit 0
-		;;
+            --help|-h)
+                do_make_help
+                exit 0
+                ;;
             --dry-run)
                 # Steal this for ourselves. Users can still run "make"
                 # the normal way if they really want --dry-run to be
@@ -730,8 +789,8 @@ do_make() {
 
                   "-C $RMC_ROSEBLD_ROOT/tests/roseTests/roseHPCToolkitTests"
 
-		  # 2015-12-07
-		  # testQuery3_input.C: assert numberOfStatementsInSimple == numberOfStatements
+                  # 2015-12-07
+                  # testQuery3_input.C: assert numberOfStatementsInSimple == numberOfStatements
                   #"-C $RMC_ROSEBLD_ROOT/tests/roseTests/utilTests"
             )
             ;;
@@ -779,11 +838,11 @@ do_make() {
 }
 
 ########################################################################################################################
-#		  	 _     _     _   
-#		  	| |   (_)___| |_ 
-#		  	| |   | / __| __|
-#		  	| |___| \__ \ |_ 
-#		  	|_____|_|___/\__|
+#                        _     _     _   
+#                       | |   (_)___| |_ 
+#                       | |   | / __| __|
+#                       | |___| \__ \ |_ 
+#                       |_____|_|___/\__|
 #                 
 ########################################################################################################################
 
@@ -806,56 +865,98 @@ do_list_help() {
 do_list() {
     local format=human terse=
     while [ "$#" -gt 0 ]; do
-	case "$1" in
-	    --help|-h)
-		do_list_help
-		exit 1
-		;;
-	    --format=human|--format=shell)
-		format="${1#--format=}"
-		shift
-		;;
-	    --terse)
-		terse=yes
-		shift
-		;;
-	    --)
-		shift
-		break
-		;;
-	    -*)
-		echo "$arg0 $COMMAND: unknown switch: $1" >&2
-		exit 1
-		;;
-	    *)
-		break
-		;;
-	esac
+        case "$1" in
+            --help|-h)
+                do_list_help
+                exit 1
+                ;;
+            --format=human|--format=shell)
+                format="${1#--format=}"
+                shift
+                ;;
+            --terse)
+                terse=yes
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                echo "$arg0 $COMMAND: unknown switch: $1" >&2
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
     done
 
     local dependency="$1"; shift
     if [ "$dependency" = "" ]; then
-	echo "$arg0 $COMMAND: incorrect usage; see '$arg0 $COMMAND --help' for details" >&2
-	exit 1
+        echo "$arg0 $COMMAND: incorrect usage; see '$arg0 $COMMAND --help' for details" >&2
+        exit 1
     fi
 
     if [ "$terse" != "" ]; then
-	case "$format" in
-	    shell)
-		rmc_list "$dependency" shell |cut -d' ' -f1 |sort |uniq
-		;;
-	    human)
-		local versions=$(rmc_list "$dependency" human |cut       -f1 |sort |uniq)
-		echo $versions
-		;;
-	esac
+        case "$format" in
+            shell)
+                rmc_list "$dependency" shell |cut -d' ' -f1 |sort |uniq
+                ;;
+            human)
+                local versions=$(rmc_list "$dependency" human |cut       -f1 |sort |uniq)
+                echo $versions
+                ;;
+        esac
     else
-	rmc_list "$dependency" "$format"
+        rmc_list "$dependency" "$format"
     fi
 }
 
-	    
-	    
+            
+########################################################################################################################
+#                        ____            _             _   _
+#                       |  _ \ ___  __ _| |_ __   __ _| |_| |__
+#                       | |_) / _ \/ _` | | '_ \ / _` | __| '_ \
+#                       |  _ <  __/ (_| | | |_) | (_| | |_| | | |
+#                       |_| \_\___|\__,_|_| .__/ \__,_|\__|_| |_|
+#                                         |_|
+#
+########################################################################################################################
+
+do_realpath_help() {
+    echo "usage: $arg0 $COMMAND PATH"
+    echo "    Resolves PATH to a canonical name by recursively expanding symbolic links and replacing '.' and '..'."
+    echo "    This functionality is exposed as a command because 'realpath' is often not installed on the system"
+    echo "    and we don't want to depend on having things like Python or Perl installed to do this."
+}
+
+do_realpath() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --help|-h)
+                do_realpath_help
+                exit 1
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                echo "$arg0 $COMMAND: unknown switch: $1" >&2
+                exit 1
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    if [ "$#" -ne 1 ]; then
+        echo "usage: $arg0 $COMMAND PATH" >&2
+        exit 1
+    fi
+    rmc_realpath "$1"
+}
 
 ########################################################################################################################
 #                        __  __       _
@@ -874,21 +975,21 @@ while [ "$#" -gt 0 ]; do
             directory="$2"
             shift; shift
             ;;
-	help|--help|-h)
-	    help=--help
-	    shift
-	    ;;
-	--version|-V)
-	    echo "$arg0-$RMC_RMC_VERSION"
-	    exit 0
-	    ;;
+        help|--help|-h)
+            help=--help
+            shift
+            ;;
+        --version|-V)
+            echo "$arg0-$RMC_RMC_VERSION"
+            exit 0
+            ;;
         -*)
             echo "$arg0: unknown global switch: '$1'" >&2
             exit 1
             ;;
         *)
-	    COMMAND="$1"
-	    shift
+            COMMAND="$1"
+            shift
             break
             ;;
     esac
@@ -903,14 +1004,14 @@ case "$COMMAND" in
         do_init $help "$@"
         ;;
     clear)
-	do_clear $help "$@"
-	;;
+        do_clear $help "$@"
+        ;;
     config)
         do_config $help "$@"
         ;;
     list)
-	do_list $help "$@"
-	;;
+        do_list $help "$@"
+        ;;
     make)
         do_make "here" $help "$@"
         ;;
@@ -923,12 +1024,15 @@ case "$COMMAND" in
     resolve)
         do_resolve $help "$@"
         ;;
+    realpath)
+        do_realpath $help "$@"
+        ;;
     "")
-	if [ "$help" != "" ]; then
-	    rmc_help
-	else
+        if [ "$help" != "" ]; then
+            rmc_help
+        else
             do_shell
-	fi
+        fi
         ;;
     *)
         do_shell $help "$COMMAND" "$@"

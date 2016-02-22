@@ -32,6 +32,7 @@ rmc_compiler() {
 
 # Resolve compiler variables
 rmc_compiler_resolve() {
+    rmc_code_coverage_resolve
 
     # If it looks like the user said something like "rmc_compiler gcc-4.8.4[-c++11]", then split the
     # name apart into vendor, version, and language instead.
@@ -138,10 +139,32 @@ rmc_compiler_resolve() {
 		;;
 	esac
     fi
+
+    case "$RMC_CODE_COVERAGE" in
+	no)
+	    : no extra switches needed
+	    ;;
+	yes)
+	    case "$RMC_CXX_VENDOR" in
+		gcc|llvm)
+		    RMC_CXX_SWITCHES=$(args-adjust "-fprofile-arcs -ftest-coverage" $RMC_CXX_SWITCHES)
+		    ;;
+		*)
+		    echo "$arg0: not sure how to specify code coverage for $RMC_CXX_VENDOR compiler" >&2
+		    exit 1
+		    ;;
+	    esac
+	    ;;
+	*)
+	    echo "$arg0: not sure what switches are needed for RMC_CODE_COVERAGE=$RMC_CODE_COVERAGE" >&2
+	    exit 1
+	    ;;
+    esac
 }
 
 # Check existence
 rmc_compiler_check() {
+    rmc_code_coverage_check
     rmc_compiler_resolve
     if [ "$RMC_CXX_NAME" = "" -o "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" ]; then
 	echo "$arg0: a C++ compiler is required" >&2

@@ -135,7 +135,8 @@ filter_output() {
 ########################################################################################################################
 # Send results back to the database. Arguments are passed to the matrixTestResult command.
 report_results() {
-    local kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))
+    local kvpairs
+    eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
     if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
 	rose_version="$rose_version+local"

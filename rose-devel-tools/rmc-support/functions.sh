@@ -364,6 +364,7 @@ resolve() {
     rmc_assertions_resolve
     rmc_optim_resolve
     rmc_languages_resolve
+    rmc_java_check
     rmc_boost_check
     rmc_edg_check
     rmc_wt_check

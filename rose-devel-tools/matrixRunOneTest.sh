@@ -133,7 +133,7 @@ filter_output() {
 }
 
 ########################################################################################################################
-# Send results back to the database. Arguments are passed to the matrixTestResult command.
+# Send results back to the database. Arguments are passed to the matrixTestResult command. Echos only the test ID.
 report_results() {
     local kvpairs
     eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
@@ -215,7 +215,7 @@ run_test() {
 	    tail -n 500 "$LOG_FILE" >"$abbr_output"
 	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Final output" $testid "$abbr_output"
 	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
-	    rmc -C $ROSE_TOOLS ./matrixErrors update
+	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid
 	fi
     fi
 

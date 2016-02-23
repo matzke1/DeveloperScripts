@@ -5,7 +5,7 @@ arg0="${0##*/}"
 
 : ${YAML_VERSIONS:="0.5.1 0.5.2 0.5.3"}
 : ${BOOST_VERSIONS:="all"}
-: ${COMPILERS:="gcc-4.4-default gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
+: ${COMPILERS:="gcc-4.4-default gcc-4.6-default gcc-4.7-default gcc-4.7-c++11 gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
 : ${TEMPDIR:="$HOME/junk"}
 
 # Download source tarball into current working directory

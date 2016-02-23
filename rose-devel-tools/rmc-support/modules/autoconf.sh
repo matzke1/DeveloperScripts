@@ -80,7 +80,7 @@ rmc_autoconf_run() {
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \
             $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
-            --with-java=/usr/lib/jvm/java-7-sun \
+            --with-java="$RMC_JAVA_JDK_ROOT" \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \
             --with-pch \

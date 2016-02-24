@@ -27,6 +27,37 @@
 # the machine where it's running.  None empty values should include the "-j" part of the switch, as in "-j20"
 : ${MAX_PARALLELISM_SWITCH:=}
 
+# Restrict compilers, ect. to only those in these lists. This helps speed up processing because it means this script
+# chooses the dependencies instead of letting the database choose them. If we let the database choose them and the
+# database has many more that what we have, then we spend most our time failing in the very first consistency check. The
+# names of these variables correspond to various RMC configuration statements.
+#
+# These variables should be space-separated values, like OVERRIDE_BOOST="1.50 1.51". This precludes us from having
+# spaces within the values themselves, but if this proves to be a problem we can change the delimiter to something else.
+# Unfortunately we can't pass shell arrays directly to subshells, otherwise this would be easier.
+: ${OVERRIDE_BUILD:=}
+: ${OVERRIDE_LANGUAGES:=}
+: ${OVERRIDE_COMPILER:=}
+: ${OVERRIDE_DEBUG:=}
+: ${OVERRIDE_OPTIMIZE:=}
+: ${OVERRIDE_WARNINGS:=}
+: ${OVERRIDE_CODE_COVERAGE:=}
+: ${OVERRIDE_ASSERTIONS:=}
+: ${OVERRIDE_BOOST:=}
+: ${OVERRIDE_CMAKE:=}
+: ${OVERRIDE_DLIB:=}
+: ${OVERRIDE_DOXYGEN:=}
+: ${OVERRIDE_EDG:=}
+: ${OVERRIDE_MAGIC:=}
+: ${OVERRIDE_PYTHON:=}
+: ${OVERRIDE_QT:=}
+: ${OVERRIDE_READLINE:=}
+: ${OVERRIDE_SQLITE:=}
+: ${OVERRIDE_WT:=}
+: ${OVERRIDE_YAML:=}
+: ${OVERRIDE_YICES:=}
+
+
 # The list of steps. Each step also has a function named "run_${STEP}_commands". If the function fails then the test status
 # is set to $STEP.  If all functions pass then the status is the last step that was started (thus the last step should
 # typically not do anything).  The functions are run with the CWD being the top of the ROSE build tree. The "setup" step
@@ -149,6 +180,17 @@ report_results() {
 }
 
 ########################################################################################################################
+# Modify a .rmc-main.cfg file (in the CWD) by replacing a statement with a random value.  If the choices are empty then
+# don't make any modifications.
+modify_config() {
+    local statement="$1"; shift
+    local choices=("$@")
+    [ "${#choices[@]}" -eq 0 ] && return 0
+    local random_choice="${choices[ RANDOM % ${#choices[@]} ]}"
+    sed --in-place "s/^[ \t]*$statement[ \t].*/$statement $random_choice/" .rmc-main.cfg
+}
+
+########################################################################################################################
 # Set up the testing directory, log files, etc.  Fails if the setup seems invalid
 setup_workspace() {
     (
@@ -164,8 +206,33 @@ setup_workspace() {
 	(
 	    echo "rmc_rosesrc '$ROSE_SRC'"
 	    rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc -d "$DATABASE"
-	) | tee .rmc-main.cfg
+	) >.rmc-main.cfg
 	echo
+
+	# Maybe we should override some things in the config -- the config we get from the database is just a hint.
+	modify_config rmc_build     	$OVERRIDE_BUILD
+	modify_config rmc_languages 	$OVERRIDE_LANGUAGES
+	modify_config rmc_compiler  	$OVERRIDE_COMPILER
+	modify_config rmc_debug     	$OVERRIDE_DEBUG
+	modify_config rmc_optimize  	$OVERRIDE_OPTIMIZE
+	modify_config rmc_warnings  	$OVERRIDE_WARNINGS
+	modify_config rmc_code_coverage $OVERRIDE_CODE_COVERAGE
+	modify_config rmc_assertions    $OVERRIDE_ASSERTIONS
+	modify_config rmc_boost   	$OVERRIDE_BOOST
+	modify_config rmc_cmake   	$OVERRIDE_CMAKE
+	modify_config rmc_dlib    	$OVERRIDE_DLIB
+	modify_config rmc_doxygen 	$OVERRIDE_DOXYGEN
+	modify_config rmc_edg      	$OVERRIDE_EDG
+	modify_config rmc_magic    	$OVERRIDE_MAGIC
+	modify_config rmc_python   	$OVERRIDE_PYTHON
+	modify_config rmc_qt       	$OVERRIDE_QT
+	modify_config rmc_readline 	$OVERRIDE_READLINE
+	modify_config rmc_sqlite   	$OVERRIDE_SQLITE
+	modify_config rmc_wt       	$OVERRIDE_WT
+	modify_config rmc_yaml     	$OVERRIDE_YAML
+	modify_config rmc_yices    	$OVERRIDE_YICES
+	cat .rmc-main.cfg
+
 	rmc echo "Basic sanity checks pass"
     ) 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1

@@ -56,7 +56,7 @@ if [ ! -e "$ROSE_TOOLS/projects/MatrixTesting/matrixTestResult" ]; then
     exit 1
 fi
 [ $(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC') != "" ] || die "must be configured with RMC: $ROSE_TOOLS"
-export ROSE_TOOLS
+export ROSE_TOOLS="$ROSE_TOOLS/projects/MatrixTesting"
 
 echo
 echo "The matrix testing selects configurations at random by querying the database. Since the database doesn't"

@@ -64,6 +64,11 @@
 # always happens before any others and is reponsible for creating the build directories and checking the environment.
 BUILD_STEPS=(configure library-build libtest-build libtest-check project-bintools end)
 
+# Commands to be run for each step. See BUILD_STEPS above.  Standard error and standard output are both redirected to log
+# files that may get transferred to the central database. If you really need something to show up in the terminal running
+# this script then send it to file descriptor 99, as in "echo message for operator >&99" (but beware that matrix testing
+# often runs unattended, so your message will likely go unnoticed). To send a message to the log file and the terminal
+# us "echo message |tee /proc/self/fd/99"
 run_configure_commands() {
     # Runs either autoconf or cmake to generate the makefiles
     rmc config --dry-run >>"$COMMAND_DRIBBLE" 2>&1
@@ -263,8 +268,10 @@ setup_workspace() {
 	modify_config rmc_yices    	$OVERRIDE_YICES
 	cat .rmc-main.cfg
 
-	rmc echo "Basic sanity checks pass"
-    ) 2>&1 |tee "$LOG_FILE" |filter_output >&2
+	rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
+	exit ${PIPESTATUS[0]}
+
+    ) 99>&2 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1
 
     report_results --dry-run -L 'tool(>=trace)' status=setup
@@ -288,7 +295,7 @@ run_test() {
 		seconds_to_hms $[end-begin] >>"$COMMAND_DRIBBLE"
 		[ $status -ne 0 ] && break
 	    done
-	) 2>&1 |tee -a "$LOG_FILE" | filter_output >&2
+	) 99>&2 2>&1 |tee -a "$LOG_FILE" | filter_output >&2
 
 	# Figure out final status. First check for the "success" marker; then check for the others in reverse order.
 	local disposition=setup

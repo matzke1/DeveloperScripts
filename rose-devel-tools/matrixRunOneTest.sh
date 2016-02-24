@@ -148,6 +148,36 @@ if [ "$ROSE_TOOLS_SRC" = "" ]; then
     fi
 fi
 
+########################################################################################################################
+# Convert number of seconds to a string, like "9 hours 39 minutes 49 seconds"
+secons_to_hms () {
+    local sec="$1"
+    if [ $sec -ge 86400 ]; then
+	local ndays=$[sec/86400]
+	sec=$[sec-ndays*86400]
+	local units="days"
+	[ "$ndays" -eq 1 ] && units="day"
+	echo -n "$ndays $units "
+    fi
+    if [ $sec -ge 3600 ]; then
+	local nhours=$[sec/3600]
+	sec=$[sec-nhours*3600]
+	local units="hours"
+	[ "$nhours" -eq 1 ] && units="hour"
+	echo -n "$nhours $units ";
+    fi
+    if [ $sec -ge 60 ]; then
+	local nmins=$[sec/60]
+	sec=$[sec-nmins*60]
+	local units="minutes"
+	[ "$nmins" -eq 1 ] && units="minute"
+	echo -n "$nmins $units ";
+    fi
+
+    local units="seconds"
+    [ "$sec" -eq 1 ] && units="second"
+    echo "$sec $units"
+}
 
 ########################################################################################################################
 # Generate an output section heading. The heading is a single line.
@@ -255,7 +285,7 @@ run_test() {
 		eval "(run_${step}_commands)"
 		local status=$?
 		local end=$SECONDS
-		extended_hms $[end-begin] >>"$COMMAND_DRIBBLE"
+		seconds_to_hms $[end-begin] >>"$COMMAND_DRIBBLE"
 		[ $status -ne 0 ] && break
 	    done
 	) 2>&1 |tee -a "$LOG_FILE" | filter_output >&2

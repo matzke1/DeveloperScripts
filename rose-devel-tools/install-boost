@@ -4,7 +4,7 @@ arg0="${0##*/}"
 
 # boost-1.54 has known bugs that prevent building boost without zlib.
 : ${BOOST_VERSIONS:="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
-: ${COMPILERS:="gcc-4.4-default gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5-default"}
+: ${COMPILERS:="gcc-4.4-default gcc-4.6-default gcc-4.7-default gcc-4.7-c++11 gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5-default"}
 : ${TEMPDIR:="$HOME/junk"}
 
 # chrono is needed by date_time in some versions of boost.

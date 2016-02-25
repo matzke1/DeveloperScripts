@@ -104,6 +104,9 @@ export OVERRIDE_QT OVERRIDE_READLINE OVERRIDE_SQLITE OVERRIDE_WT
 export OVERRIDE_YAML OVERRIDE_YICES
 
 echo
+echo "Type 'stop' and Enter at any time to stop testing at the next break."
+echo "Or type C-c a couple times to interrupt in the middle of a test."
+echo
 expect_yes "Shall I start running tests? " || exit 0
 
 testNumber=0
@@ -111,5 +114,6 @@ while true; do
     testNumber=$[testNumber+1]
     (figlet "Test $testNumber" || banner "Test $testNumber" || (echo; echo "Test $testNumber"; echo)) 2>/dev/null
     matrixRunOneTest.sh
-    sleep 1                     # so we have time for Ctrl-C if something is royally messed up over slow link
+    read -t 1			# use 1 second so Ctrl-C works over a slow link if a bug causes us to spew
+    [ "$REPLY" = "stop" ] && break
 done

@@ -155,7 +155,7 @@ fi
 
 ########################################################################################################################
 # Convert number of seconds to a string, like "9 hours 39 minutes 49 seconds"
-secons_to_hms () {
+seconds_to_hms () {
     local sec="$1"
     if [ $sec -ge 86400 ]; then
 	local ndays=$[sec/86400]

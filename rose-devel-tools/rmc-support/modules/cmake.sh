@@ -24,7 +24,7 @@ rmc_cmake_version() {
 # Obtain an installation directory name from a version. Directory need not exist.
 rmc_cmake_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers"
+    echo "$base/$vers/$RMC_OS_NAME_FILE"
 }
 
 # Find file in installed package.
@@ -41,6 +41,7 @@ rmc_cmake_file() {
 
 # Resolve package variables
 rmc_cmake_resolve() {
+    rmc_os_check
     rmc_resolve_root_and_version cmake
 }
 
@@ -123,8 +124,9 @@ rmc_cmake_run() {
 rmc_cmake_list() {
     local base="$1"
     local dir
-    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name cmake -type f -perm -100 |sort); do
+    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name cmake -type f -perm -100 |sort); do
 	local version=$(echo "$dir" |cut -d/ -f2)
-	echo "RMC_CMAKE_VERSION='$version'"
+	local os=$(echo "$dir" |cut -d/ -f3)
+	echo "RMC_CMAKE_VERSION='$version' RMC_OS_NAME='$os'"
     done
 }

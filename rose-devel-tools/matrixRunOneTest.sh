@@ -282,6 +282,7 @@ setup_workspace() {
 run_test() {
     local testid
     local t0=$(date '+%s')
+    local begin=$SECONDS
     if setup_workspace; then
 	# Try to run each testing step
 	(
@@ -334,6 +335,9 @@ run_test() {
 	mv "$LOG_FILE" "$WORKSPACE/matrix-result-$testid.log" 2>/dev/null
 	mv "$COMMAND_DRIBBLE" "$WORKSPACE/matrix-result-$testid.cmds" 2>/dev/null
     fi
+
+    local end=$SECONDS
+    echo "Test took $(seconds_to_hms $[end - begin])"
 }
 
 ########################################################################################################################

@@ -2,10 +2,20 @@
 # Install versions of the Wt web toolkit
 arg0="${0##*/}"
 
+# Space-separated versions of Wt to install if they're not installed already
 : ${WT_VERSIONS:="3.3.3 3.3.4 3.3.5"}
+
+# Space-separated versions of boost against which to compile Wt if that combination isn't installed already.
 : ${BOOST_VERSIONS:="all"}
-: ${COMPILERS:="gcc-4.4 gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
+
+# Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
+# VENDOR-VERSION-LANGUAGE triplets.
+: ${COMPILERS:="g++"}
+
+# Directory where we build stuff. Using a local directory instead of NFS will speed things up.
 : ${TEMPDIR:="$HOME/junk"}
+
+# RMC toolchain directory where Wt will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 

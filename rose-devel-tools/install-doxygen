@@ -2,8 +2,13 @@
 # Install versions of doxygen
 arg0="${0##*/}"
 
+# Space-serated list of doxygen versions to install if they're not already installed.
 : ${DOXYGEN_VERSIONS:="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"}
+
+# Directory where we build stuff. Using a local directory instead of NFS will speed things up.
 : ${TEMPDIR:="$HOME/junk"}
+
+# RMC toolchain directory where doxygen will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Download source tarball into current working directory

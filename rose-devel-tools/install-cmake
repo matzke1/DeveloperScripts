@@ -2,10 +2,20 @@
 # Install versions of CMake
 arg0="${0##*/}"
 
+# Versions of cmake to install if they aren't installed already.
 : ${CMAKE_VERSIONS:="2.8.12-rc4 3.1.0"}
+
+# Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
+# VENDOR-VERSION-LANGUAGE triplets.
 : ${COMPILERS:="g++"}
+
+# Directory where we build stuff. Using a local directory instead of NFS will speed things up.
 : ${TEMPDIR:="$HOME/junk"}
+
+# RMC toolchain directory where cmake will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
+
+
 
 # Download source tarball into current working directory
 get_source() {

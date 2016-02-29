@@ -38,6 +38,40 @@ rmc_adjust_switches() {
 }
 
 ########################################################################################################################
+# Adjust a $separator-separated list of items, such as $LD_LIBRARY_PATH. Echoes the new list.
+rmc_adjust_list() {
+    local action="$1"; shift	# what to do to this list
+    local item="$1"; shift	# item on which to act
+    local separator="$1"; shift	# single character that separates items, such as ':'
+
+    local saved_IFS="$IFS"
+    IFS="$separator"
+    local list=("$*")
+    IFS="$saved_IFS"
+    local retval=()
+
+    case "$action" in
+	prepend_or_move)
+	    # If "$item" exists in the list, move it to the front, otherwise insert it at the front.
+	    retval=("$item")
+	    local i
+	    for i in "${list[@]}"; do
+		if [ "$i" != "$item" ]; then
+		    retval=("${retval[@]}" "$i")
+		fi
+	    done
+	    ;;
+
+	*)
+	    echo "$arg0: incorrect usage for rmc_adjust_list" >&2
+	    return 1
+	    ;;
+    esac
+
+    (IFS="$separator"; echo "${retval[*]}")
+}
+	    
+########################################################################################################################
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
     perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
@@ -329,7 +363,7 @@ rmc_add_library_path() {
             return 0
         fi
     done
-    eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$full")
+    LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_move "$full" : "$LD_LIBRARY_PATH")
 }
 
 ########################################################################################################################
@@ -426,6 +460,6 @@ resolve_so_paths() {
              libltdl/.libs \
              src/3rdPartyLibraries/libharu-2.1.0/src/.libs \
              src/3rdPartyLibraries/qrose/QRoseLib/.libs; do
-        eval $(path-adjust --var=LD_LIBRARY_PATH --prepend --move insert "$RMC_ROSEBLD_ROOT/$f")
+	LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_move "$RMC_ROSEBLD_ROOT/$f" : "$LD_LIBRARY_PATH")
     done
 }

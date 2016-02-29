@@ -3,8 +3,9 @@
 arg0="${0##*/}"
 
 : ${CMAKE_VERSIONS:="2.8.12-rc4 3.1.0"}
-: ${TEMPDIR:="$HOME/junk"}
 : ${COMPILERS:="g++"}
+: ${TEMPDIR:="$HOME/junk"}
+: ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -33,7 +34,7 @@ for cmake_version in $CMAKE_VERSIONS; do
 
     eval $(rmc clean)
     eval $(rmc resolve parallelism)
-    eval $(RMC_CMAKE_VERSION="$cmake_version" rmc resolve cmake)
+    eval $(RMC_RMC_TOOLCHAIN="$TOOLCHAIN" RMC_CMAKE_VERSION="$cmake_version" rmc resolve cmake)
     [ "$RMC_CMAKE_ROOT" = "" ] && continue
 
     logfile="cmake-$cmake_version.log"

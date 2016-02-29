@@ -7,6 +7,7 @@ arg0="${0##*/}"
 : ${BOOST_VERSIONS:="all"}
 : ${COMPILERS:="gcc-4.4-default gcc-4.6-default gcc-4.7-default gcc-4.7-c++11 gcc-4.8-default gcc-4.8-c++11 gcc-4.9-default gcc-4.9-c++11 llvm-3.5"}
 : ${TEMPDIR:="$HOME/junk"}
+: ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -50,6 +51,7 @@ for yaml_version in $YAML_VERSIONS; do
              banner "$yaml_version w/boost-$boost_version") 2>/dev/null
 
 	    eval $(rmc clear)
+	    export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
 	    eval $(rmc resolve parallelism)
 	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION=system rmc resolve --require cmake)
             eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)

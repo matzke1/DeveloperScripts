@@ -4,6 +4,7 @@ arg0="${0##*/}"
 
 : ${DOXYGEN_VERSIONS:="1.8.1 1.8.2 1.8.3 1.8.4 1.8.5 1.8.6 1.8.7 1.8.8 1.8.9 1.8.10"}
 : ${TEMPDIR:="$HOME/junk"}
+: ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Download source tarball into current working directory
 get_source() {
@@ -29,6 +30,7 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
     (figlet -c "$doxygen_version" || banner "$doxygen_version") 2>/dev/null
 
     eval $(rmc clear)
+    export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
     eval $(rmc resolve parallelism)
     eval $(RMC_DOXYGEN_VERSION="$doxygen_version" rmc resolve doxygen)
 

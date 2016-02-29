@@ -1,6 +1,43 @@
 export LD_LIBRARY_PATH
 
 ########################################################################################################################
+# Adjust command-line switch arguments by inserting or removing a switch.
+rmc_adjust_switches() {
+    local action="$1"; shift
+    local new_switch="$1"; shift
+    local retval=()
+
+
+    case "$action" in
+	insert)
+	    local switch= need_insert=yes
+	    for switch in "$@"; do
+		if [ "$switch" = "$new_switch" ]; then
+		    need_insert=
+		fi
+		retval=("${retval[@]}" "$switch")
+	    done
+	    ;;
+
+	erase)
+	    local switch=
+	    for switch in "$@"; do
+		if [ "$switch" != "$new_switch" ]; then
+		    retval=("${retval[@]}" "$switch")
+		fi
+	    done
+	    ;;
+
+	*)
+	    echo "$arg0: incorrect usage for rmc_adjust_switches" >&2
+	    return 1
+	    ;;
+    esac
+
+    echo "${retval[@]}"
+}
+
+########################################################################################################################
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
     perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"

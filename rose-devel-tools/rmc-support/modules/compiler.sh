@@ -246,14 +246,13 @@ rmc_compiler_resolve() {
 	    ;;
     esac
 
-    # Update the list of all switches based on what needs to be deleted and added. When adding switches, do so in the
-    # reverse order as listed since order might be important and "args-adjust" prepends.
-    local switch i
+    # Update the list of all switches based on what needs to be deleted and added.
+    local switch
     for switch in "${del_switches[@]}"; do
-	RMC_CXX_SWITCHES=$(args-adjust del "$switch" $RMC_CXX_SWITCHES)
+	RMC_CXX_SWITCHES=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES)
     done
-    for i in $(seq $[${#add_switches[@]}-1] -1 0); do
-	RMC_CXX_SWITCHES=$(args-adjust "${add_switches[$i]}" $RMC_CXX_SWITCHES)
+    for switch in "${add_switches[@]}"; do
+	RMC_CXX_SWITCHES=$(rmc_adjust_switches insert "$switch" $RMC_CXX_SWITCHES)
     done
 }
 

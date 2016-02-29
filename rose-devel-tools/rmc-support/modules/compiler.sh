@@ -32,6 +32,7 @@ rmc_compiler() {
 
 # Resolve compiler variables
 rmc_compiler_resolve() {
+    rmc_os_resolve
     rmc_code_coverage_resolve
     rmc_debug_resolve
     rmc_optim_resolve
@@ -57,30 +58,51 @@ rmc_compiler_resolve() {
     fi
     [ "$RMC_CXX_LANGUAGE" = "" ] && RMC_CXX_LANGUAGE=default
 
-    # Find a default compiler if none was specified.
-    local cxx_vendor_commands
+    # Find a default compiler if none was specified.  We start with the basic compiler name, like "g++" and then build a list
+    # of possible names by adding version numbers, directories, etc.  The list is sorted so that the most specific names are
+    # first. Eventually we scan the list too find the first name that matches.
     if [ "$RMC_CXX_NAME" = "" ]; then
+	# Start with the most basic names, like "g++"
+	local cxx_vendor_basename=
 	case "$RMC_CXX_VENDOR" in
 	    gcc)
-		cxx_vendor_commands="g++"
+		cxx_vendor_basename="g++"
 		;;
 	    llvm)
-		cxx_vendor_commands="clang++"
+		cxx_vendor_basename="clang++"
 		;;
 	    "")
-		cxx_vendor_commands="c++"
+		cxx_vendor_basename="c++"
 		;;
 	    *)
 		echo "$arg0: name of $RMC_CXX_VENDOR C++ compiler is unknown" >&2
 		exit 1
 		;;
 	esac
+	local cxx_command_list="$cxx_vendor_basename"
+
+	# More specifically, append the specified version number
 	if [ "$RMC_CXX_VERSION" != "" ]; then
-	    cxx_vendor_commands="$cxx_vendor_commands-$RMC_CXX_VERSION $cxx_vendor_commands"
+	    cxx_command_list="$cxx_vendor_basename-$RMC_CXX_VERSION $cxx_command_list"
 	fi
 
-	for RMC_CXX_NAME in $cxx_vendor_commands; do
-	    if [ "$(which $RMC_CXX_NAME)" != "" ]; then
+	# Look for compiler commands in the RMC toolchain but use all the directories that start with the same
+	# version. The toolchain stores the full version number, like "4.8.4", but we might have only the major and
+	# minor numbers given to us in $RMC_CXX_VERSION.
+	if [ -d "$RMC_RMC_TOOLCHAIN/compiler/." ]; then
+	    local d f
+	    for d in $(find "$RMC_RMC_TOOLCHAIN/compiler" -maxdepth 1 -name "$RMC_CXX_VENDOR-$RMC_CXX_VERSION.*" |sort); do
+		f="$d/$RMC_OS_NAME_FILE/bin/$cxx_vendor_basename"
+		cxx_command_list="$f $cxx_command_list" # latest alphabetically will be first in list
+	    done
+	    f="$RMC_RMC_TOOLCHAIN/compiler/$RMC_CXX_VENDOR-$RMC_CXX_VERSION/$RMC_OS_NAME_FILE/bin/$cxx_vendor_basename"
+	    cxx_command_list="$f $cxx_command_list"
+	fi
+
+	# Search our list of possible commands until we find one that exists. Therefore the list should have been
+	# sorted already from best possible match to most general match.
+	for RMC_CXX_NAME in $cxx_command_list; do
+	    if [ "$(which $RMC_CXX_NAME 2>/dev/null)" != "" ]; then
 		break
 	    fi
 	done
@@ -93,7 +115,7 @@ rmc_compiler_resolve() {
 
     # Try to obtain a vendor and version from the command
     local cxx_vendor= cxx_version=
-    local cxx_realname=$(which "$RMC_CXX_NAME")
+    local cxx_realname=$(which "$RMC_CXX_NAME" 2>/dev/null)
     if [ "$cxx_realname" = "" ]; then
 	echo "$arg0: no such compiler command in path: $RMC_CXX_NAME" >&2
 	exit 1

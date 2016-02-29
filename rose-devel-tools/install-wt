@@ -15,6 +15,9 @@ arg0="${0##*/}"
 # Directory where we build stuff. Using a local directory instead of NFS will speed things up.
 : ${TEMPDIR:="$HOME/junk"}
 
+# Which cmake to use? This can be the word "system", a full path to the cmake executable, or an RMC-known version number.
+: ${CMAKE_VERSION:=system}
+
 # RMC toolchain directory where Wt will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
@@ -53,7 +56,7 @@ is_installed() {
 
 if [ "$BOOST_VERSIONS" = "all" ]; then
     echo "$arg0: looking for boost versions (this may take a while)..."
-    BOOST_VERSIONS=$(rmc list --terse boost)
+    BOOST_VERSIONS=$(RMC_RMC_TOOLCHAIN="$TOOLCHAIN" rmc list --terse boost)
     echo "$arg0: boost versions: $BOOST_VERSIONS"
 fi
 
@@ -67,7 +70,7 @@ for wt_version in $WT_VERSIONS; do
 	    eval $(rmc clear)
 	    export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
 	    eval $(rmc resolve parallelism)
-	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION=system rmc resolve --require cmake)
+	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION="$CMAKE_VERSION" rmc resolve --require cmake)
             eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_WT_VERSION="$wt_version" rmc resolve wt)
 	    [ "$RMC_CMAKE_FILE" = "" ] && continue
 	    [ "$RMC_CXX_NAME" = "" ] && continue

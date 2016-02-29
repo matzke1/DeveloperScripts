@@ -19,6 +19,10 @@ arg0="${0##*/}"
 # RMC toolchain directory where yaml will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
+# Which cmake to use? This can be the word "system", a full path to the cmake executable, or an RMC-known version number.
+: ${CMAKE_VERSION:=system}
+
+
 # Download source tarball into current working directory
 get_source() {
     local version="$1" destination="$2"
@@ -50,7 +54,7 @@ is_installed() {
 
 if [ "$BOOST_VERSIONS" = "all" ]; then
     echo "$arg0: looking for boost versions (this may take a while)..."
-    BOOST_VERSIONS=$(rmc list --terse boost)
+    BOOST_VERSIONS=$(RMC_RMC_TOOLCHAIN="$TOOLCHAIN" rmc list --terse boost)
     echo "$arg0: boost versions: $BOOST_VERSIONS"
 fi
 
@@ -63,7 +67,7 @@ for yaml_version in $YAML_VERSIONS; do
 	    eval $(rmc clear)
 	    export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
 	    eval $(rmc resolve parallelism)
-	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION=system rmc resolve --require cmake)
+	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION="$CMAKE_VERSION" rmc resolve --require cmake)
             eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)
 	    [ "$RMC_CMAKE_FILE" = "" ] && continue
 	    [ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue

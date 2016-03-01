@@ -42,13 +42,13 @@ rmc_adjust_switches() {
 # Adjust a $separator-separated list of items, such as $LD_LIBRARY_PATH. Echoes the new list.
 rmc_adjust_list() {
     local action="$1"; shift    # what to do to this list
-    local items="$1"; shift     # items on which to act
+    local items_str="$1"; shift	# items on which to act
     local separator="$1"; shift # single character that separates items, such as ':'
 
     local saved_IFS="$IFS"
     IFS="$separator"
     local list=($*)
-    local items=($items)
+    local items=($items_str)
     IFS="$saved_IFS"
 
     # Decide whether to delete anything from the list first
@@ -65,7 +65,7 @@ rmc_adjust_list() {
             ;;
         lines)
             for i in "${list[@]}"; do
-                echo "$item$i"
+                echo "$items_str$i"
             done
             return 0
             ;;
@@ -534,9 +534,6 @@ resolve_so_paths() {
         done
     fi
 
-    # Now that RMC_RMC_LIBDIRS is fully populated, add thos things to the beginning of LD_LIBRARY_PATH
-    local newlibdirs=($(rmc_adjust_list delimit " " : "$RMC_RMC_LIBDIRS"))
-    for i in $(seq $[ ${#newlibdirs[@]} - 1 ] -1 0); do
-        LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_leave "${newlibdirs[i]}" : "$LD_LIBRRAY_PATH")
-    done
+    # Now that RMC_RMC_LIBDIRS is fully populated, add those things to the beginning of LD_LIBRARY_PATH
+    LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
 }

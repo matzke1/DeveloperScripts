@@ -37,14 +37,22 @@ rmc_os_check() {
 
     # Add extra libraries that are pretty much always the same. These should maybe be in the user's environment
     # statically if they're always required and based only on the operating system name.
+    local f
     case "$RMC_OS_NAME_FILE" in
 	Red_Hat_Enterprise_Linux_Workstation_release_6.7__Santiago_)
-	    local f
 	    for f in											\
-		/nfs/casc/overture/ROSE/opt/rhel6/x86_64/gcc/4.8.1/mpc/1.0/mpfr/3.1.2/gmp/5.1.2/lib64	\
 		/nfs/casc/overture/ROSE/opt/rhel6/x86_64/gmp/5.1.2/gcc/4.4.7/lib			\
 		/nfs/casc/overture/ROSE/opt/rhel6/x86_64/mpc/1.0/gcc/4.4.7/mpfr/3.1.2/gmp/5.1.2/lib	\
 		/nfs/casc/overture/ROSE/opt/rhel6/x86_64/mpfr/3.1.2/gcc/4.4.7/gmp/5.1.2/lib
+	    do
+		RMC_RMC_LIBDIRS=$(rmc_adjust_list prepend_or_move "$f" : "$RMC_RMC_LIBDIRS")
+	    done
+	    ;;
+	Red_Hat_Enterprise_Linux_Server_7.2)
+	    for f in											\
+		/nfs/casc/overture/ROSE/opt/rhel7/x86_64/gmp/5.1.2/gcc/4.8.3/lib			\
+		/nfs/casc/overture/ROSE/opt/rhel7/x86_64/mpc/1.0/gcc/4.8.3/mpfr/3.1.2/gmp/5.1.2/lib	\
+		/nfs/casc/overture/ROSE/opt/rhel7/x86_64/mpfr/3.1.2/gcc/4.8.3/gmp/5.1.2/lib
 	    do
 		RMC_RMC_LIBDIRS=$(rmc_adjust_list prepend_or_move "$f" : "$RMC_RMC_LIBDIRS")
 	    done

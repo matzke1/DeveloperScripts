@@ -287,3 +287,16 @@ rmc_compiler_check() {
 	exit 1
     fi
 }
+
+# List installed compilers
+rmc_compiler_list() {
+    local base="$1"
+    local dir
+    # Look for the "bin" directory because we don't actually know the name of the compiler without knowing a bunch
+    # of other stuff too.
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name bin -type d |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	local os=$(echo "$dir" |cut -d/ -f3)
+	echo "RMC_COMPILER_NAME='$version' RMC_OS_NAME='$os'"
+    done
+}

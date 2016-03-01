@@ -28,6 +28,7 @@ rmc_help() {
     echo "        shell    -- starts a shell suitable for ROSE development."
     echo "        resolve  -- similar to 'shell' but emits shell commands to set environment variables instead."
     echo "        realpath -- expand symbolic links, '.', and '..' in file names."
+    echo "        vector   -- operations on a delimited vector string like PATH or LD_LIBRARY_PATH."
     echo "        clear    -- emits a shell 'unset' command to clear all RMC environment variables."
     echo
     echo "    If no COMMAND is specified then 'shell' is assumed.  The $arg0 command can be nested. The author's mode"
@@ -120,30 +121,30 @@ arg0_realname=$(rmc_realpath $0)
 source ${arg0_realname%/*}/rmc-support/functions.sh || exit 1
 
 # RMC modules
-source ${arg0_realname%/*}/rmc-support/modules/autoconf.sh    	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/boost.sh       	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/build.sh       	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/compiler.sh    	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/autoconf.sh      || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/boost.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/build.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/compiler.sh      || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/code_coverage.sh || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/cmake.sh       	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/dlib.sh        	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh     	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/edg.sh         	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/jvm.sh         	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/magic.sh       	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/misc.sh        	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/os.sh          	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh 	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/python.sh      	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/qt.sh          	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/readline.sh    	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rose.sh        	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rosebld.sh     	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/rosesrc.sh     	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/sqlite.sh      	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/wt.sh          	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/yaml.sh        	|| exit 1
-source ${arg0_realname%/*}/rmc-support/modules/yices.sh       	|| exit 1
+source ${arg0_realname%/*}/rmc-support/modules/cmake.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/dlib.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/edg.sh           || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/jvm.sh           || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/magic.sh         || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/misc.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/os.sh            || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/parallelism.sh   || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/python.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/qt.sh            || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/readline.sh      || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rose.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosebld.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/rosesrc.sh       || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/sqlite.sh        || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/wt.sh            || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yaml.sh          || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/yices.sh         || exit 1
 
 
 ########################################################################################################################
@@ -264,6 +265,7 @@ do_resolve() {
     else
         eval 'rmc_'$pkg'_resolve'
     fi
+    resolve_so_paths
     export |sed -n '/^declare -x RMC_[a-zA-Z_0-9]*=/ s/declare -x //p'
 }
 
@@ -309,7 +311,7 @@ do_clear() {
         echo "$arg0 $COMMAND: incorrect usage (see $arg0 $COMMAND --help)" >&2
         exit 1
     fi
-        
+
     local varnames=$(export |sed -n 's/^declare -x \(RMC_[a-zA-Z_0-9]\+\).*/\1/gp' |tr '\n' ' ')
     echo "unset $varnames";
 }
@@ -491,14 +493,14 @@ do_init() {
             fi
             echo "rmc_warnings     yes"
 
-	    if [ "$show_instructions" != "" ]; then
-		echo
-		echo "# Whether to generate code-coverage results. When code coverage is"
-		echo "# enabled, the compiler is adjusted so it instruments programs, and"
-		echo "# running said programs will produce output which can be analyzed by"
-		echo "# tools like gcov and lcov.  The value should be 'yes' or 'no'."
-	    fi
-	    echo "rmc_code_coverage no"
+            if [ "$show_instructions" != "" ]; then
+                echo
+                echo "# Whether to generate code-coverage results. When code coverage is"
+                echo "# enabled, the compiler is adjusted so it instruments programs, and"
+                echo "# running said programs will produce output which can be analyzed by"
+                echo "# tools like gcov and lcov.  The value should be 'yes' or 'no'."
+            fi
+            echo "rmc_code_coverage no"
 
             if [ "$show_instructions" != "" ]; then
                 echo
@@ -882,7 +884,7 @@ do_list() {
         case "$1" in
             --help|-h)
                 do_list_help
-                exit 1
+                exit 0
                 ;;
             --format=human|--format=shell)
                 format="${1#--format=}"
@@ -950,7 +952,7 @@ do_realpath() {
         case "$1" in
             --help|-h)
                 do_realpath_help
-                exit 1
+                exit 0
                 ;;
             --)
                 shift
@@ -972,6 +974,58 @@ do_realpath() {
     rmc_realpath "$1"
 }
 
+########################################################################################################################
+#                        __     __        _             
+#                        \ \   / /__  ___| |_ ___  _ __ 
+#                         \ \ / / _ \/ __| __/ _ \| '__|
+#                          \ V /  __/ (__| || (_) | |   
+#                           \_/ \___|\___|\__\___/|_|   
+#                                                       
+#                        
+########################################################################################################################
+
+do_vector_help() {
+    echo "$usage: $arg0 $COMMAND OPERATION ITEMS SEPARATOR VECTOR"
+    echo "    Operates on a vector of strings.  The VECTOR has elements that are separated from one another by the"
+    echo "    single-character SEPARATOR. The OPERATION and ITEMS do something to the vector and emit the result"
+    echo "    on standard output. The OPERATIONs are:"
+    echo "       prepend_or_move  -- Remove all occurrences of ITEMS and insert them at the front."
+    echo "       prepend_or_leave -- Insert those ITEMS at the front that don't already exist."
+    echo "       append_or_move   -- Remove all occurrences of ITEMS and insert them at the end."
+    echo "       append_or_leave  -- Insert those ITEMS at the end that don't already exist."
+    echo "       delimit          -- Emit the vector using the single-letter ITEMS as the new separator."
+    echo "       lines            -- Emit one value per line using ITEMS as the line prefix."
+
+}
+
+do_vector() {
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    --help|-h)
+		do_vector_help
+		exit 0
+		;;
+	    --)
+		shift
+		break
+		;;
+	    -*)
+		echo "$arg0 $COMMAND: unknown switch: $1" >&2
+		exit 1
+		;;
+	    *)
+		if [ "$#" != 4 ]; then
+		    echo "usage: $arg0 $COMMAND OPERATION ITEM SEPARATOR VECTOR" >&2
+		    exit 1
+		else
+		    rmc_adjust_list "$@"
+		fi
+		return 0
+		;;
+	esac
+    done
+}
+		
 ########################################################################################################################
 #                        __  __       _
 #                       |  \/  | __ _(_)_ __
@@ -1041,6 +1095,9 @@ case "$COMMAND" in
     realpath)
         do_realpath $help "$@"
         ;;
+    vector)
+	do_vector $help "$@"
+	;;
     "")
         if [ "$help" != "" ]; then
             rmc_help

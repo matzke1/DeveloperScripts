@@ -166,6 +166,7 @@ for version in $BOOST_VERSIONS; do
 	eval $(RMC_RMC_TOOLCHAIN="$TOOLCHAIN" RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$version" rmc resolve boost)
 	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
 	[ "$RMC_BOOST_ROOT" = "" ] && continue
+	export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
 
 	vs=$(boost_version_string "$version")
 	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"

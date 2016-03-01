@@ -13,6 +13,7 @@ export RMC_CXX_VERSION		# version number
 export RMC_CXX_LANGUAGE		# empty, 'c++11', etc.
 export RMC_CXX_NAME		# the name of the executable (no arguments)
 export RMC_CXX_SWITCHES		# extra switches needed to run the compiler (like "-std=c++11")
+export RMC_CXX_LIBDIRS		# colon-separated libraries needed by this compiler
 
 rmc_compiler() {
     if [ "$#" -eq 1 ]; then
@@ -32,7 +33,7 @@ rmc_compiler() {
 
 # Resolve compiler variables
 rmc_compiler_resolve() {
-    rmc_os_resolve
+    rmc_os_check
     rmc_code_coverage_resolve
     rmc_debug_resolve
     rmc_optim_resolve
@@ -111,6 +112,19 @@ rmc_compiler_resolve() {
 	    echo "$arg0: cannot find $RMC_CXX_VENDOR $RMC_CXX_VERSION C++ compiler command" >&2
 	    exit 1
 	fi
+    fi
+
+    # Some compilers also have shared libraries that need to be in the library search path.
+    local cxx_command_root="${RMC_CXX_NAME%/bin/*}"
+    if [ "$cxx_command_root" != "$RMC_CXX_NAME" ]; then
+	local cxx_libdirs=()
+	[ -d "$cxx_command_root/lib/." ] && cxx_libdirs=("${cxx_libdirs[@]}" "$cxx_command_root/lib")
+	[ -d "$cxx_command_root/lib64/." ] && cxx_libdirs=("${cxx_libdirs[@]}" "$cxx_command_root/lib64")
+
+	local f
+	for f in "${cxx_libdirs[@]}"; do
+	    RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$f" : "$RMC_CXX_LIBDIRS")
+	done
     fi
 
     # Try to obtain a vendor and version from the command

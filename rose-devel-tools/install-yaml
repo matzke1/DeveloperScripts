@@ -73,6 +73,7 @@ for yaml_version in $YAML_VERSIONS; do
 	    [ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue
 	    [ "$RMC_BOOST_ROOT" = "" ] && continue
 	    [ "$RMC_YAML_ROOT" = "" ] && continue
+	    export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
 
             logfile="yaml-cpp-$yaml_version.log"
             date >"$logfile"

@@ -75,6 +75,7 @@ for wt_version in $WT_VERSIONS; do
 	    [ "$RMC_CMAKE_FILE" = "" ] && continue
 	    [ "$RMC_CXX_NAME" = "" ] && continue
 	    [ "$RMC_WT_ROOT" = "" ] && continue
+	    export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
 
             logfile="wt-$wt_version.log"
             date >"$logfile"

@@ -1,4 +1,5 @@
 export LD_LIBRARY_PATH
+export RMC_RMC_LIBDIRS
 
 ########################################################################################################################
 # Adjust command-line switch arguments by inserting or removing a switch.
@@ -9,29 +10,29 @@ rmc_adjust_switches() {
 
 
     case "$action" in
-	insert)
-	    local switch= need_insert=yes
-	    for switch in "$@"; do
-		if [ "$switch" = "$new_switch" ]; then
-		    need_insert=
-		fi
-		retval=("${retval[@]}" "$switch")
-	    done
-	    ;;
+        insert)
+            local switch= need_insert=yes
+            for switch in "$@"; do
+                if [ "$switch" = "$new_switch" ]; then
+                    need_insert=
+                fi
+                retval=("${retval[@]}" "$switch")
+            done
+            ;;
 
-	erase)
-	    local switch=
-	    for switch in "$@"; do
-		if [ "$switch" != "$new_switch" ]; then
-		    retval=("${retval[@]}" "$switch")
-		fi
-	    done
-	    ;;
+        erase)
+            local switch=
+            for switch in "$@"; do
+                if [ "$switch" != "$new_switch" ]; then
+                    retval=("${retval[@]}" "$switch")
+                fi
+            done
+            ;;
 
-	*)
-	    echo "$arg0: incorrect usage for rmc_adjust_switches" >&2
-	    return 1
-	    ;;
+        *)
+            echo "$arg0: incorrect usage for rmc_adjust_switches" >&2
+            return 1
+            ;;
     esac
 
     echo "${retval[@]}"
@@ -40,37 +41,96 @@ rmc_adjust_switches() {
 ########################################################################################################################
 # Adjust a $separator-separated list of items, such as $LD_LIBRARY_PATH. Echoes the new list.
 rmc_adjust_list() {
-    local action="$1"; shift	# what to do to this list
-    local item="$1"; shift	# item on which to act
-    local separator="$1"; shift	# single character that separates items, such as ':'
+    local action="$1"; shift    # what to do to this list
+    local items="$1"; shift     # items on which to act
+    local separator="$1"; shift # single character that separates items, such as ':'
 
     local saved_IFS="$IFS"
     IFS="$separator"
-    local list=("$*")
+    local list=($*)
+    local items=($items)
     IFS="$saved_IFS"
-    local retval=()
 
+    # Decide whether to delete anything from the list first
+    local do_delete=
     case "$action" in
-	prepend_or_move)
-	    # If "$item" exists in the list, move it to the front, otherwise insert it at the front.
-	    retval=("$item")
-	    local i
-	    for i in "${list[@]}"; do
-		if [ "$i" != "$item" ]; then
-		    retval=("${retval[@]}" "$i")
-		fi
-	    done
-	    ;;
+        prepend_or_move|append_or_move)
+            do_delete=yes
+            ;;
+        prepend_or_leave|append_or_leave)
+            ;;
+        prepend|append)
+            ;;
+        delimit)
+            ;;
+        lines)
+            for i in "${list[@]}"; do
+                echo "$item$i"
+            done
+            return 0
+            ;;
+        *)
+            echo "$arg0: incorrect usage for rmc_adjust_list" >&2
+            return 1
+    esac
 
-	*)
-	    echo "$arg0: incorrect usage for rmc_adjust_list" >&2
-	    return 1
-	    ;;
+    # Scan the return value looking for each of the $items and possibly removing some. Also remove null entries.
+    local retval=() item= list_elmt= items_found=()
+    for list_elmt in "${list[@]}"; do
+        local list_elmt_found=
+        for item in "${items[@]}"; do
+            if [ "$list_elmt" = "$item" ]; then
+                list_elmt_found=yes
+                break
+            fi
+        done
+        if [ "$list_elmt_found" = "" ]; then
+            retval=("${retval[@]}" "$list_elmt")
+        else
+            items_found=("${items_found[@]}" "$list_elmt")
+            [ "$do_delete" = "" ] && retval=("${retval[@]}" "$list_elmt")
+        fi
+    done
+
+    # Figure out which of the new items wasn't found
+    local items_not_found=()
+    case "$action" in
+        *_or_leave)
+            for item in "${items[@]}"; do
+                local found= i=
+                for i in "${items_found[@]}"; do
+                    if [ "$item" = "$i" ]; then
+                        found=yes
+                        break
+                    fi
+                done
+                [ "$found" = "" ] && items_not_found=("${items_not_found[@]}" "$item")
+            done
+            ;;
+    esac
+
+    # Insert the new item into the result
+    case "$action" in
+        prepend_or_move)
+            retval=("${items[@]}" "${retval[@]}")
+            ;;
+        prepend_or_leave)
+            retval=("${items_not_found[@]}" "${retval[@]}")
+            ;;
+        append_or_move)
+            retval=("${retval[@]}" "${items[@]}")
+            ;;
+        append_or_leave)
+            retval=("${retval[@]}" "${items_not_found[@]}")
+            ;;
+        delimit)
+            separator="$item"
+            ;;
     esac
 
     (IFS="$separator"; echo "${retval[*]}")
 }
-	    
+            
 ########################################################################################################################
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
@@ -116,32 +176,32 @@ rmc_parse_version_or() {
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
 
     if [ "$arg1" = "no" -o "$arg1" = "none" ]; then
-	if [ "$arg2" != "" ]; then
-	    echo "rmc_$pkg: cannot specify both '$arg1' and a location" >&2
-	    exit 1
-	fi
+        if [ "$arg2" != "" ]; then
+            echo "rmc_$pkg: cannot specify both '$arg1' and a location" >&2
+            exit 1
+        fi
         eval 'RMC_'$pkguc'_VERSION=none'
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
     elif [ "$arg1" = "system" -o "$arg1" = "yes" ]; then
-	# User is requesting that we use a version installed in his system.
-	if [ "$arg2" != "" ]; then
-	    echo "rmc_$pkg: cannot specify both '$arg' and a location" >&2
-	    exit 1
-	fi
+        # User is requesting that we use a version installed in his system.
+        if [ "$arg2" != "" ]; then
+            echo "rmc_$pkg: cannot specify both '$arg' and a location" >&2
+            exit 1
+        fi
         eval 'RMC_'$pkguc'_VERSION=system'
         eval 'RMC_'$pkguc'_BASEDIR='
         eval 'RMC_'$pkguc'_ROOT='
     elif [ "$arg1" = "ambivalent" ]; then
-	# User doesn't care; use a system version if available, otherwise don't use any (this is indicated by not specifying
-	# any configuration option for this package when it comes time to configure ROSE).
-	if [ "$arg2" != "" ]; then
-	    echo "$rmc_$pkg: cannot specify both '$arg' and a location" >&2
-	    exit 1
-	fi
-	eval 'RMC_'$pkguc'_VERSION=ambivalent'
-	eval 'RMC_'$pkguc'_BASEDIR='
-	eval 'RMC_'$pkguc'_ROOT='
+        # User doesn't care; use a system version if available, otherwise don't use any (this is indicated by not specifying
+        # any configuration option for this package when it comes time to configure ROSE).
+        if [ "$arg2" != "" ]; then
+            echo "$rmc_$pkg: cannot specify both '$arg' and a location" >&2
+            exit 1
+        fi
+        eval 'RMC_'$pkguc'_VERSION=ambivalent'
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT='
     elif rmc_is_version_string "$arg1"; then
         eval 'RMC_'$pkguc'_VERSION="$arg1"'
         eval 'RMC_'$pkguc'_BASEDIR="$arg2"'
@@ -150,21 +210,21 @@ rmc_parse_version_or() {
         echo "rmc_$pkg: not a version number: '$arg1'" >&2
         exit 1
     elif [ "$or_else" = "directory" ]; then
-	if [ ! -d "$arg1" ]; then
-	    echo "rmc_$pkg: not a directory: $arg1" >&2
-	    exit 1
-	fi
-	eval 'RMC_'$pkguc'_VERSION='
-	eval 'RMC_'$pkguc'_BASEDIR='
-	eval 'RMC_'$pkguc'_ROOT="$arg1"'
+        if [ ! -d "$arg1" ]; then
+            echo "rmc_$pkg: not a directory: $arg1" >&2
+            exit 1
+        fi
+        eval 'RMC_'$pkguc'_VERSION='
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT="$arg1"'
     elif [ "$or_else" = "file" ]; then
-	if [ ! -r "$arg1" ]; then
-	    echo "rmc_$pkg: not a file: $arg1" >&2
-	    exit 1
-	fi
-	eval 'RMC_'$pkguc'_VERSION='
-	eval 'RMC_'$pkguc'_BASEDIR='
-	eval 'RMC_'$pkguc'_ROOT="$arg1"'
+        if [ ! -r "$arg1" ]; then
+            echo "rmc_$pkg: not a file: $arg1" >&2
+            exit 1
+        fi
+        eval 'RMC_'$pkguc'_VERSION='
+        eval 'RMC_'$pkguc'_BASEDIR='
+        eval 'RMC_'$pkguc'_ROOT="$arg1"'
     else
         eval 'RMC_'$pkguc'_VERSION='
         eval 'RMC_'$pkguc'_BASEDIR='
@@ -189,66 +249,66 @@ rmc_resolve_root_and_version() {
     # containing that file.  Use "! -d _ -a -r _" instead of "-f" to check for files becuase the're often symbolic
     # links, for which "-f _" is false.
     if [ ! -d "$root" -a -r "$root" ]; then
-	if [ "$file" != "" -a "$file" != "$root" ]; then
-	    echo "$arg0: $pkg has conflicting ROOT and FILE properties (root=\"$root\", file=\"$file\")" >&2
-	    exit 1
-	fi
-	file="$root"
-	root="${root%/*}"
+        if [ "$file" != "" -a "$file" != "$root" ]; then
+            echo "$arg0: $pkg has conflicting ROOT and FILE properties (root=\"$root\", file=\"$file\")" >&2
+            exit 1
+        fi
+        file="$root"
+        root="${root%/*}"
     fi
 
     # User must have specified either a directory (or file) or a version number (or special version word like "none")
     if [ "$root" = "" -a "$vers" = "" ]; then
-	echo "$arg0: $pkg root or version number required" >&2
-	exit 1
+        echo "$arg0: $pkg root or version number required" >&2
+        exit 1
     fi
 
     if [ "$vers" = "no" -o "$vers" = "none" ]; then
-	vers=
-	root=
-	base=
-	file=
+        vers=
+        root=
+        base=
+        file=
     elif [ "$vers" = "system" -o "$vers" = "ambivalent" ]; then
-	root=
-	base=
-	file=
-    else	
-	# Find the installation root (it need not exsit at this point)
-	if [ "$root" = "" ]; then
-	    root=$(eval 'rmc_'$pkglc'_root' "$base" "$vers")
-	    if [ "$root" = "" ]; then
-		echo "$arg0: $pkg cannot be specified by a version number" >&2
-		exit 1
-	    fi
-	fi
+        root=
+        base=
+        file=
+    else        
+        # Find the installation root (it need not exsit at this point)
+        if [ "$root" = "" ]; then
+            root=$(eval 'rmc_'$pkglc'_root' "$base" "$vers")
+            if [ "$root" = "" ]; then
+                echo "$arg0: $pkg cannot be specified by a version number" >&2
+                exit 1
+            fi
+        fi
 
-	# Find optional canonical file if none specified
-	if [ "$file" = "" ]; then
-	    file=$(eval 'rmc_'$pkglc'_file' "$root" 2>/dev/null)
-	fi
+        # Find optional canonical file if none specified
+        if [ "$file" = "" ]; then
+            file=$(eval 'rmc_'$pkglc'_file' "$root" 2>/dev/null)
+        fi
 
-	# Find a version number (the root must exist if no version is specified)
-	if [ "$vers" = "" ]; then
-	    if [ ! -e "$root" ]; then
-		echo "$arg0: $pkg must be installed or a version specified (install in $root)" >&2
-		exit 1
-	    fi
-	    vers=$(eval 'rmc_'$pkglc'_version' "$root")
-	    if [ "$vers" = "" -a "$file" != "" ]; then
-		vers=$(eval 'rmc_'$pkglc'_version' "$file")
-	    fi
-	    if [ "$vers" = "" ]; then
-		echo "$arg0: cannot determine $pkg version number installed in $root" >&2
-		exit 1
-	    fi
-	fi
+        # Find a version number (the root must exist if no version is specified)
+        if [ "$vers" = "" ]; then
+            if [ ! -e "$root" ]; then
+                echo "$arg0: $pkg must be installed or a version specified (install in $root)" >&2
+                exit 1
+            fi
+            vers=$(eval 'rmc_'$pkglc'_version' "$root")
+            if [ "$vers" = "" -a "$file" != "" ]; then
+                vers=$(eval 'rmc_'$pkglc'_version' "$file")
+            fi
+            if [ "$vers" = "" ]; then
+                echo "$arg0: cannot determine $pkg version number installed in $root" >&2
+                exit 1
+            fi
+        fi
     fi
 
     eval 'RMC_'$pkguc'_BASEDIR="$base"'
     eval 'RMC_'$pkguc'_ROOT="$root"'
     eval 'RMC_'$pkguc'_VERSION="$vers"'
     if [ "$file" != "" ]; then
-	eval 'RMC_'$pkguc'_FILE="$file"'
+        eval 'RMC_'$pkguc'_FILE="$file"'
     fi
 }
 
@@ -265,42 +325,42 @@ rmc_check_root_and_version() {
 
     # Get the FILE property for a system-installed package
     if [ "$vers" = "system" -a "$root" = "" -a "$file" = "" ]; then
-	file=$(eval 'rmc_'$pkg'_find_in_system')
-	if [ "$file" = "" ]; then
-	    echo "$arg0: $pkg system version cannot be found" >&2
-	    exit 1
-	fi
+        file=$(eval 'rmc_'$pkg'_find_in_system')
+        if [ "$file" = "" ]; then
+            echo "$arg0: $pkg system version cannot be found" >&2
+            exit 1
+        fi
     fi
 
     # Get the ROOT property if possible
     if [ "$root" = "" -a "$file" != "" ]; then
-	if [ -d "$file" ]; then
-	    root="$file"
-	else
-	    root=$(rmc_realpath "$file")
-	    root="${root%/*}"
-	fi
+        if [ -d "$file" ]; then
+            root="$file"
+        else
+            root=$(rmc_realpath "$file")
+            root="${root%/*}"
+        fi
     fi
 
     # Get the FILE property if possible
     if [ "$file" = "" -a "$root" != "" ]; then
-	file=$(eval 'rmc_'$pkglc'_file' "$root")
+        file=$(eval 'rmc_'$pkglc'_file' "$root")
     fi
 
     # Check for existence, but only if the user wants it (i.e., version was not "none", but is "system" or something specific)
     if [ "$vers" != "" ]; then
-	if [ "$root" = "" -a "$file" = "" ]; then
-	    if [ "$vers" != "ambivalent" ]; then
-		echo "$arg0: $pkg is required" >&2
-		exit 1
-	    fi
-	elif [ ! -e "$root" -a ! -e "$file" ]; then
-	    echo "$arg0: $pkg installation is missing: $root" >&2
-	    exit 1
-	elif [ "$vers" = "" ]; then
-	    echo "$arg0: $pkg version number is unknown" >&2
-	    exit 1
-	fi
+        if [ "$root" = "" -a "$file" = "" ]; then
+            if [ "$vers" != "ambivalent" ]; then
+                echo "$arg0: $pkg is required" >&2
+                exit 1
+            fi
+        elif [ ! -e "$root" -a ! -e "$file" ]; then
+            echo "$arg0: $pkg installation is missing: $root" >&2
+            exit 1
+        elif [ "$vers" = "" ]; then
+            echo "$arg0: $pkg version number is unknown" >&2
+            exit 1
+        fi
     fi
 
     eval 'RMC_'$pkguc'_ROOT="$root"'
@@ -396,20 +456,20 @@ rmc_list() {
     local base="$RMC_RMC_TOOLCHAIN/$pkglc"
     [ -d "$base" ] || return 0
     case "$format" in
-	shell)
-	    # RMC environment variable settings like "RMC_BOOST_VERSION='1.50' RMC_CXX_NAME='gcc-4.4.5-default'
-	    eval 'rmc_'$pkg'_list' "$base"
-	    ;;
-	human)
-	    # Same as "shell" format but show only the variable values (not names, equal signs, or quotes) and use TAB
-	    # to separate values from one another.
-	    eval 'rmc_'$pkg'_list' "$base" |\
-		sed "s/RMC_[A-Za-z_0-9]\+='\([^']*\)'/\1/g" |\
-		tr ' ' '\t'
-	    ;;
-	*)
-	    echo "rmc_list: invalid format: $format" >&2
-	    exit 1
+        shell)
+            # RMC environment variable settings like "RMC_BOOST_VERSION='1.50' RMC_CXX_NAME='gcc-4.4.5-default'
+            eval 'rmc_'$pkg'_list' "$base"
+            ;;
+        human)
+            # Same as "shell" format but show only the variable values (not names, equal signs, or quotes) and use TAB
+            # to separate values from one another.
+            eval 'rmc_'$pkg'_list' "$base" |\
+                sed "s/RMC_[A-Za-z_0-9]\+='\([^']*\)'/\1/g" |\
+                tr ' ' '\t'
+            ;;
+        *)
+            echo "rmc_list: invalid format: $format" >&2
+            exit 1
     esac
 }
 
@@ -453,13 +513,30 @@ resolve() {
 }
 
 resolve_so_paths() {
+    local f i
+
     # These are necessary if you want to run an executable directly without going through the GNU libtool shell scripts. It's
     # sometimes necessary if you want to use GDB on a program that hasn't been installed yet (on the other hand, older versions
     # of nemiver seem to be able to debug through the libtool script).
-    for f in src/.libs \
-             libltdl/.libs \
-             src/3rdPartyLibraries/libharu-2.1.0/src/.libs \
-             src/3rdPartyLibraries/qrose/QRoseLib/.libs; do
-	LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_move "$RMC_ROSEBLD_ROOT/$f" : "$LD_LIBRARY_PATH")
+    if [ "$RMC_ROSEBLD_ROOT" != "" ]; then
+        for f in src/.libs \
+                 libltdl/.libs \
+                 src/3rdPartyLibraries/libharu-2.1.0/src/.libs \
+                 src/3rdPartyLibraries/qrose/QRoseLib/.libs; do
+            RMC_RMC_LIBDIRS=$(rmc_adjust_list append_or_move "$RMC_ROSEBLD_ROOT/$f" : "$RMC_RMC_LIBDIRS")
+        done
+    fi
+
+    # Add compiler-specific libraries to the library search path
+    if [ "$RMC_CXX_LIBDIRS" != "" ]; then
+        for f in $(rmc_adjust_list delimit " " : "$RMC_CXX_LIBDIRS"); do
+            RMC_RMC_LIBDIRS=$(rmc_adjust_list append_or_move "$f" : "$RMC_RMC_LIBDIRS")
+        done
+    fi
+
+    # Now that RMC_RMC_LIBDIRS is fully populated, add thos things to the beginning of LD_LIBRARY_PATH
+    local newlibdirs=($(rmc_adjust_list delimit " " : "$RMC_RMC_LIBDIRS"))
+    for i in $(seq $[ ${#newlibdirs[@]} - 1 ] -1 0); do
+        LD_LIBRARY_PATH=$(rmc_adjust_list prepend_or_leave "${newlibdirs[i]}" : "$LD_LIBRRAY_PATH")
     done
 }

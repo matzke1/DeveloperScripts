@@ -173,29 +173,3 @@ rmc_assertions_check() {
     rmc_assertions_resolve
 }
 
-# Java JDK DIRECTORY
-export RMC_JAVA_JDK_ROOT
-rmc_java() {
-    RMC_JAVA_JDK_ROOT="$1"
-}
-
-rmc_java_resolve() {
-    if [ "$RMC_JAVA_JDK_ROOT" = "" ]; then
-	# Try to find a Java directory
-	local dir
-	for dir in java-7-sun jdk1.7.0_51 default-java java-7-openjdk-amd64 java-openjdk; do
-	    if [ -e "/usr/lib/jvm/$dir/bin/javac" ]; then
-		RMC_JAVA_JDK_ROOT="/usr/lib/jvm/$dir"
-		break
-	    fi
-	done
-	if [ "$RMC_JAVA_JDK_ROOT" = "" ]; then
-	    echo "$arg0: cannot find a Java development kit" >&2
-	    exit 1
-	fi
-    fi
-}
-
-rmc_java_check() {
-    rmc_java_resolve
-}

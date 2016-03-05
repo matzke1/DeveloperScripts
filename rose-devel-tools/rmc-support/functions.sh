@@ -324,8 +324,10 @@ rmc_check_root_and_version() {
     local base=$(eval echo '$RMC_'$pkguc'_BASEDIR')
 
     # Get the FILE property for a system-installed package
-    if [ "$vers" = "system" -a "$root" = "" -a "$file" = "" ]; then
-        file=$(eval 'rmc_'$pkg'_find_in_system')
+    if [ "$vers" = "system" ]; then
+        local file_root=$(eval 'rmc_'$pkg'_find_in_system')
+	file=$(echo "$file_root" |cut -d: -f1)
+	root=$(echo "$file_root" |cut -d: -f2)
         if [ "$file" = "" ]; then
             echo "$arg0: $pkg system version cannot be found" >&2
             exit 1
@@ -415,8 +417,9 @@ rmc_add_library_path() {
     local pkg="$1" path="$2"
     local pkguc=$(echo "$pkg" |tr a-z A-Z)
     local root=$(eval echo '$RMC_'$pkguc'_ROOT')
-    [ "$root" = "system" -o "$root" = "" ] && return 0
     local full=$(rmc_realpath "$root/$path")
+
+    [ "$root" = "" ] && return 0
 
     for f in /lib /usr/lib /usr/local/lib; do
         if [ "$full" = "$(rmc_realpath "$f")" ]; then
@@ -504,7 +507,7 @@ resolve() {
     rmc_dlib_check
     rmc_yices_check
     rmc_python_check
-    rmc_jvm_check
+    rmc_java_check
     rmc_readline_check
     rmc_sqlite_check
     rmc_qt_check

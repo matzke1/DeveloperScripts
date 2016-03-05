@@ -130,7 +130,7 @@ source ${arg0_realname%/*}/rmc-support/modules/cmake.sh         || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/dlib.sh          || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/doxygen.sh       || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/edg.sh           || exit 1
-source ${arg0_realname%/*}/rmc-support/modules/jvm.sh           || exit 1
+source ${arg0_realname%/*}/rmc-support/modules/java.sh          || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/magic.sh         || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/misc.sh          || exit 1
 source ${arg0_realname%/*}/rmc-support/modules/os.sh            || exit 1
@@ -540,6 +540,7 @@ do_init() {
             echo "rmc_dlib         18.17"
             echo "rmc_doxygen      ambivalent"
             echo "rmc_edg          4.9"
+	    echo "rmc_java         1.7"
             echo "rmc_magic        system"
             echo "rmc_python       /usr/bin/python3"
             echo "rmc_qt           none"

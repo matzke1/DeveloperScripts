@@ -19,7 +19,7 @@ rmc_parallelism_resolve() {
             [ -n "$nprocs" ] || nprocs=1
             RMC_PARALLELISM="$nprocs"
             ;;
-        unlimited|[0-9]*[0-9])
+        unlimited|[0-9]|[0-9][0-9]|[0-9][0-9][0-9])
             : fine as is
             ;;
         *)

@@ -16,12 +16,52 @@ die() {
     exit 1
 }
 
+override() {                                                                                                        
+    local prompt="$1"
+    local varname="$2"
+    local rmc_list_item="$3"
+
+    local dflt=$(eval echo '$'$varname)
+    local result=
+    while true; do
+	local p=$(printf "  %-29s %-24s: " "$prompt" "($varname)")
+        read -p "$p" -i "$dflt" -e result
+        if [ "$result" = "list" ]; then
+            if [ "$rmc_list_item" = "" ]; then
+                echo "cannot query that" >&2
+            else
+                dflt=$(rmc list --terse "$rmc_list_item")
+            fi
+        else
+            break
+        fi
+    done
+
+    eval "$varname='$result'"
+}
+
+section() {
+    local title="$1"
+    echo
+    echo "===================================== $title ====================================="
+    echo
+}
+
 echo "This script configures and runs the ROSE configuration matrix testing. You can run this script concurrently"
 echo "in as many terminal windows as you like and they can all share the same directories.  Each of the questions"
 echo "below have a corresponding environment variable which you can set prior to invoking this script. In fact,"
 echo "you don't really need this script at all if you'd rather just invoke 'matrixRunOneTest.sh' directly. Both"
 echo "scripts provide default values for all variables (although they might not be the same defaults)."
 
+
+
+########################################################################################################################
+section "Directories"
+########################################################################################################################
+
+echo
+echo "The directory you provide for this question is only used to construct the default directory names for some"
+echo "subsequent questions."
 echo
 : ${MATRIX_ROOT:="$HOME/matrix-testing"}
 read -p "Directory to hold all matrix testing files (MATRIX_ROOT): " -i "$MATRIX_ROOT" -e MATRIX_ROOT
@@ -29,11 +69,19 @@ mkdir -p "$MATRIX_ROOT" || exit 1
 export MATRIX_ROOT
 
 echo
+echo "This directory is where tests will build ROSE. Each test will create a temporary subdirectory here so it's"
+echo "safe for you to specify a directory that's also used by other instances of this script. The directory and"
+echo "its parents need not exist yet.  Tests will perform best if this is a local directory. When testing is"
+echo "finished you can delete this directory."
+echo
 : ${WORKSPACE:="$MATRIX_ROOT/tmp"}
 read -p "Temporary matrix testing workspace (WORKSPACE): " -i "$WORKSPACE" -e WORKSPACE
 mkdir -p "$WORKSPACE" || exit 1
 export WORKSPACE
 
+echo
+echo "This is the local ROSE source repository that will be used for testing. Since none of the tests write to"
+echo "this directory it's safe for many tests to use the same ROSE source tree."
 echo
 : ${ROSE_SRC:="$HOME/GS-CAD/ROSE/matrix/source-repo"}
 read -p "Location of quiescent ROSE source tree (ROSE_SRC): " -i "$ROSE_SRC" -e ROSE_SRC
@@ -46,6 +94,74 @@ expect_yes "Is the ROSE source repo up-to-date?" || exit 1
 expect_yes "Do you promise not to edit/change the repo while tests are running?" || exit 1
 expect_yes "Have you run 'build' in the repo already?" || exit 1
 
+########################################################################################################################
+section "Database"
+########################################################################################################################
+
+echo
+echo "Please enter the name of the database where results are stored. Leave this blank if the testing"
+echo "machine should not use a database. If no database is used, then the configuration space must be"
+echo "obtained by alternate means and the results will be emailed to the database (later questions)."
+echo
+: ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
+read -p "Database URL: " -i "$DATABASE" -e DATABASE
+export DATABASE
+
+
+# Definition of configuration space
+if [ "$DATABASE" = "" ]; then
+    echo
+    echo "The testing normally communicates with a database to obtain a point in the configuration space"
+    echo "that it should test, but you just said not to contact any database. Therefore the configuration"
+    echo "space must be defined in a file which is usually created with 'matrixNextTest --format=overrides'"
+    echo "on a machine that can connect to the database."
+    echo
+    : ${CONFIGURATION_SPACE_FILE:="$MATRIX_ROOT/configurationSpace.txt"}
+    while true; do
+	read -p "Configuration space file: " -i "$CONFIGURATION_SPACE_FILE" -e CONFIGURATION_SPACE_FILE
+	if [ "$CONFIGURATION_SPACE_FILE" = "" ]; then
+	    CONFIGURATION_SPACE_URL="$DATABASE"
+	elif [ -r "$CONFIGURATION_SPACE_FILE" ]; then
+	    CONFIGURATION_SPACE_URL="file://$CONFIGURATION_SPACE_FILE"
+	    break
+	fi
+	echo "error: file does not exist or is not readable" >&2
+    done
+else
+    : ${CONFIGURATION_SPACE_URL:="$DATABASE"}
+fi
+export CONFIGURATION_SPACE_URL
+
+# Where to send results
+echo
+echo "Results are normally sent directly to the database, but if you don't have write permission or"
+echo "lack an internet connection you can mail them somewhere instead.  If you want to mail them, enter"
+echo "an email address here (do not include any 'mailto:' prefix)."
+echo
+: ${RESULTS_URL:="$DATABASE"}
+while true; do
+    read -p "Email address for results: " -i "$RESULTS_EMAIL" -e RESULTS_EMAIL
+    if [ "$RESULTS_EMAIL" = "" -a "$DATABASE" = "" ]; then
+	echo "error: I need an email address since there's no database" >&2
+    elif [ "$RESULTS_EMAIL" != "" ]; then
+	RESULTS_URL="mailto:$RESULTS_EMAIL"
+	break
+    else
+	break
+    fi
+done
+export RESULTS_URL    
+
+########################################################################################################################
+section "Matrix Tools"
+########################################################################################################################
+
+echo
+echo "Testing requires that the tools in the ROSE projects/MatrixTesting directory are built. You can"
+echo "do that by compiling the ROSE 'src' and 'projects/MatrixTesting' using RMC. The matrix testing"
+echo "tools do not need to be installed--they will be run by RMC directly from the build tree.  The"
+echo "source tree for these tools may be the same source tree as is being tested as long as the tools"
+echo "are compiled before testing starts. Some of the tools are scripts that live in the source tree."
 echo
 : ${ROSE_TOOLS:="$HOME/GS-CAD/ROSE/matrix/tools-build"}
 read -p "Location of build tree for ROSE matrix tools (ROSE_TOOLS): " -i "$ROSE_TOOLS" -e ROSE_TOOLS
@@ -58,6 +174,11 @@ fi
 [ $(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC') != "" ] || die "must be configured with RMC: $ROSE_TOOLS"
 export ROSE_TOOLS="$ROSE_TOOLS/projects/MatrixTesting"
 
+
+########################################################################################################################
+section "Config Space Overrides"
+########################################################################################################################
+
 echo
 echo "The matrix testing selects configurations at random by querying the database. Since the database doesn't"
 echo "know what's installed on our system, many of the configurations returned from the database will be invalid"
@@ -68,30 +189,38 @@ echo "and choose them ourself. Their values are the same as what's accepted by t
 echo "in RMC configuration files. For example, the database knows about many compilers but we maybe have only one"
 echo "installed here, so we would set the compiler override to the string 'gcc-4.8-default gcc-4.8-c++11', which"
 echo "means no matter what compiler the database tells us to use, use one of these two. (RMC specifies compilers"
-echo "as a triplet: VENDOR-VERSION-LANGUAGE)."
+echo "as a triplet: VENDOR-VERSION-LANGUAGE). Typing the word 'list' will query RMC for a list of versions installed"
+echo "on this system."
+
+echo
+if expect_yes "Should I initialize overrides from the configuration space?"; then
+    eval $(rmc -C "$ROSE_TOOLS" ./matrixNextTest --database="$CONFIGURATION_SPACE_URL" --format=overrides)
+fi
 
 while true; do
-    read -p "  Override build system       (OVERRIDE_BUILD)        : " -i "$OVERRIDE_BUILD" -e OVERRIDE_BUILD
-    read -p "  Override frontend languages (OVERRIDE_LANGUAGES)    : " -i "$OVERRIDE_LANGUAGES" -e OVERRIDE_LANGUAGES
-    read -p "  Override compiler           (OVERRIDE_COMPILER)     : " -i "$OVERRIDE_COMPILER" -e OVERRIDE_COMPILER
-    read -p "  Override debug mode         (OVERRIDE_DEBUG)        : " -i "$OVERRIDE_DEBUG" -e OVERRIDE_DEBUG
-    read -p "  Override optimize mode      (OVERRIDE_OPTIMIZE)     : " -i "$OVERRIDE_OPTIMIZE" -e OVERRIDE_OPTIMIZE
-    read -p "  Override warnings mode      (OVERRIDE_WARNINGS)     : " -i "$OVERRIDE_WARNINGS" -e OVERRIDE_WARNINGS
-    read -p "  Override code_coverage      (OVERRIDE_CODE_COVERAGE): " -i "$OVERRIDE_CODE_COVERAGE" -e OVERRIDE_CODE_COVERAGE
-    read -p "  Override assertions mode    (OVERRIDE_ASSERTIONS)   : " -i "$OVERRIDE_ASSERTIONS" -e OVERRIDE_ASSERTIONS
-    read -p "  Override boost versions     (OVERRIDE_BOOST)        : " -i "$OVERRIDE_BOOST" -e OVERRIDE_BOOST
-    read -p "  Override cmake versions     (OVERRIDE_CMAKE)        : " -i "$OVERRIDE_CMAKE" -e OVERRIDE_CMAKE
-    read -p "  Override dlib versions      (OVERRIDE_DLIB)         : " -i "$OVERRIDE_DLIB" -e OVERRIDE_DLIB
-    read -p "  Override doxygen versions   (OVERRIDE_DOXYGEN)      : " -i "$OVERRIDE_DOXYGEN" -e OVERRIDE_DOXYGEN
-    read -p "  Override edg versions       (OVERRIDE_EDG)          : " -i "$OVERRIDE_EDG" -e OVERRIDE_EDG
-    read -p "  Override magic versions     (OVERRIDE_MAGIC)        : " -i "$OVERRIDE_MAGIC" -e OVERRIDE_MAGIC
-    read -p "  Override python versions    (OVERRIDE_PYTHON)       : " -i "$OVERRIDE_PYTHON" -e OVERRIDE_PYTHON
-    read -p "  Override qt versions        (OVERRIDE_QT)           : " -i "$OVERRIDE_QT" -e OVERRIDE_QT
-    read -p "  Override readline versions  (OVERRIDE_READLINE)     : " -i "$OVERRIDE_READLINE" -e OVERRIDE_READLINE
-    read -p "  Override sqlite versions    (OVERRIDE_SQLITE)       : " -i "$OVERRIDE_SQLITE" -e OVERRIDE_SQLITE
-    read -p "  Override wt versions        (OVERRIDE_WT)           : " -i "$OVERRIDE_WT" -e OVERRIDE_WT
-    read -p "  Override yaml versions      (OVERRIDE_YAML)         : " -i "$OVERRIDE_YAML" -e OVERRIDE_YAML
-    read -p "  Override yices versions     (OVERRIDE_YICES)        : " -i "$OVERRIDE_YICES" -e OVERRIDE_YICES
+    override "  Override build system"       OVERRIDE_BUILD
+    override "  Override frontend languages" OVERRIDE_LANGUAGES
+    override "  Override compiler"   	     OVERRIDE_COMPILER      compiler
+    override "  Override debug mode" 	     OVERRIDE_DEBUG
+    override "  Override optimize mode"      OVERRIDE_OPTIMIZE
+    override "  Override warnings mode"      OVERRIDE_WARNINGS
+    override "  Override code_coverage"      OVERRIDE_CODE_COVERAGE
+    echo
+    override "  Override assertions mode"    OVERRIDE_ASSERTIONS
+    override "  Override boost versions"     OVERRIDE_BOOST         boost
+    override "  Override cmake versions"     OVERRIDE_CMAKE         cmake
+    override "  Override dlib versions"      OVERRIDE_DLIB          dlib
+    override "  Override doxygen versions"   OVERRIDE_DOXYGEN       doxygen
+    override "  Override edg versions"       OVERRIDE_EDG
+    override "  Override java versions"      OVERRIDE_JAVA          java
+    override "  Override magic versions"     OVERRIDE_MAGIC         magic
+    override "  Override python versions"    OVERRIDE_PYTHON        python
+    override "  Override qt versions"        OVERRIDE_QT            qt
+    override "  Override readline versions"  OVERRIDE_READLINE      readlin
+    override "  Override sqlite versions"    OVERRIDE_SQLITE        sqlite
+    override "  Override wt versions"        OVERRIDE_WT            wt
+    override "  Override yaml versions"      OVERRIDE_YAML          yaml
+    override "  Override yices versions"     OVERRIDE_YICES         yices
     echo
     expect_yes "Are you satisfied with these overrides?" && break
 done
@@ -99,9 +228,13 @@ done
 export OVERRIDE_BUILD OVERRIDE_LANGUAGES OVERRIDE_COMPILER OVERRIDE_DEBUG
 export OVERRIDE_OPTIMIZE OVERRIDE_WARNINGS OVERRIDE_CODE_COVERAGE
 export OVERRIDE_ASSERTIONS OVERRIDE_BOOST OVERRIDE_CMAKE OVERRIDE_DLIB
-export OVERRIDE_DOXYGEN OVERRIDE_EDG OVERRIDE_MAGIC OVERRIDE_PYTHON
+export OVERRIDE_DOXYGEN OVERRIDE_EDG OVERRIDE_JAVA OVERRIDE_MAGIC OVERRIDE_PYTHON
 export OVERRIDE_QT OVERRIDE_READLINE OVERRIDE_SQLITE OVERRIDE_WT
 export OVERRIDE_YAML OVERRIDE_YICES
+
+########################################################################################################################
+section "Run Tests"
+########################################################################################################################
 
 echo
 echo "Type 'stop' and Enter at any time to stop testing at the next break."

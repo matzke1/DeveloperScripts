@@ -7,8 +7,14 @@
 # The name of the database that stores the results.
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
 
+# URL of database or file that stores the configuration space to be tested.
+: ${CONFIGURATION_SPACE_URL:="$DATABASE"}
+
+# URL of database or email address to which test results are sent.  For emails, use the HTML format "mailto:address".
+: ${RESULTS_URL:="$DATABASE"}
+
 # The directory (need not exist yet) where building occurs and where log files and artifacts are kept.
-: ${WORKSPACE="$HOME/junk/matrix-testing"}
+: ${WORKSPACE:="$HOME/junk/matrix-testing"}
 
 # Whether to save tarballs of the build directories after each test (set to "yes" or empty). The tarballs are placed in
 # the $WORKSPACE directory.
@@ -201,17 +207,37 @@ filter_output() {
 ########################################################################################################################
 # Send results back to the database. Arguments are passed to the matrixTestResult command. Echos only the test ID.
 report_results() {
+    local database="$1"; shift
     local kvpairs
     eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
+
     if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
 	rose_version="$rose_version+local"
     fi
-    rmc -C $ROSE_TOOLS ./matrixTestResult --database=$DATABASE "$@" \
-	"${kvpairs[@]}" \
-	rose="$rose_version" \
-	rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
-	tester="$(whoami) using $arg0"
+
+    if [ "${database#mailto:}" = "$database" ]; then
+	# The database is available, so use it.
+	rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" "$@" \
+	    "${kvpairs[@]}" \
+	    rose="$rose_version" \
+	    rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
+	    tester="$(whoami) using $arg0"
+    else
+	# There is no database and we should email the results somewhere.
+	local address="${database#mailto:}"
+	local subject="matrix test result"
+
+	(
+	    local pair
+	    for pair in "${kvpairs[@]}"; do
+		echo "$pair"
+	    done
+	    echo "rose=$rose_version"
+	    echo "rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct')"
+	    echo "tester=$(whoami) using $arg0"
+	) | mail -v -s "$subject" "$address"
+    fi
 }
 
 ########################################################################################################################
@@ -237,12 +263,10 @@ setup_workspace() {
 	mkdir "$TEST_DIRECTORY"
 	cd "$TEST_DIRECTORY"
 
-	# Obtain a configuration specification
 	(
 	    echo "rmc_rosesrc '$ROSE_SRC'"
-	    rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc -d "$DATABASE"
+	    rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
 	) >.rmc-main.cfg
-	echo
 
 	# Maybe we should override some things in the config -- the config we get from the database is just a hint.
 	modify_config rmc_build     	$OVERRIDE_BUILD
@@ -274,7 +298,8 @@ setup_workspace() {
     ) 99>&2 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1
 
-    report_results --dry-run -L 'tool(>=trace)' status=setup
+    # Report what we'll eventually be sending back to the server.
+    report_results "$CONFIGURATION_SPACE_URL" --dry-run -L 'tool(>=trace)' status=setup
 }
 
 ########################################################################################################################
@@ -314,7 +339,7 @@ run_test() {
 	    local duration=$[ t1 - t0 ]
 	    local noutput=$(wc -l <"$LOG_FILE")
 	    local nwarnings=$(grep 'warning:' "$LOG_FILE" |wc -l)
-	    testid=$(report_results -L 'tool(>=info)' \
+	    testid=$(report_results "$RESULTS_URL" -L 'tool(>=info)' \
 				    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
 	    local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
 	    tail -n 500 "$LOG_FILE" >"$abbr_output"

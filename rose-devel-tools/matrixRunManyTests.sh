@@ -193,7 +193,7 @@ echo "as a triplet: VENDOR-VERSION-LANGUAGE). Typing the word 'list' will query 
 echo "on this system."
 
 echo
-if expect_yes "Should I initialize overrides from the configuration space?"; then
+if ! expect_yes "Should I skip initializing overrides from the configuration space?"; then
     eval $(rmc -C "$ROSE_TOOLS" ./matrixNextTest --database="$CONFIGURATION_SPACE_URL" --format=overrides)
 fi
 

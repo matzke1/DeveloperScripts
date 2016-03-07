@@ -45,15 +45,21 @@ rmc_autoconf_run() {
     fi
 
     # C compiler based on C++ compiler
-    local cc_name=
-    case "$RMC_CXX_NAME" in
-	g++*)
-	    cc_name=gcc${RMC_CXX_NAME#g++}
-	    ;;
-	*)
-	    cc_name=$(echo "$RMC_CXX_NAME" |perl -pe 's/\+\+//g')
-	    ;;
-    esac
+    local cxx_basename=${RMC_CXX_NAME##*/}
+    local cxx_not_base=${RMC_CXX_NAME%/*}
+    [ "$cxx_not_base" = "$RMC_CXX_NAME" ] && cxx_not_base=""
+    [ "$cxx_not_base" = "" ] || cxx_not_base="$cxx_not_base/"
+
+    local cc_basename=
+    case "$cxx_basename" in
+        g++*)   
+            cc_basename=gcc${cxx_basename#g++}
+            ;;      
+        *)      
+            cc_basename=$(echo "$cxx_basename" |perl -pe 's/\+\+//g')
+            ;;      
+    esac    
+    local cc_name="$cxx_not_base$cc_basename"
 
     # Run the configure command
     (

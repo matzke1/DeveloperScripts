@@ -212,32 +212,78 @@ report_results() {
     eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
 
+    local dry_run= command_output=
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+            --dry-run)
+		dry_run="--dry-run"
+		;;
+	    --command-output=*)
+		command_output="${arg#--command-output=}"
+		;;
+	    *=*)
+		kvpairs=("${kvpairs[@]}" "$arg")
+		;;
+	    *)
+		echo "$arg0: report_results unknown argument: $arg" >&2
+		;;
+	esac
+    done
+
     if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
 	rose_version="$rose_version+local"
     fi
 
+    local testid=
     if [ "${database#mailto:}" = "$database" ]; then
 	# The database is available, so use it.
-	rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" "$@" \
-	    "${kvpairs[@]}" \
-	    rose="$rose_version" \
-	    rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
-	    tester="$(whoami) using $arg0"
-    else
+	testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" -L 'tool(>=trace)' $dry_run \
+		     "${kvpairs[@]}" \
+		     rose="$rose_version" \
+		     rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
+		     tester="$(whoami) using $arg0")
+	if [ "$dry_run" = "" ]; then
+	    if [ "$testid" = "" ]; then
+		echo "$arg0: matrixTestResult faild to insert the test" >&2
+		return 1
+	    fi
+	    rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
+	    if [ "$comand_output" != "" ]; then
+		rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
+	    fi
+	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+	fi
+
+    elif [ "$is_dry_run" = "" ]; then
 	# There is no database and we should email the results somewhere.
 	local address="${database#mailto:}"
 	local subject="matrix test result"
 
 	(
 	    local pair
-	    for pair in "${kvpairs[@]}"; do
+	    for pair in "${kvpairs[@]}" "$@"; do
 		echo "$pair"
 	    done
 	    echo "rose=$rose_version"
 	    echo "rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct')"
 	    echo "tester=$(whoami) using $arg0"
-	) | mail -v -s "$subject" "$address"
+	    echo
+	    echo "==== COMMANDS BEGIN ===="
+	    base64 <"$COMMAND_DRIBBLE"
+	    echo "==== COMMANDS END ===="
+	    echo
+	    if [ "$command_output" != "" ]; then
+		echo "==== COMMAND OUTPUT BEGIN ===="
+		base64 <"$command_output"
+		echo "==== COMMAND OUTPUT END ===="
+	    fi
+	) | mail -s "$subject" "$address"
+	testid="(not assigned yet)"
+	echo "results mailed to $address"
     fi
+
+    echo "$testid"
 }
 
 ########################################################################################################################
@@ -248,7 +294,7 @@ modify_config() {
     local choices=("$@")
     [ "${#choices[@]}" -eq 0 ] && return 0
     local random_choice="${choices[ RANDOM % ${#choices[@]} ]}"
-    sed --in-place "s/^[ \t]*$statement[ \t].*/$statement $random_choice/" .rmc-main.cfg
+    sed --in-place "s%^[ \t]*$statement[ \t].*%$statement $random_choice%" .rmc-main.cfg
 }
 
 ########################################################################################################################
@@ -299,7 +345,7 @@ setup_workspace() {
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1
 
     # Report what we'll eventually be sending back to the server.
-    report_results "$CONFIGURATION_SPACE_URL" --dry-run -L 'tool(>=trace)' status=setup
+    report_results "$CONFIGURATION_SPACE_URL" --dry-run status=setup
 }
 
 ########################################################################################################################
@@ -339,13 +385,10 @@ run_test() {
 	    local duration=$[ t1 - t0 ]
 	    local noutput=$(wc -l <"$LOG_FILE")
 	    local nwarnings=$(grep 'warning:' "$LOG_FILE" |wc -l)
-	    testid=$(report_results "$RESULTS_URL" -L 'tool(>=info)' \
-				    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
 	    local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
 	    tail -n 500 "$LOG_FILE" >"$abbr_output"
-	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Final output" $testid "$abbr_output"
-	    rmc -C $ROSE_TOOLS ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
-	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+	    testid=$(report_results "$RESULTS_URL" --command-output="$abbr_output" \
+				    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
 	fi
     fi
 

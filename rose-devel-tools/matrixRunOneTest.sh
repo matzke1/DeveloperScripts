@@ -150,7 +150,7 @@ dir0=${0%/*}
 # Distinctive string that separates one section of output from another.
 OUTPUT_SECTION_SEPARATOR='=================-================='
 
-TEST_SUBDIR="matrix-test-$$"
+TEST_SUBDIR="matrix-test-pid$$"
 LOG_FILE="$WORKSPACE/$TEST_SUBDIR.log"
 COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
@@ -166,8 +166,29 @@ if [ "$ROSE_TOOLS_SRC" = "" ]; then
 fi
 
 ########################################################################################################################
+# Recompute/move file names based on test number.
+adjust_file_names() {
+    local test_id="$1"
+
+    local new_log_file="$WORKSPACE/matrix-test-$test_id.log"
+    local new_command_dribble="$WORKSPACE/matrix-test-$test_id.cmds"
+    local new_tarball="$WORKSPACE/matrix-test-$test_id.tar.gz"
+
+    [ -r "$LOG_FILE" -a "$LOG_FILE" != "$new_log_file" ] && \
+	mv "$LOG_FILE" "$new_log_file"
+    [ -r "$COMMAND_DRIBBLE" -a "$COMMAND_DRIBBLE" != "$new_command_dribble" ] && \
+	mv "$COMMAND_DRIBBLE" "$new_command_dribble"
+    [ -r "$TARBALL" -a "$TARBALL" != "$new_tarball" ] && \
+	mv "$TARBALL" "$new_tarball"
+
+    LOG_FILE="$new_log_file"
+    COMMAND_DRIBBLE="$new_command_dribble"
+    TARBALL="$new_tarball"
+}
+
+########################################################################################################################
 # Convert number of seconds to a string, like "9 hours 39 minutes 49 seconds"
-seconds_to_hms () {
+seconds_to_hms() {
     local sec="$1"
     if [ $sec -ge 86400 ]; then
 	local ndays=$[sec/86400]
@@ -259,6 +280,7 @@ report_results() {
 		rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
 	    fi
 	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+	    adjust_file_names $testid
 	fi
 
     elif [ "$is_dry_run" = "" ]; then
@@ -403,12 +425,6 @@ run_test() {
 	tar cvzf "$TARBALL" -C "$WORKSPACE" "$TEST_SUBDIR"
     fi
     (cd "$WORKSPACE" && rm -rf "$TEST_SUBDIR")
-
-    if [ "$testid" != "" ]; then
-	mv "$TARBALL" "$WORKSPACE/matrix-result-$testid.tar.gz" 2>/dev/null
-	mv "$LOG_FILE" "$WORKSPACE/matrix-result-$testid.log" 2>/dev/null
-	mv "$COMMAND_DRIBBLE" "$WORKSPACE/matrix-result-$testid.cmds" 2>/dev/null
-    fi
 
     local end=$SECONDS
     echo "Test took $(seconds_to_hms $[end - begin])"

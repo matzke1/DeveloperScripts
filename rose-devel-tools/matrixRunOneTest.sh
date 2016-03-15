@@ -255,7 +255,7 @@ report_results() {
 		return 1
 	    fi
 	    rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
-	    if [ "$comand_output" != "" ]; then
+	    if [ "$command_output" != "" ]; then
 		rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
 	    fi
 	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid

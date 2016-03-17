@@ -8,7 +8,6 @@ rmc_adjust_switches() {
     local new_switch="$1"; shift
     local retval=()
 
-
     case "$action" in
         insert)
             local switch= need_insert=yes
@@ -18,6 +17,9 @@ rmc_adjust_switches() {
                 fi
                 retval=("${retval[@]}" "$switch")
             done
+	    if [ "$need_insert" != "" ]; then
+		retval=("${retval[@]}" "$new_switch")
+	    fi
             ;;
 
         erase)

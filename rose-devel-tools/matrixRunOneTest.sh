@@ -79,12 +79,6 @@ run_configure_commands() {
     # Runs either autoconf or cmake to generate the makefiles
     rmc config --dry-run >>"$COMMAND_DRIBBLE" 2>&1
     rmc config --dry-run && rmc config
-    local config_status=$?
-    if [ "$config_status" -ne 0 ]; then
-	echo "+ cat config.log"
-	cat config.log
-    fi
-    return $config_status
 }
 
 run_library-build_commands() {

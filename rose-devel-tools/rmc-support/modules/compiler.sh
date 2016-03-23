@@ -61,7 +61,7 @@ rmc_compiler_resolve() {
 
     # Find a default compiler if none was specified.  We start with the basic compiler name, like "g++" and then build a list
     # of possible names by adding version numbers, directories, etc.  The list is sorted so that the most specific names are
-    # first. Eventually we scan the list too find the first name that matches.
+    # first. Eventually we scan the list to find the first name that matches.
     if [ "$RMC_CXX_NAME" = "" ]; then
 	# Start with the most basic names, like "g++"
 	local cxx_vendor_basename=

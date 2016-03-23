@@ -350,6 +350,7 @@ setup_workspace() {
 	modify_config rmc_optimize  	$OVERRIDE_OPTIMIZE
 	modify_config rmc_warnings  	$OVERRIDE_WARNINGS
 	modify_config rmc_code_coverage $OVERRIDE_CODE_COVERAGE
+	modify_config rmc_parallelism   $OVERRIDE_PARALLELISM
 	modify_config rmc_assertions    $OVERRIDE_ASSERTIONS
 	modify_config rmc_boost   	$OVERRIDE_BOOST
 	modify_config rmc_cmake   	$OVERRIDE_CMAKE
@@ -432,6 +433,7 @@ run_test() {
 
 ########################################################################################################################
 
+date
 echo "logging to $LOG_FILE"
 run_test
 

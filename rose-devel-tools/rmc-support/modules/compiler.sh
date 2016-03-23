@@ -14,6 +14,7 @@ export RMC_CXX_LANGUAGE		# empty, 'c++11', etc.
 export RMC_CXX_NAME		# the name of the executable (no arguments)
 export RMC_CXX_SWITCHES		# extra switches needed to run the compiler (like "-std=c++11")
 export RMC_CXX_LIBDIRS		# colon-separated libraries needed by this compiler
+export RMC_FORTRAN_NAME         # name of fortran compiler
 
 rmc_compiler() {
     if [ "$#" -eq 1 ]; then
@@ -164,6 +165,34 @@ rmc_compiler_resolve() {
 	exit 1
     else
 	RMC_CXX_VERSION="$cxx_version"
+    fi
+
+    # Fortran compiler if none specified yet.
+    if [ "$RMC_FORTRAN_NAME" = "" ]; then
+	local fortran_dir=$(which "$cxx_realname")
+	fortran_dir="${cxx_realname%/*}"
+	local fortran_base=$(basename $cxx_realname)
+	if [ "$fortran_dir" != "" ]; then
+	    case "$RMC_CXX_VENDOR" in
+		gcc)
+		    fortran_base=$(echo "$fortran_base" |sed 's/g++/gfortran/')
+		    ;;
+		llvm)
+		    fortran_base=gfortran
+		    ;;
+		*)
+		    fortran_base=
+		    ;;
+	    esac
+	fi
+
+	if [ "$fortran_base" = "" ]; then
+	    : no fortran
+	elif [ -e "$fortran_dir/$fortran_base" ]; then
+	    RMC_FORTRAN_NAME="$fortran_dir/$fortran_base"
+	elif [ -e $(which "$fortran_base") ]; then
+	    RMC_FORTRAN_NAME=$(which "$fortran_base")
+	fi
     fi
 
     # Extra compiler switches for various things.

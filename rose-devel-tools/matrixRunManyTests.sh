@@ -118,7 +118,8 @@ if [ "$DATABASE" = "" ]; then
     echo
     : ${CONFIGURATION_SPACE_FILE:="$MATRIX_ROOT/configurationSpace.txt"}
     while true; do
-	read -p "Configuration space file: " -i "$CONFIGURATION_SPACE_FILE" -e CONFIGURATION_SPACE_FILE
+	read -p "Configuration space file (CONFIGURATION_SPACE_FILE): " -i "$CONFIGURATION_SPACE_FILE" \
+	     -e CONFIGURATION_SPACE_FILE
 	if [ "$CONFIGURATION_SPACE_FILE" = "" ]; then
 	    CONFIGURATION_SPACE_URL="$DATABASE"
 	elif [ -r "$CONFIGURATION_SPACE_FILE" ]; then

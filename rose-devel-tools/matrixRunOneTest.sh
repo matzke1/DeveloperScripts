@@ -1,11 +1,15 @@
 #!/bin/bash
-
+arg0=${0##*/}
+dir0=${0%/*}
 
 ########################################################################################################################
 # User configuration.     This section has settings that can be adjusted by the user.
 
 # The name of the database that stores the results.
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
+
+# Name of this test sequence, or the person/software doing the testing
+: ${TEST_SEQUENCE:="$(whoami) using $arg0"}
 
 # URL of database or file that stores the configuration space to be tested.
 : ${CONFIGURATION_SPACE_URL:="$DATABASE"}
@@ -137,9 +141,6 @@ run_end_commands() {
 
 
 
-# Other global variables
-arg0=${0##*/}
-dir0=${0%/*}
 
 # Distinctive string that separates one section of output from another.
 OUTPUT_SECTION_SEPARATOR='=================-================='
@@ -263,7 +264,7 @@ report_results() {
 		     "${kvpairs[@]}" \
 		     rose="$rose_version" \
 		     rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
-		     tester="$(whoami) using $arg0")
+		     tester="$TEST_SEQUENCE")
 	if [ "$dry_run" = "" ]; then
 	    if [ "$testid" = "" ]; then
 		echo "$arg0: matrixTestResult faild to insert the test" >&2
@@ -289,7 +290,7 @@ report_results() {
 	    done
 	    echo "rose=$rose_version"
 	    echo "rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct')"
-	    echo "tester=$(whoami) using $arg0"
+	    echo "tester=$TEST_SEQUENCE"
 	    echo
 	    echo "==== COMMANDS BEGIN ===="
 	    base64 <"$COMMAND_DRIBBLE"

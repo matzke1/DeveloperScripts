@@ -60,6 +60,7 @@ rmc_boost_list() {
     for dir in $(cd "$base" && find . -follow -maxdepth 3 -name lib -type d |sort); do
 	local version=$(echo "$dir" |cut -d/ -f2)
 	local compiler=$(echo "$dir" |cut -d/ -f3)
+	compiler=${compiler%-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]} # installation date
 	echo "RMC_BOOST_VERSION='$version' RMC_CXX_NAME='$compiler'"
     done
 }

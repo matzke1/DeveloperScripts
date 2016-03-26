@@ -3,7 +3,7 @@
 arg0="${0##*/}"
 
 # Versions of boost to install if they aren't installed already.
-: ${BOOST_VERSIONS:="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
+: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
 
 # Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
 # VENDOR-VERSION-LANGUAGE triplets.
@@ -14,6 +14,9 @@ arg0="${0##*/}"
 
 # RMC toolchain directory where boost will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
+
+# If non-empty, then re-install boost even if it seems to already be installed.
+: REINSTALL
 
 # chrono is needed by date_time in some versions of boost.
 # random and signals are needed by Wt
@@ -173,11 +176,17 @@ for version in $BOOST_VERSIONS; do
 	date >"$logfile"
 	echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
 	echo "log file is " $(rmc realpath "$logfile")
-	if is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
+	if [ "$REINSTALL" != "" ]; then
+	    : reinstall boost regardless of whether it is installed already
+	elif is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
 	    echo "already installed; skipping"
 	    echo "already installed; skipping" >>"$logfile"
 	    continue
 	fi
+
+	# We install to a temporary location and then link it into place. This makes the install atomic -- it's either
+	# installed completely or not at all.
+	temporary_prefix="$RMC_BOOST_ROOT-$(date '+%Y%m%d')"
 
 	mkdir -p "$TEMPDIR"
 	(
@@ -220,17 +229,33 @@ for version in $BOOST_VERSIONS; do
 
 	    # Build
 	    echo "bootstrap..." >&2
-	    (set -x; ./bootstrap.sh --prefix="$RMC_BOOST_ROOT" --with-libraries=$(libraries "$vs" COMMAS))
+	    (set -x; ./bootstrap.sh --prefix="$temporary_prefix" --with-libraries=$(libraries "$vs" COMMAS))
 
 	    echo "building..." >&2
 	    iosflags=$(iostream_flags "$vs")
-	    (set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags toolset=$toolset -d+2)
+	    (set -x; $(build_command "$vs") --prefix="$temporary_prefix" $iosflags toolset=$toolset -d+2)
 
-	    # Install
+	    # Install to staging area
 	    echo "installing..." >&2
-	    (set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags toolset=$toolset -d+2 install)
-	    is_installed "$RMC_BOOST_ROOT" || exit 1
+	    rm -rf "$temporary_prefix"
+	    (set -x; $(build_command "$vs") --prefix="$temporary_prefix" $iosflags toolset=$toolset -d+2 install)
+	    is_installed "$temporary_prefix" || exit 1
 
+	    # Remove previous installation if any (only need to do this if the old installation is a directory rather
+	    # than a symlink.
+	    if [ ! -h "$RMC_BOOST_ROOT" -a -d "$RMC_BOOST_ROOT" ]; then
+		rm -rf "$RMC_BOOST_ROOT.bak"
+		mv "$RMC_BOOST_ROOT" "$RMC_BOOST_ROOT.bak"
+	    else
+		rm -f "$RMC_BOOST_ROOT"
+	    fi
+
+	    # Link in the new installation
+	    ln -sfr "$temporary_prefix" "$RMC_BOOST_ROOT"
+	    is_installed "$RMC_BOOST_ROOT" || exit 1
 	) >>"$logfile"
+
+	# Save the log file in the installation directory
+	mv "$logfile" "$RMC_BOOST_ROOT/installation.log"
     done
 done

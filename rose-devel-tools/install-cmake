@@ -15,6 +15,9 @@ arg0="${0##*/}"
 # RMC toolchain directory where cmake will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
+# If non-empty, then re-install cmake even if it seems to already be installed.
+: REINSTALL
+
 
 
 # Download source tarball into current working directory
@@ -51,11 +54,15 @@ for cmake_version in $CMAKE_VERSIONS; do
     date >"$logfile"
     echo "cmake-$cmake_version for $RMC_CMAKE_ROOT"
     echo "log file is " $(rmc realpath "$logfile")
-    if is_installed "$RMC_CMAKE_ROOT" 2>/dev/null; then
+    if [ "$REINSTALL" != "" ]; then
+	: install regardless of whether it is already installed
+    elif is_installed "$RMC_CMAKE_ROOT" 2>/dev/null; then
 	echo "already installed; skipping"
 	echo "already installed; skipping" >>"$logfile"
 	continue
     fi
+
+    temporary_prefix="$RMC_CMAKE_ROOT-$(date '+%Y%m%d')"
 
     mkdir -p "$TEMPDIR"
     (
@@ -75,10 +82,29 @@ for cmake_version in $CMAKE_VERSIONS; do
 		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
 	    else
 		cd "$builddir" || exit 1
-		./bootstrap --parallel=$RMC_PARALLELISM --prefix="$RMC_CMAKE_ROOT"
+		./bootstrap --parallel=$RMC_PARALLELISM --prefix="$temporary_prefix"
 		make -j$RMC_PARALLELISM
 		make -j$RMC_PARALLELISM install
 	    fi
 	fi
+
+	# Remove previous installation if any (only need to do this if the old installation is a directory rather
+	# than a symlink.
+	is_installed "$temporary_prefix" || exit 1
+	if [ ! -h "$RMC_CMAKE_ROOT" -a -d "$RMC_CMAKE_ROOT" ]; then
+	    rm -rf "$RMC_CMAKE_ROOT.bak"
+	    mv "$RMC_CMAKE_ROOT" "$RMC_CMAKE_ROOT.bak"
+	else
+	    rm -f "$RMC_CMAKE_ROOT"
+	fi
+
+	# Link in the new installation
+	ln -sfr "$temporary_prefix" "$RMC_CMAKE_ROOT"
+	is_installed "$RMC_CMAKE_ROOT" || exit 1
+
+
     ) |tee -a "$logfile"
+
+    # Save the log file in the installation directory
+    mv "$logfile" "$RMC_CMAKE_ROOT/installation.log"
 done

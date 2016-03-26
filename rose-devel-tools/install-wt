@@ -21,6 +21,9 @@ arg0="${0##*/}"
 # RMC toolchain directory where Wt will be installed.
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
+# If non-empty, then re-install wt even if it seems to already be installed.
+: REINSTALL
+
 
 
 # Download source tarball into current working directory
@@ -81,11 +84,15 @@ for wt_version in $WT_VERSIONS; do
             date >"$logfile"
             echo "wt-$wt_version for $RMC_WT_ROOT"
             echo "log file is " $(rmc realpath "$logfile")
-            if is_installed "$RMC_WT_ROOT" 2>/dev/null; then
+	    if [ "$REINSTALL" != "" ]; then
+		: install even if it looks to be installed
+            elif is_installed "$RMC_WT_ROOT" 2>/dev/null; then
                 echo "already installed; skipping"
                 echo "already installed; skipping" >>"$logfile"
                 continue
             fi
+
+	    temporary_prefix="$RMC_WT_ROOT-$(date '+%Y%m%d')"
 
             mkdir -p "$TEMPDIR"
             (
@@ -113,15 +120,29 @@ for wt_version in $WT_VERSIONS; do
                               -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
                               -DBOOST_ROOT="$RMC_BOOST_ROOT" \
                               -DWT_WRASTERIMAGE_IMPLEMENTATION=GraphicsMagick \
-                              -DCMAKE_INSTALL_PREFIX="$RMC_WT_ROOT" \
-                              -DCONFIGDIR="$RMC_WT_ROOT/etc/wt"
+                              -DCMAKE_INSTALL_PREFIX="$temporary_prefix" \
+                              -DCONFIGDIR="$temporary_prefix/etc/wt"
 
                         make -j$RMC_PARALLELISM
                         make install
-                        is_installed "$RMC_WT_ROOT" || exit 1
+                        is_installed "$temporary_prefix" || exit 1
                     fi
+
+		    # Remove previous installation if any (only need to do this if the old installation is a directory rather
+		    # than a symlink.
+		    if [ ! -h "$RMC_WT_ROOT" -a -d "$RMC_WT_ROOT" ]; then
+			rm -rf "$RMC_WT_ROOT.bak"
+			mv "$RMC_WT_ROOT" "$RMC_WT_ROOT.bak"
+		    else
+			rm -f "$RMC_WT_ROOT"
+		    fi
+
+		    # Link in the new installation
+		    ln -sfr "$temporary_prefix" "$RMC_WT_ROOT"
+		    is_installed "$RMC_WT_ROOT" || exit 1
                 fi
             ) |tee -a "$logfile"
+	    mv "$logfile" "$RMC_WT_ROOT/installation.log"
 	done
     done
 done

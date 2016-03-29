@@ -102,8 +102,15 @@ for doxygen_version in $DOXYGEN_VERSIONS; do
 		rm -f "$RMC_DOXYGEN_ROOT"
 	    fi
 
-	    # Link in the new installation
-	    ln -sfr "$temporary_prefix" "$RMC_DOXYGEN_ROOT"
+	    # Link in the new installation. The "-r" switch of "ln" is not always available, so do it the hard way.
+	    if false; then
+		ln -sfr "$temporary_prefix" "$RMC_DOXYGEN_ROOT"
+	    else
+		temporary_base=$(basename "$temporary_prefix")
+		real_base=$(basename "$RMC_DOXYGEN_ROOT")
+		dir="${temporary_prefix%/$temporary_base}"
+		(cd "$dir" && ln -sf "$temporary_base" "$real_base")
+	    fi
 	    is_installed "$RMC_DOXYGEN_ROOT" || exit 1
 	    
 	fi

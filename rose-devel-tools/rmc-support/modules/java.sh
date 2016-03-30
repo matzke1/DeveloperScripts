@@ -56,4 +56,5 @@ rmc_java_check() {
 
     # We need the directory for libjvm.so, which is in a sort of strange place instead of "lib"
     rmc_add_library_path java jre/lib/amd64/server
+    rmc_add_library_path java lib
 }

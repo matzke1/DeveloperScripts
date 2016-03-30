@@ -53,11 +53,15 @@ rmc_wt_check() {
 # List installed versions
 rmc_wt_list() {
     local base="$1"
-    local dir
-    for dir in $(cd "$base" && find . -follow -maxdepth 6 -name WConfig.h |sort); do
-	local version=$(echo "$dir" |cut -d/ -f2)
-	local boost=$(echo "$dir" |cut -d/ -f3 |cut -d- -f2-)
-	local compiler=$(echo "$dir" |cut -d/ -f4)
-	echo "RMC_WT_VERSION='$version' RMC_BOOST_VERSION='$boost' RMC_CXX_NAME='$compiler'"
+    local link
+    for link in $(cd "$base" && find . -maxdepth 3 -type l |sort); do
+	if [ -d "$base/$link/lib/." ]; then
+	    local version=$(echo "$link" |cut -d/ -f2)
+	    local boost=$(echo "$link" |cut -d/ -f3)
+	    local compiler=$(echo "$link" |cut -d/ -f4)
+	    local dir=$(cd "$base" && readlink "$link")
+	    local date=$(echo "$dir" |sed 's/.*\([0-9][0-9][0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1-\2-\3/')
+	    echo "RMC_WT_VERSION='$version' RMC_BOOST_VERSION='$boost' RMC_CXX_NAME='$compiler' DATE='$date'"
+	fi
     done
 }

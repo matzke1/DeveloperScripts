@@ -123,10 +123,14 @@ rmc_cmake_run() {
 # List installed versions
 rmc_cmake_list() {
     local base="$1"
-    local dir
-    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name cmake -type f -perm -100 |sort); do
-	local version=$(echo "$dir" |cut -d/ -f2)
-	local os=$(echo "$dir" |cut -d/ -f3)
-	echo "RMC_CMAKE_VERSION='$version' RMC_OS_NAME='$os'"
+    local link
+    for link in $(cd "$base" && find . -maxdepth 2 -type l |sort); do
+	if [ -e "$base/$link/bin/cmake" ]; then
+	    local version=$(echo "$link" |cut -d/ -f2)
+	    local os=$(echo "$link" |cut -d/ -f3)
+	    local dir=$(cd "$base" && readlink "$link")
+	    local date=$(echo "$dir" |sed 's/.*\([0-9][0-9][0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1-\2-\3/')
+	    echo "RMC_CMAKE_VERSION='$version' RMC_OS_NAME='$os' DATE='$date'"
+	fi
     done
 }

@@ -56,11 +56,14 @@ rmc_boost_check() {
 # List existing versions of boost
 rmc_boost_list() {
     local base="$1"
-    local dir
-    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name lib -type d |sort); do
-	local version=$(echo "$dir" |cut -d/ -f2)
-	local compiler=$(echo "$dir" |cut -d/ -f3)
-	compiler=${compiler%-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]} # installation date
-	echo "RMC_BOOST_VERSION='$version' RMC_CXX_NAME='$compiler'"
+    local link
+    for link in $(cd "$base" && find . -maxdepth 2 -type l |sort); do
+	if [ -d "$base/$link/lib/." ]; then
+	    local version=$(echo "$link" |cut -d/ -f2)
+	    local compiler=$(echo "$link" |cut -d/ -f3)
+	    local dir=$(cd "$base" && readlink "$link")
+	    local date=$(echo "$dir" |sed 's/.*\([0-9][0-9][0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1-\2-\3/')
+	    echo "RMC_BOOST_VERSION='$version' RMC_CXX_NAME='$compiler' DATE='$date'"
+	fi
     done
 }

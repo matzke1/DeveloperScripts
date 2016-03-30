@@ -33,10 +33,6 @@ dir0=${0%/*}
 : ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
 : ROSE_TOOLS_SRC
 
-# Maximum parallelism switch for "make" commands. If this is empty then "rmc make" uses the maximum parallelism for
-# the machine where it's running.  None empty values should include the "-j" part of the switch, as in "-j20"
-: ${MAX_PARALLELISM_SWITCH:=}
-
 # Restrict compilers, ect. to only those in these lists. This helps speed up processing because it means this script
 # chooses the dependencies instead of letting the database choose them. If we let the database choose them and the
 # database has many more that what we have, then we spend most our time failing in the very first consistency check. The
@@ -45,6 +41,7 @@ dir0=${0%/*}
 # These variables should be space-separated values, like OVERRIDE_BOOST="1.50 1.51". This precludes us from having
 # spaces within the values themselves, but if this proves to be a problem we can change the delimiter to something else.
 # Unfortunately we can't pass shell arrays directly to subshells, otherwise this would be easier.
+: ${OVERRIDE_PARALLELISM:=}
 : ${OVERRIDE_BUILD:=}
 : ${OVERRIDE_LANGUAGES:=}
 : ${OVERRIDE_COMPILER:=}
@@ -88,23 +85,23 @@ run_configure_commands() {
 run_library-build_commands() {
     # The "rmc make" is a frontend to "make" that builds specified targets one at a time and knows how much parallelism
     # to use. The extra "make -j1" command is so that error messages are readable if the parallel one fails.
-    rmc make -C src $MAX_PARALLELISM_SWITCH --dry-run >>"$COMMAND_DRIBBLE" 2>&1
-    rmc make -C src $MAX_PARALLELISM_SWITCH || rmc make -C src -j1
+    rmc make -C src --dry-run >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C src || rmc make -C src -j1
 }
 
 run_libtest-build_commands() {
-    rmc make -C tests $MAX_PARALLELISM_SWITCH --dry-run >>"$COMMAND_DRIBBLE" 2>&1
-    rmc make -C tests $MAX_PARALLELISM_SWITCH || rmc make -C tests -j1
+    rmc make -C tests --dry-run >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C tests || rmc make -C tests -j1
 }
     
 run_libtest-check_commands() {
-    rmc make -C tests $MAX_PARALLELISM_SWITCH --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
-    rmc make -C tests $MAX_PARALLELISM_SWITCH check || rmc make -C tests -j1 check
+    rmc make -C tests --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C tests check || rmc make -C tests -j1 check
 }
 
 run_project-bintools_commands() {
-    rmc make -C projects/BinaryAnalysisTools $MAX_PARALLELISM_SWITCH --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
-    rmc make -C projects/BinaryAnalysisTools $MAX_PARALLELISM_SWITCH check || rmc make -C BinaryAnalysisTools -j1 check
+    rmc make -C projects/BinaryAnalysisTools --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects/BinaryAnalysisTools check || rmc make -C BinaryAnalysisTools -j1 check
 }
 
 run_end_commands() {
@@ -318,6 +315,9 @@ modify_config() {
     [ "${#choices[@]}" -eq 0 ] && return 0
     local random_choice="${choices[ RANDOM % ${#choices[@]} ]}"
     sed --in-place "s%^[ \t]*$statement[ \t].*%$statement $random_choice%" .rmc-main.cfg
+    if ! grep "^ *$statement " .rmc-main.cfg >/dev/null; then
+	echo "$statement $random_choice" >>.rmc-main.cfg
+    fi
 }
 
 ########################################################################################################################

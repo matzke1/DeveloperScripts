@@ -31,6 +31,15 @@ rmc_autoconf_with() {
     fi
 }
 
+# Return a string or nothing
+rmc_autoconf_with_or_nothing() {
+    local switch_name="$1"
+    local value="$2"
+    if [ "$value" != "" ]; then
+	echo "--with-$switch_name='$value'"
+    fi
+}
+
 # Run the "configure" command
 rmc_autoconf_run() {
     local dry_run="$1"
@@ -76,12 +85,12 @@ rmc_autoconf_run() {
             --prefix="$RMC_INSTALL_ROOT" \
             --with-CFLAGS=-fPIC \
             --with-CXXFLAGS=-fPIC \
-            --with-CXX_DEBUG="'$RMC_CXX_SWITCHES_DEBUG'" \
-            --with-CXX_OPTIMIZE="'$RMC_CXX_SWITCHES_OPTIM'" \
-            --with-CXX_WARNINGS="'$RMC_CXX_SWITCHES_WARN'" \
-            --with-C_DEBUG="'$RMC_CXX_SWITCHES_DEBUG'" \
-            --with-C_OPTIMIZE="'$RMC_CXX_SWITCHES_OPTIM'" \
-            --with-C_WARNINGS="'$RMC_CXX_SWITCHES_WARN'" \
+	    $(rmc_autoconf_with_or_nothing CXX_DEBUG "$RMC_CXX_SWITCHES_DEBUG") \
+	    $(rmc_autoconf_with_or_nothing CXX_OPTIMIZE "$RMC_CXX_SWITCHES_OPTIM") \
+	    $(rmc_autoconf_with_or_nothing CXX_WARNINGS "$RMC_CXX_SWITCHES_WARN") \
+	    $(rmc_autoconf_with_or_nothing C_DEBUG "$RMC_CXX_SWITCHES_DEBUG") \
+	    $(rmc_autoconf_with_or_nothing C_OPTIMIZE "$RMC_CXX_SWITCHES_OPTIM") \
+            $(rmc_autoconf_with_or_nothing C_WARNINGS "$RMC_CXX_SWITCHES_WARN") \
             --with-ROSE_LONG_MAKE_CHECK_RULE=yes \
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \

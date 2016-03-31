@@ -236,21 +236,27 @@ rmc_compiler_resolve() {
 
     # Switches affecting optimization
     export RMC_CXX_SWITCHES_OPTIM
-    if [ "$RMC_OPTIM" != "no" -a "$RMC_OPTIM" != "yes" ]; then
-	echo "$arg0: not sure what RMC_OPTIM=$RMC_OPTIM means" >&2
-	exit 1
-    fi
     case "$RMC_CXX_VENDOR" in
 	gcc|llvm)
-	    if [ "$RMC_OPTIM" = "no" ]; then
-		RMC_CXX_SWITCHES_OPTIM="-O0"
-		del_switches=("${del_switches[@]}" "-O" "-O1" "-O2" "-O3" "-Os" "-Og" "-Ofast" "-fomit-frame-pointer")
-		add_switches=("${add_switches[@]}" "-O0")
-	    else
-		RMC_CXX_SWITCHES_OPTIM="-O3 -fomit-frame-pointer"
-		del_switches=("${del_switches[@]}" "-O" "-O0" "-O1" "-O2" "-Os" "-Og" "-Ofast")
-		add_switches=("${add_switches[@]}" "-O3" "-fomit-frame-pointer")
-	    fi
+	    case "$RMC_OPTIM" in
+		yes)
+		    RMC_CXX_SWITCHES_OPTIM="-O3 -fomit-frame-pointer"
+		    del_switches=("${del_switches[@]}" "-O" "-O0" "-O1" "-O2" "-Os" "-Og" "-Ofast")
+		    add_switches=("${add_switches[@]}" "-O3" "-fomit-frame-pointer")
+		    ;;
+		no)
+		    RMC_CXX_SWITCHES_OPTIM="-O0"
+		    del_switches=("${del_switches[@]}" "-O" "-O1" "-O2" "-O3" "-Os" "-Og" "-Ofast" "-fomit-frame-pointer")
+		    add_switches=("${add_switches[@]}" "-O0")
+		    ;;
+		ambivalent)
+		    : no changes
+		    ;;
+		*)
+		    echo "$arg0: optimization level $RMC_OPTIM is not handled for $RMC_CXX_VENDOR compiler" >&2
+		    exit 1
+		    ;;
+	    esac
 	    ;;
 	*)
 	    echo "$arg0: not sure how to specify optimization level for $RMC_CXX_VENDOR compiler" >&2

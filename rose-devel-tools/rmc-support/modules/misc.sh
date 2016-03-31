@@ -133,7 +133,7 @@ rmc_optim_resolve() {
 	"")
 	    RMC_OPTIM=yes
 	    ;;
-	yes|no)
+	yes|no|ambivalent)
 	    ;;
 	*)
 	    echo "$arg0: invalid optimaization mode: $RMC_OPTIM" >&2

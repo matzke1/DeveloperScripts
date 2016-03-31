@@ -78,18 +78,31 @@ rmc_cmake_run() {
     local dry_run="$1"
 
     local cmake_build_type
-    if [ "$RMC_OPTIM" = "yes" ]; then
-        if [ "$RMC_DEBUG" = "yes" ]; then
-            echo "$arg0: cmake builds cannot handle optimize+debug" >&2
+    case "$RMC_OPTIM" in
+	yes)
+            if [ "$RMC_DEBUG" = "yes" ]; then
+		echo "$arg0: cmake builds cannot handle optimize + debug" >&2
+		exit 1
+	    else
+		cmake_build_type="-DCMAKE_BUILD_TYPE=Release"
+            fi
+	    ;;
+	no)
+	    if [ "$RMC_DEBUG" = "yes" ]; then
+		cmake_build_type="-DCMAKE_BUILD_TYPE=Debug"
+	    else
+		echo "$arg0: cmake builds cannot handle non-optimized + non-debug" >&2
+		exit 1
+	    fi
+	    ;;
+	ambivalent)
+	    cmake_build_type=
+	    ;;
+	*)
+            echo "$arg0: cmake builds cannot handle optimize = $RMC_OPTIM" >&2
 	    exit 1
-        fi
-        cmake_build_type="Release"
-    elif [ "$RMC_DEBUG" = "yes" ]; then
-        cmake_build_type="Debug"
-    else
-        echo "$arg0: cmake builds cannot handle nonoptimize+nondebug" >&2
-	exit 1
-    fi
+	    ;;
+    esac
 
     # CMake is not fully supported yet
     echo "$arg0: warning: cmake configuration is not fully implemented; it might not honor some settings" >&2
@@ -101,7 +114,7 @@ rmc_cmake_run() {
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run "$RMC_CMAKE_FILE" "$RMC_ROSESRC_ROOT" \
-            -DCMAKE_BUILD_TYPE="$cmake_build_type" \
+            $cmake_build_type \
 	    -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
 	    -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
             -DCMAKE_INSTALL_PREFIX="$RMC_INSTALL_ROOT" \

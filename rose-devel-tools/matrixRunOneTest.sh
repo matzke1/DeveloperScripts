@@ -69,13 +69,25 @@ dir0=${0%/*}
 # is set to $STEP.  If all functions pass then the status is the last step that was started (thus the last step should
 # typically not do anything).  The functions are run with the CWD being the top of the ROSE build tree. The "setup" step
 # always happens before any others and is reponsible for creating the build directories and checking the environment.
-BUILD_STEPS=(configure library-build libtest-build libtest-check project-bintools end)
+BUILD_STEPS=(
+    configure
+    library-build
+    libtest-build
+    libtest-check
+    projects-robb
+    projects-justin
+    projects-dan
+    projects-markus
+    projects-peihung
+    projects-leo
+    end
+)
 
 # Commands to be run for each step. See BUILD_STEPS above.  Standard error and standard output are both redirected to log
 # files that may get transferred to the central database. If you really need something to show up in the terminal running
 # this script then send it to file descriptor 99, as in "echo message for operator >&99" (but beware that matrix testing
 # often runs unattended, so your message will likely go unnoticed). To send a message to the log file and the terminal
-# us "echo message |tee /proc/self/fd/99"
+# use "echo message |tee /proc/self/fd/99"
 run_configure_commands() {
     # Runs either autoconf or cmake to generate the makefiles
     rmc config --dry-run >>"$COMMAND_DRIBBLE" 2>&1
@@ -99,9 +111,34 @@ run_libtest-check_commands() {
     rmc make -C tests check || rmc make -C tests -j1 check
 }
 
-run_project-bintools_commands() {
-    rmc make -C projects/BinaryAnalysisTools --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
-    rmc make -C projects/BinaryAnalysisTools check || rmc make -C BinaryAnalysisTools -j1 check
+run_projects-robb_commands() {
+    rmc make -C projects check-projects-robb --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-robb || rmc make -C BinaryAnalysisTools -j1 check
+}
+
+run_projects-justin_commands() {
+    rmc make -C projects check-projects-justin --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-justin || rmc make -C BinaryAnalysisTools -j1 check
+}
+
+run_projects-dan_commands() {
+    rmc make -C projects check-projects-dan --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-dan || rmc make -C BinaryAnalysisTools -j1 check
+}
+
+run_projects-markus_commands() {
+    rmc make -C projects check-projects-markus --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-markus || rmc make -C BinaryAnalysisTools -j1 check
+}
+
+run_projects-peihung_commands() {
+    rmc make -C projects check-projects-peihung --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-peihung || rmc make -C BinaryAnalysisTools -j1 check
+}
+
+run_projects-leo_commands() {
+    rmc make -C projects check-projects-leo --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects check-projects-leo || rmc make -C BinaryAnalysisTools -j1 check
 }
 
 run_end_commands() {

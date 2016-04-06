@@ -112,32 +112,32 @@ run_libtest-check_commands() {
 }
 
 run_projects-robb_commands() {
-    rmc make -C projects check-projects-robb --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-robb >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-robb || rmc make -C projects -j1 check-projects-robb
 }
 
 run_projects-justin_commands() {
-    rmc make -C projects check-projects-justin --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-justin >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-justin || rmc make -C projects -j1 check-projects-justin
 }
 
 run_projects-dan_commands() {
-    rmc make -C projects check-projects-dan --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-dan >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-dan || rmc make -C projects -j1 check-projects-dan
 }
 
 run_projects-markus_commands() {
-    rmc make -C projects check-projects-markus --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-markus >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-markus || rmc make -C projects -j1 check-projects-markus
 }
 
 run_projects-peihung_commands() {
-    rmc make -C projects check-projects-peihung --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-peihung >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-peihung || rmc make -C projects -j1 check-projects-peihung
 }
 
 run_projects-leo_commands() {
-    rmc make -C projects check-projects-leo --dry-run check >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C projects --dry-run check-projects-leo >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-leo || rmc make -C projects -j1 check-projects-leo
 }
 

@@ -55,6 +55,7 @@ dir0=${0%/*}
 : ${OVERRIDE_DLIB:=}
 : ${OVERRIDE_DOXYGEN:=}
 : ${OVERRIDE_EDG:=}
+: ${OVERRIDE_JAVA:=}
 : ${OVERRIDE_MAGIC:=}
 : ${OVERRIDE_PYTHON:=}
 : ${OVERRIDE_QT:=}
@@ -189,8 +190,8 @@ TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
 if [ "$ROSE_TOOLS_SRC" = "" ]; then
     ROSE_TOOLS_SRC=$(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC')
     if [ "$ROSE_TOOLS_SRC" = "" ]; then
-	echo "$arg0: cannot find ROSE_TOOLS_SRC for tools build directory $ROSE_TOOLS" >&2
-	exit 1
+        echo "$arg0: cannot find ROSE_TOOLS_SRC for tools build directory $ROSE_TOOLS" >&2
+        exit 1
     fi
 fi
 
@@ -204,11 +205,11 @@ adjust_file_names() {
     local new_tarball="$WORKSPACE/matrix-test-$test_id.tar.gz"
 
     [ -r "$LOG_FILE" -a "$LOG_FILE" != "$new_log_file" ] && \
-	mv "$LOG_FILE" "$new_log_file"
+        mv "$LOG_FILE" "$new_log_file"
     [ -r "$COMMAND_DRIBBLE" -a "$COMMAND_DRIBBLE" != "$new_command_dribble" ] && \
-	mv "$COMMAND_DRIBBLE" "$new_command_dribble"
+        mv "$COMMAND_DRIBBLE" "$new_command_dribble"
     [ -r "$TARBALL" -a "$TARBALL" != "$new_tarball" ] && \
-	mv "$TARBALL" "$new_tarball"
+        mv "$TARBALL" "$new_tarball"
 
     LOG_FILE="$new_log_file"
     COMMAND_DRIBBLE="$new_command_dribble"
@@ -220,25 +221,25 @@ adjust_file_names() {
 seconds_to_hms() {
     local sec="$1"
     if [ $sec -ge 86400 ]; then
-	local ndays=$[sec/86400]
-	sec=$[sec-ndays*86400]
-	local units="days"
-	[ "$ndays" -eq 1 ] && units="day"
-	echo -n "$ndays $units "
+        local ndays=$[sec/86400]
+        sec=$[sec-ndays*86400]
+        local units="days"
+        [ "$ndays" -eq 1 ] && units="day"
+        echo -n "$ndays $units "
     fi
     if [ $sec -ge 3600 ]; then
-	local nhours=$[sec/3600]
-	sec=$[sec-nhours*3600]
-	local units="hours"
-	[ "$nhours" -eq 1 ] && units="hour"
-	echo -n "$nhours $units ";
+        local nhours=$[sec/3600]
+        sec=$[sec-nhours*3600]
+        local units="hours"
+        [ "$nhours" -eq 1 ] && units="hour"
+        echo -n "$nhours $units ";
     fi
     if [ $sec -ge 60 ]; then
-	local nmins=$[sec/60]
-	sec=$[sec-nmins*60]
-	local units="minutes"
-	[ "$nmins" -eq 1 ] && units="minute"
-	echo -n "$nmins $units ";
+        local nmins=$[sec/60]
+        sec=$[sec-nmins*60]
+        local units="minutes"
+        [ "$nmins" -eq 1 ] && units="minute"
+        echo -n "$nmins $units ";
     fi
 
     local units="seconds"
@@ -257,7 +258,7 @@ output_section_heading() {
 # Filter output for a running command. Reads standard input and writes only a few important things to standard output.
 filter_output() {
     perl -e '$|=1; while(<STDIN>) {/^$ARGV[0]\s+(.*?)\s+$ARGV[0]$/ && print "Starting next step: ", lc($1), "...\n"}' \
-	"$OUTPUT_SECTION_SEPARATOR"
+        "$OUTPUT_SECTION_SEPARATOR"
 }
 
 ########################################################################################################################
@@ -270,74 +271,74 @@ report_results() {
 
     local dry_run= command_output=
     while [ "$#" -gt 0 ]; do
-	local arg="$1"; shift
-	case "$arg" in
+        local arg="$1"; shift
+        case "$arg" in
             --dry-run)
-		dry_run="--dry-run"
-		;;
-	    --command-output=*)
-		command_output="${arg#--command-output=}"
-		;;
-	    *=*)
-		kvpairs=("${kvpairs[@]}" "$arg")
-		;;
-	    *)
-		echo "$arg0: report_results unknown argument: $arg" >&2
-		;;
-	esac
+                dry_run="--dry-run"
+                ;;
+            --command-output=*)
+                command_output="${arg#--command-output=}"
+                ;;
+            *=*)
+                kvpairs=("${kvpairs[@]}" "$arg")
+                ;;
+            *)
+                echo "$arg0: report_results unknown argument: $arg" >&2
+                ;;
+        esac
     done
 
     if (cd $ROSE_SRC && git status --short |grep '^.M' >/dev/null 2>&1); then
-	rose_version="$rose_version+local"
+        rose_version="$rose_version+local"
     fi
 
     local testid=
     if [ "${database#mailto:}" = "$database" ]; then
-	# The database is available, so use it.
-	testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" -L 'tool(>=trace)' $dry_run \
-		     "${kvpairs[@]}" \
-		     rose="$rose_version" \
-		     rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
-		     tester="$TEST_SEQUENCE")
-	if [ "$dry_run" = "" ]; then
-	    if [ "$testid" = "" ]; then
-		echo "$arg0: matrixTestResult faild to insert the test" >&2
-		return 1
-	    fi
-	    rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
-	    if [ "$command_output" != "" ]; then
-		rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
-	    fi
-	    rmc -C $ROSE_TOOLS ./matrixErrors update $testid
-	    adjust_file_names $testid
-	fi
+        # The database is available, so use it.
+        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" -L 'tool(>=trace)' $dry_run \
+                     "${kvpairs[@]}" \
+                     rose="$rose_version" \
+                     rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
+                     tester="$TEST_SEQUENCE")
+        if [ "$dry_run" = "" ]; then
+            if [ "$testid" = "" ]; then
+                echo "$arg0: matrixTestResult faild to insert the test" >&2
+                return 1
+            fi
+            rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
+            if [ "$command_output" != "" ]; then
+                rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
+            fi
+            rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+            adjust_file_names $testid
+        fi
 
     elif [ "$is_dry_run" = "" ]; then
-	# There is no database and we should email the results somewhere.
-	local address="${database#mailto:}"
-	local subject="matrix test result"
+        # There is no database and we should email the results somewhere.
+        local address="${database#mailto:}"
+        local subject="matrix test result"
 
-	(
-	    local pair
-	    for pair in "${kvpairs[@]}" "$@"; do
-		echo "$pair"
-	    done
-	    echo "rose=$rose_version"
-	    echo "rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct')"
-	    echo "tester=$TEST_SEQUENCE"
-	    echo
-	    echo "==== COMMANDS BEGIN ===="
-	    base64 <"$COMMAND_DRIBBLE"
-	    echo "==== COMMANDS END ===="
-	    echo
-	    if [ "$command_output" != "" ]; then
-		echo "==== COMMAND OUTPUT BEGIN ===="
-		base64 <"$command_output"
-		echo "==== COMMAND OUTPUT END ===="
-	    fi
-	) | mail -s "$subject" "$address"
-	testid="(not assigned yet)"
-	echo "results mailed to $address"
+        (
+            local pair
+            for pair in "${kvpairs[@]}" "$@"; do
+                echo "$pair"
+            done
+            echo "rose=$rose_version"
+            echo "rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct')"
+            echo "tester=$TEST_SEQUENCE"
+            echo
+            echo "==== COMMANDS BEGIN ===="
+            base64 <"$COMMAND_DRIBBLE"
+            echo "==== COMMANDS END ===="
+            echo
+            if [ "$command_output" != "" ]; then
+                echo "==== COMMAND OUTPUT BEGIN ===="
+                base64 <"$command_output"
+                echo "==== COMMAND OUTPUT END ===="
+            fi
+        ) | mail -s "$subject" "$address"
+        testid="(not assigned yet)"
+        echo "results mailed to $address"
     fi
 
     echo "$testid"
@@ -353,7 +354,7 @@ modify_config() {
     local random_choice="${choices[ RANDOM % ${#choices[@]} ]}"
     sed --in-place "s%^[ \t]*$statement[ \t].*%$statement $random_choice%" .rmc-main.cfg
     if ! grep "^ *$statement " .rmc-main.cfg >/dev/null; then
-	echo "$statement $random_choice" >>.rmc-main.cfg
+        echo "$statement $random_choice" >>.rmc-main.cfg
     fi
 }
 
@@ -361,46 +362,47 @@ modify_config() {
 # Set up the testing directory, log files, etc.  Fails if the setup seems invalid
 setup_workspace() {
     (
-	set -e
+        set -e
 
-	# Set up the directory where the tests are run. Removal is done this way to limit disaster if logic is wrong.
-	output_section_heading "setup"
-	(cd "$WORKSPACE" && rm -rf "$TEST_SUBDIR")
-	mkdir "$TEST_DIRECTORY"
-	cd "$TEST_DIRECTORY"
+        # Set up the directory where the tests are run. Removal is done this way to limit disaster if logic is wrong.
+        output_section_heading "setup"
+        (cd "$WORKSPACE" && rm -rf "$TEST_SUBDIR")
+        mkdir "$TEST_DIRECTORY"
+        cd "$TEST_DIRECTORY"
 
-	(
-	    echo "rmc_rosesrc '$ROSE_SRC'"
-	    rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
-	) >.rmc-main.cfg
+        (
+            echo "rmc_rosesrc '$ROSE_SRC'"
+            rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
+        ) >.rmc-main.cfg
 
-	# Maybe we should override some things in the config -- the config we get from the database is just a hint.
-	modify_config rmc_build     	$OVERRIDE_BUILD
-	modify_config rmc_languages 	$OVERRIDE_LANGUAGES
-	modify_config rmc_compiler  	$OVERRIDE_COMPILER
-	modify_config rmc_debug     	$OVERRIDE_DEBUG
-	modify_config rmc_optimize  	$OVERRIDE_OPTIMIZE
-	modify_config rmc_warnings  	$OVERRIDE_WARNINGS
-	modify_config rmc_code_coverage $OVERRIDE_CODE_COVERAGE
-	modify_config rmc_parallelism   $OVERRIDE_PARALLELISM
-	modify_config rmc_assertions    $OVERRIDE_ASSERTIONS
-	modify_config rmc_boost   	$OVERRIDE_BOOST
-	modify_config rmc_cmake   	$OVERRIDE_CMAKE
-	modify_config rmc_dlib    	$OVERRIDE_DLIB
-	modify_config rmc_doxygen 	$OVERRIDE_DOXYGEN
-	modify_config rmc_edg      	$OVERRIDE_EDG
-	modify_config rmc_magic    	$OVERRIDE_MAGIC
-	modify_config rmc_python   	$OVERRIDE_PYTHON
-	modify_config rmc_qt       	$OVERRIDE_QT
-	modify_config rmc_readline 	$OVERRIDE_READLINE
-	modify_config rmc_sqlite   	$OVERRIDE_SQLITE
-	modify_config rmc_wt       	$OVERRIDE_WT
-	modify_config rmc_yaml     	$OVERRIDE_YAML
-	modify_config rmc_yices    	$OVERRIDE_YICES
-	cat .rmc-main.cfg
+        # Maybe we should override some things in the config -- the config we get from the database is just a hint.
+        modify_config rmc_build         $OVERRIDE_BUILD
+        modify_config rmc_languages     $OVERRIDE_LANGUAGES
+        modify_config rmc_compiler      $OVERRIDE_COMPILER
+        modify_config rmc_debug         $OVERRIDE_DEBUG
+        modify_config rmc_optimize      $OVERRIDE_OPTIMIZE
+        modify_config rmc_warnings      $OVERRIDE_WARNINGS
+        modify_config rmc_code_coverage $OVERRIDE_CODE_COVERAGE
+        modify_config rmc_parallelism   $OVERRIDE_PARALLELISM
+        modify_config rmc_assertions    $OVERRIDE_ASSERTIONS
+        modify_config rmc_boost         $OVERRIDE_BOOST
+        modify_config rmc_cmake         $OVERRIDE_CMAKE
+        modify_config rmc_dlib          $OVERRIDE_DLIB
+        modify_config rmc_doxygen       $OVERRIDE_DOXYGEN
+        modify_config rmc_edg           $OVERRIDE_EDG
+        modify_config rmc_java          $OVERRIDE_JAVA
+        modify_config rmc_magic         $OVERRIDE_MAGIC
+        modify_config rmc_python        $OVERRIDE_PYTHON
+        modify_config rmc_qt            $OVERRIDE_QT
+        modify_config rmc_readline      $OVERRIDE_READLINE
+        modify_config rmc_sqlite        $OVERRIDE_SQLITE
+        modify_config rmc_wt            $OVERRIDE_WT
+        modify_config rmc_yaml          $OVERRIDE_YAML
+        modify_config rmc_yices         $OVERRIDE_YICES
+        cat .rmc-main.cfg
 
-	rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
-	exit ${PIPESTATUS[0]}
+        rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
+        exit ${PIPESTATUS[0]}
 
     ) 99>&2 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1
@@ -416,46 +418,46 @@ run_test() {
     local t0=$(date '+%s')
     local begin=$SECONDS
     if setup_workspace; then
-	# Try to run each testing step
-	(
-	    cd "$TEST_DIRECTORY"
-	    for step in "${BUILD_STEPS[@]}"; do
-		output_section_heading "$step"
-		local begin=$SECONDS
-		eval "(run_${step}_commands)"
-		local status=$?
-		local end=$SECONDS
-		seconds_to_hms $[end-begin] >>"$COMMAND_DRIBBLE"
-		[ $status -ne 0 ] && break
-	    done
-	) 99>&2 2>&1 |tee -a "$LOG_FILE" | filter_output >&2
+        # Try to run each testing step
+        (
+            cd "$TEST_DIRECTORY"
+            for step in "${BUILD_STEPS[@]}"; do
+                output_section_heading "$step"
+                local begin=$SECONDS
+                eval "(run_${step}_commands)"
+                local status=$?
+                local end=$SECONDS
+                seconds_to_hms $[end-begin] >>"$COMMAND_DRIBBLE"
+                [ $status -ne 0 ] && break
+            done
+        ) 99>&2 2>&1 |tee -a "$LOG_FILE" | filter_output >&2
 
-	# Figure out final status. First check for the "success" marker; then check for the others in reverse order.
-	local disposition=setup
-	local sections=("${BUILD_STEPS[@]}")
-	for step in success $(perl -e 'print join " ", reverse @ARGV' depend "${BUILD_STEPS[@]}"); do
-	    if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR $step $OUTPUT_SECTION_SEPARATOR" "$LOG_FILE" >/dev/null; then
-		disposition="$step"
-		break
-	    fi
-	done
+        # Figure out final status. First check for the "success" marker; then check for the others in reverse order.
+        local disposition=setup
+        local sections=("${BUILD_STEPS[@]}")
+        for step in success $(perl -e 'print join " ", reverse @ARGV' depend "${BUILD_STEPS[@]}"); do
+            if grep --fixed-strings "$OUTPUT_SECTION_SEPARATOR $step $OUTPUT_SECTION_SEPARATOR" "$LOG_FILE" >/dev/null; then
+                disposition="$step"
+                break
+            fi
+        done
 
-	# Send some info back to the database
-	if [ "$disposition" != "setup" ]; then
-	    local t1=$(date '+%s')
-	    local duration=$[ t1 - t0 ]
-	    local noutput=$(wc -l <"$LOG_FILE")
-	    local nwarnings=$(grep 'warning:' "$LOG_FILE" |wc -l)
-	    local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
-	    tail -n 500 "$LOG_FILE" >"$abbr_output"
-	    testid=$(report_results "$RESULTS_URL" --command-output="$abbr_output" \
-				    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
-	fi
+        # Send some info back to the database
+        if [ "$disposition" != "setup" ]; then
+            local t1=$(date '+%s')
+            local duration=$[ t1 - t0 ]
+            local noutput=$(wc -l <"$LOG_FILE")
+            local nwarnings=$(grep 'warning:' "$LOG_FILE" |wc -l)
+            local abbr_output="$WORKSPACE/$TEST_SUBDIR.output"
+            tail -n 500 "$LOG_FILE" >"$abbr_output"
+            testid=$(report_results "$RESULTS_URL" --command-output="$abbr_output" \
+                                    duration=$duration noutput=$noutput nwarnings=$nwarnings status=$disposition)
+        fi
     fi
 
     # Clean up work space
     if [ "$SAVE_BUILD_DIR" != "" ]; then
-	tar cvzf "$TARBALL" -C "$WORKSPACE" "$TEST_SUBDIR"
+        tar cvzf "$TARBALL" -C "$WORKSPACE" "$TEST_SUBDIR"
     fi
     (cd "$WORKSPACE" && rm -rf "$TEST_SUBDIR")
 

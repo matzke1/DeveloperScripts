@@ -24,7 +24,7 @@ override() {
     local dflt=$(eval echo '$'$varname)
     local result=
     while true; do
-	local p=$(printf "  %-29s %-24s: " "$prompt" "($varname)")
+        local p=$(printf "  %-29s %-24s: " "$prompt" "($varname)")
         read -p "$p" -i "$dflt" -e result
         if [ "$result" = "list" ]; then
             if [ "$rmc_list_item" = "" ]; then
@@ -118,15 +118,15 @@ if [ "$DATABASE" = "" ]; then
     echo
     : ${CONFIGURATION_SPACE_FILE:="$MATRIX_ROOT/configurationSpace.txt"}
     while true; do
-	read -p "Configuration space file (CONFIGURATION_SPACE_FILE): " -i "$CONFIGURATION_SPACE_FILE" \
-	     -e CONFIGURATION_SPACE_FILE
-	if [ "$CONFIGURATION_SPACE_FILE" = "" ]; then
-	    CONFIGURATION_SPACE_URL="$DATABASE"
-	elif [ -r "$CONFIGURATION_SPACE_FILE" ]; then
-	    CONFIGURATION_SPACE_URL="file://$CONFIGURATION_SPACE_FILE"
-	    break
-	fi
-	echo "error: file does not exist or is not readable" >&2
+        read -p "Configuration space file (CONFIGURATION_SPACE_FILE): " -i "$CONFIGURATION_SPACE_FILE" \
+             -e CONFIGURATION_SPACE_FILE
+        if [ "$CONFIGURATION_SPACE_FILE" = "" ]; then
+            CONFIGURATION_SPACE_URL="$DATABASE"
+        elif [ -r "$CONFIGURATION_SPACE_FILE" ]; then
+            CONFIGURATION_SPACE_URL="file://$CONFIGURATION_SPACE_FILE"
+            break
+        fi
+        echo "error: file does not exist or is not readable" >&2
     done
 else
     : ${CONFIGURATION_SPACE_URL:="$DATABASE"}
@@ -143,12 +143,12 @@ echo
 while true; do
     read -p "Email address for results: " -i "$RESULTS_EMAIL" -e RESULTS_EMAIL
     if [ "$RESULTS_EMAIL" = "" -a "$DATABASE" = "" ]; then
-	echo "error: I need an email address since there's no database" >&2
+        echo "error: I need an email address since there's no database" >&2
     elif [ "$RESULTS_EMAIL" != "" ]; then
-	RESULTS_URL="mailto:$RESULTS_EMAIL"
-	break
+        RESULTS_URL="mailto:$RESULTS_EMAIL"
+        break
     else
-	break
+        break
     fi
 done
 export RESULTS_URL    
@@ -201,8 +201,8 @@ fi
 while true; do
     override "  Override build system"       OVERRIDE_BUILD
     override "  Override frontend languages" OVERRIDE_LANGUAGES
-    override "  Override compiler"   	     OVERRIDE_COMPILER      compiler
-    override "  Override debug mode" 	     OVERRIDE_DEBUG
+    override "  Override compiler"           OVERRIDE_COMPILER      compiler
+    override "  Override debug mode"         OVERRIDE_DEBUG
     override "  Override optimize mode"      OVERRIDE_OPTIMIZE
     override "  Override warnings mode"      OVERRIDE_WARNINGS
     override "  Override code_coverage"      OVERRIDE_CODE_COVERAGE
@@ -249,6 +249,6 @@ while true; do
     testNumber=$[testNumber+1]
     (figlet "Test $testNumber" || banner "Test $testNumber" || (echo; echo "Test $testNumber"; echo)) 2>/dev/null
     matrixRunOneTest.sh
-    read -t 1			# use 1 second so Ctrl-C works over a slow link if a bug causes us to spew
+    read -t 1                   # use 1 second so Ctrl-C works over a slow link if a bug causes us to spew
     [ "$REPLY" = "stop" ] && break
 done

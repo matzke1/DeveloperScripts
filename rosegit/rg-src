@@ -6,8 +6,10 @@
 #     ls $(rosegit-src)
 #     ln -s $(rosegit-src)/*.bin .
 
-source rosegit-functions.sh || exit 1
-(rosegit_preamble 2>&1 |grep -v 'configuring:') >&2  # strip a specific diagnostic but show any others
+cwd=$(rmc realpath .)
+bld=$(rmc realpath "$ROSE_BUILD")
+src=$(rmc realpath "$ROSE_SOURCE")
 
-cwd=$(pwd)
-echo "$RG_SRC${cwd#$RG_BLD}"
+base="${cwd#$bld/}"
+
+echo "$src/$base"

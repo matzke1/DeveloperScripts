@@ -2,14 +2,21 @@
 # Install versions of boost
 arg0="${0##*/}"
 
-# boost-1.54 has known bugs that prevent building boost without zlib.
-VERSIONS="1.43 1.44 1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59"
+# Versions of boost to install if they aren't installed already.
+: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
 
+# Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
+# VENDOR-VERSION-LANGUAGE triplets.
+: ${COMPILERS:="g++"}
 
-export RMC_BOOST_BASE="$HOME/GS-CAD/boost"
-export RMC_CXX_NAME="g++"
+# Directory where we build stuff. Using a local directory instead of NFS will speed things up.
+: ${TEMPDIR:="$HOME/junk"}
 
-TEMPDIR="$HOME/junk"
+# RMC toolchain directory where boost will be installed.
+: ${TOOLCHAIN:="$HOME/GS-CAD"}
+
+# If non-empty, then re-install boost even if it seems to already be installed.
+: REINSTALL
 
 # chrono is needed by date_time in some versions of boost.
 # random and signals are needed by Wt
@@ -31,6 +38,7 @@ LIBRARIES_1_56_0="chrono date_time filesystem iostreams program_options random r
 LIBRARIES_1_57_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 LIBRARIES_1_58_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 LIBRARIES_1_59_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_60_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way
@@ -52,6 +60,7 @@ IOSTREAM_FLAGS_1_56_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_58_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_59_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_60_0="-sNO_BZIP2=1"
 
 # The name of boost's build system has changed over time.
 BOOST_BUILD_COMMAND_1_43_0="./bjam"
@@ -71,6 +80,27 @@ BOOST_BUILD_COMMAND_1_56_0="./b2"
 BOOST_BUILD_COMMAND_1_57_0="./b2"
 BOOST_BUILD_COMMAND_1_58_0="./b2"
 BOOST_BUILD_COMMAND_1_59_0="./b2"
+BOOST_BUILD_COMMAND_1_60_0="./b2"
+
+# The relative name for user-specific config (see "./b2 --debug-configuration")
+BOOST_USERCONFIG_FILE_1_43_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_44_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_45_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_46_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_47_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_48_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_49_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_50_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_51_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_52_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_53_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_54_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_55_0=tools/build/v2/user-config.jam
+BOOST_USERCONFIG_FILE_1_56_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_57_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_58_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_59_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_60_0=tools/build/src/user-config.jam
 
 
 libraries() {
@@ -90,6 +120,11 @@ iostream_flags() {
 build_command() {
     local vs="$1"
     eval 'echo $BOOST_BUILD_COMMAND_'$vs
+}
+
+user_config_file() {
+    local vs="$1"
+    eval 'echo $BOOST_USERCONFIG_FILE_'$vs
 }
 
 # Boost version string. Converts "1.50" -> "1_50_0"
@@ -125,55 +160,109 @@ is_installed() {
     return 0
 }
 
-for version in $VERSIONS; do
-    (figlet -c "$version" || banner "$version") 2>/dev/null
+for version in $BOOST_VERSIONS; do
+    for compiler in $COMPILERS; do
+	(figlet -c "$version with $compiler" || banner "$version with $compiler") 2>/dev/null
 
-    # Given a couple RMC_* variables, figure out the rest
-    eval $(RMC_BOOST_VERSION="$version" rmc resolve boost)
+	# Given a couple RMC_* variables, figure out the rest
+	eval $(rmc clear)
+	eval $(RMC_RMC_TOOLCHAIN="$TOOLCHAIN" RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$version" rmc resolve boost)
+	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
+	[ "$RMC_BOOST_ROOT" = "" ] && continue
+	export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
 
-    vs=$(boost_version_string "$version")
-    logfile="boost_$vs.log"
-    date >"$logfile"
-    echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
-    echo "log file is " $(realpath "$logfile")
-    if is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
-	echo "already installed; skipping"
-	echo "already installed; skipping" >>"$logfile"
-	continue
-    fi
-
-    mkdir -p "$TEMPDIR"
-    (
-	set -e
-	cd "$TEMPDIR"
-
-	echo "downloading boost-$version..." >&2
-	tarball="boost_$vs.tar.bz2"
-	get_source "$version" "$tarball"
-	if [ ! -f "$tarball" ]; then
-	    echo "$arg0: couldn't download $tarball" >&2
-	    exit 1
+	vs=$(boost_version_string "$version")
+	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"
+	date >"$logfile"
+	echo "boost-$version ($vs) for $RMC_BOOST_ROOT"
+	echo "log file is " $(rmc realpath "$logfile")
+	if [ "$REINSTALL" != "" ]; then
+	    : reinstall boost regardless of whether it is installed already
+	elif is_installed "$RMC_BOOST_ROOT" 2>/dev/null; then
+	    echo "already installed; skipping"
+	    echo "already installed; skipping" >>"$logfile"
+	    continue
 	fi
 
-	builddir="boost_$vs"
-	echo "unpacking into $builddir..." >&2
-	rm -rf "$builddir"
-	tar xf "$tarball"
-	if [ ! -d "$builddir" ]; then
-	    echo "$arg0: unpacking failed for $tarball into $builddir" >&2
-	    exit 1
-	fi
-	cd "$builddir"
+	# We install to a temporary location and then link it into place. This makes the install atomic -- it's either
+	# installed completely or not at all.
+	temporary_prefix="$RMC_BOOST_ROOT-$(date '+%Y%m%d')"
 
-	echo "bootstrap..." >&2
-	(set -x; ./bootstrap.sh --prefix="$RMC_BOOST_ROOT" --with-libraries=$(libraries "$vs" COMMAS))
+	mkdir -p "$TEMPDIR"
+	(
+	    set -e
+	    cd "$TEMPDIR"
 
-	echo "building..." >&2
-	iosflags=$(iostream_flags "$vs")
-	(set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags)
+	    # Download
+	    echo "downloading boost-$version..." >&2
+	    tarball="boost_$vs.tar.bz2"
+	    get_source "$version" "$tarball"
+	    if [ ! -f "$tarball" ]; then
+		echo "$arg0: couldn't download $tarball" >&2
+		exit 1
+	    fi
 
-	echo "installing..." >&2
-	(set -x; $(build_command "$vs") --prefix="$RMC_BOOST_ROOT" $iosflags install)
-	is_installed "$RMC_BOOST_ROOT" || exit 1
-    ) >>"$logfile"
+	    # Untar
+	    builddir="boost_$vs"
+	    echo "unpacking into $builddir..." >&2
+	    rm -rf "$builddir"
+	    tar xf "$tarball"
+	    if [ ! -d "$builddir" ]; then
+		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+		exit 1
+	    fi
+	    cd "$builddir"
+
+	    # Configure
+	    user_jam=$(user_config_file "$vs")
+	    toolset="$RMC_CXX_VENDOR"
+	    case "$RMC_CXX_VENDOR" in
+		llvm)
+		    toolset=clang
+		    ;;
+	    esac
+	    echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam"
+	    if [ ! -r "$user_jam" ]; then
+		echo "$arg0: cannot create Boost.Build user Jam file: $user_jam" >&2
+		exit 1
+	    fi
+
+	    # Build
+	    echo "bootstrap..." >&2
+	    (set -x; ./bootstrap.sh --prefix="$temporary_prefix" --with-libraries=$(libraries "$vs" COMMAS))
+
+	    echo "building..." >&2
+	    iosflags=$(iostream_flags "$vs")
+	    (set -x; $(build_command "$vs") --prefix="$temporary_prefix" $iosflags toolset=$toolset -d+2)
+
+	    # Install to staging area
+	    echo "installing..." >&2
+	    rm -rf "$temporary_prefix"
+	    (set -x; $(build_command "$vs") --prefix="$temporary_prefix" $iosflags toolset=$toolset -d+2 install)
+	    is_installed "$temporary_prefix" || exit 1
+
+	    # Remove previous installation if any (only need to do this if the old installation is a directory rather
+	    # than a symlink.
+	    if [ ! -h "$RMC_BOOST_ROOT" -a -d "$RMC_BOOST_ROOT" ]; then
+		rm -rf "$RMC_BOOST_ROOT.bak"
+		mv "$RMC_BOOST_ROOT" "$RMC_BOOST_ROOT.bak"
+	    else
+		rm -f "$RMC_BOOST_ROOT"
+	    fi
+
+	    # Link in the new installation. The "-r" switch of "ln" is not always available, so do it the hard way.
+	    if false; then
+		ln -sfr "$temporary_prefix" "$RMC_BOOST_ROOT"
+	    else
+		temporary_base=$(basename "$temporary_prefix")
+		real_base=$(basename "$RMC_BOOST_ROOT")
+		dir="${temporary_prefix%/$temporary_base}"
+		(cd "$dir" && ln -sf "$temporary_base" "$real_base")
+	    fi
+	    is_installed "$RMC_BOOST_ROOT" || exit 1
+	) >>"$logfile"
+
+	# Save the log file in the installation directory
+	mv "$logfile" "$RMC_BOOST_ROOT/installation.log"
+    done
 done

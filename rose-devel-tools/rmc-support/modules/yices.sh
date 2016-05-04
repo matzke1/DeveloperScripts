@@ -24,6 +24,18 @@ rmc_yices_root() {
     echo "$base/$vers"
 }
 
+# Find canonical installed file for package
+rmc_yices_file() {
+    local root="$1"
+    local file="$root/bin/yices"
+    [ -x "$file" ] && echo "$file"
+}
+
+# Find installation root in filesystem
+rmc_yices_find_in_system() {
+    : not implemented
+}
+
 # Resolve package variables.
 rmc_yices_resolve() {
     rmc_resolve_root_and_version yices
@@ -33,4 +45,14 @@ rmc_yices_resolve() {
 rmc_yices_check() {
     rmc_yices_resolve
     rmc_check_root_and_version yices
+}
+
+# List installed versions
+rmc_yices_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name yices_c.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_YICES_VERSION='$version'"
+    done
 }

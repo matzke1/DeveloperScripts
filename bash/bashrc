@@ -1,4 +1,5 @@
-# Robb's bash(1) initialization for both login and non-login shells.  The login shells source this file from one of the
+# Robb's bash(1) initialization for both login and non-login shells.  -*- shell-script -*-
+# The login shells source this file from one of the
 # login initializaton files, usually ~/.bash_profile.
 
 [ -f $HOME/.environment ] && . $HOME/.environment
@@ -83,6 +84,13 @@ if [ -n "$PS1" ]; then
 
     }
 
+    prompt_xterm_title() {
+        local title="$USER@$(uname -n)"
+	echo -en '\033]2;'
+	echo -n "$title"
+	echo -en '\007'
+    }
+
     prompt_git_info() {
 	local branchname=$(git branch --no-color 2>/dev/null |sed -n 's/^\* *//p')
 	[ -n "$branchname" ] && echo -n "$branchname "
@@ -95,12 +103,12 @@ if [ -n "$PS1" ]; then
 	[ -n "$color" ] && echo -n '\[\e[0m\]'
     }
 
-
     if (echo "$PS1" |grep command_prompt >/dev/null 2>&1); then
 	: already set
     else
 	PS1=
 	PS1="$PS1"'$(command_prompt)'
+	PS1="$PS1"'$(prompt_xterm_title)'
 	PS1="$PS1$(prompt_color '\u@\h '             32)"
 	PS1="$PS1$(prompt_color '\W '                33)"
 	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"

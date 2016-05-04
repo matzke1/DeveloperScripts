@@ -27,6 +27,18 @@ rmc_dlib_root() {
     echo "$base/$vers"
 }
 
+# Find canonical installed file for package
+rmc_dlib_file() {
+    local root="$1"
+    local file="$root/dlib/revision.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find library root in filesystem
+rmc_dlib_find_in_system() {
+    : not implemented
+}
+
 # Resolve package variables
 rmc_dlib_resolve() {
     rmc_resolve_root_and_version dlib
@@ -36,4 +48,14 @@ rmc_dlib_resolve() {
 rmc_dlib_check() {
     rmc_dlib_resolve
     rmc_check_root_and_version dlib
+}
+
+# List installed versions
+rmc_dlib_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 3 -name revision.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_DLIB_VERSION='$version'"
+    done
 }

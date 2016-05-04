@@ -27,13 +27,36 @@ rmc_readline_root() {
     echo "$base/$vers"
 }
 
+# Find canonical installed file for package
+rmc_readline_file() {
+    local root="$1"
+    local file="$root/include/readline/readline.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find installation root in filesystem
+rmc_readline_find_in_system() {
+    [ -r /usr/include/readline/readline.h ] && echo /usr/include/readline/readline.h
+}
+
 # Resolve package variables
 rmc_readline_resolve() {
     rmc_resolve_root_and_version readline
+    rmc_add_library_path readline lib
 }
 
 # Check that package is installed
 rmc_readline_check() {
+    rmc_readline_resolve
     rmc_check_root_and_version readline
-    add_library_path readline lib
+}
+
+# List installed versions
+rmc_readline_list() {
+    local base="$1"
+    local dir
+    for dir in $(cd "$base" && find . -follow -maxdepth 4 -name readline.h -type f |sort); do
+	local version=$(echo "$dir" |cut -d/ -f2)
+	echo "RMC_READLINE_VERSION='$version'"
+    done
 }

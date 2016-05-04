@@ -24,14 +24,19 @@ rmc_sqlite_root() {
     : cannot do this yet
 }
 
+# Find installation root in filesystem
+rmc_sqlite_find_in_system() {
+    [ -r "/usr/include/sqlite3.h" ] && echo "/usr"
+}
+
 # Resolve package variables
 rmc_sqlite_resolve() {
     rmc_resolve_root_and_version sqlite
+    rmc_add_library_path sqlite lib
 }
 
 # Check that package is installed
 rmc_sqlite_check() {
     rmc_sqlite_resolve
     rmc_check_root_and_version sqlite
-    add_library_path sqlite lib
 }

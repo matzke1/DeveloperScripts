@@ -4,4 +4,4 @@
 #   rg-search [GREP_ARGUMENTS] PATTERN
 
 top_srcdir="$(git rev-parse --show-cdup)" || exit 1
-git ls-tree -r --name-only --full-tree -z HEAD |xargs -0 -n1 -I{} grep --with-filename --line-number "$@" $top_srcdir{}
+git ls-tree -r --name-only --full-tree -z HEAD |xargs -0 -n1 -I{} grep --with-filename --line-number --perl-regexp -- "$@" $top_srcdir{}

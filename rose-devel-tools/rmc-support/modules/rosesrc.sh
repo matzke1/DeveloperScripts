@@ -16,7 +16,7 @@ rmc_source_dir() {
 # Initialize package variables
 rmc_rosesrc_resolve() {
     if [ -d "$RMC_ROSESRC_ROOT" ]; then
-	RMC_ROSESRC_ROOT=$(realpath "$RMC_ROSESRC_ROOT")
+	RMC_ROSESRC_ROOT=$(rmc_realpath "$RMC_ROSESRC_ROOT")
     fi
 }
 

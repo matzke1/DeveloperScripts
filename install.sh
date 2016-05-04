@@ -31,6 +31,10 @@ mkdir -p $HOME/bin
     ln -sf $DEV_ROOT/rose-devel-tools/install-boost .
     ln -sf $DEV_ROOT/rose-devel-tools/install-wt .
     ln -sf $DEV_ROOT/rose-devel-tools/install-yaml .
+    ln -sf $DEV_ROOT/rose-devel-tools/install-cmake .
+    ln -sf $DEV_ROOT/rose-devel-tools/install-doxygen .
+    ln -sf $DEV_ROOT/rose-devel-tools/matrixRunOneTest.sh .
+    ln -sf $DEV_ROOT/rose-devel-tools/matrixRunManyTests.sh .
 )
 
 #

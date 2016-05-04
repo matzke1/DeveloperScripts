@@ -18,6 +18,21 @@ rmc_magic_root() {
     echo "$base/$vers"
 }
 
+# Find canonical installed file for package
+rmc_magic_file() {
+    local root="$1"
+    local file="$root/include/magic.h"
+    [ -r "$file" ] && echo "$file"
+}
+
+# Find installation directory for libmagic
+rmc_magic_find_in_system() {
+    local root="/usr";
+    if [ -r "$root/include/magic.h" ]; then
+	echo "$root"
+    fi
+}
+
 # Obtain version number from an installation of this package
 rmc_magic_version() {
     local root="$1"
@@ -27,11 +42,11 @@ rmc_magic_version() {
 # Resolve package variables
 rmc_magic_resolve() {
     rmc_resolve_root_and_version magic
+    rmc_add_library_path magic lib
 }
 
 # Check that this package is installed
 rmc_magic_check() {
     rmc_magic_resolve
     rmc_check_root_and_version magic
-    rmc_add_library_path magic lib
 }

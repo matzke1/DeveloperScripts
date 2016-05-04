@@ -1,3 +1,20 @@
+# Tool chain location
+#
+# usage: rmc_toolchain DIRECTORY
+#
+# Indicates which directory contains the ROSE dependencies known by RMC.
+#
+: ${RMC_RMC_TOOLCHAIN:="$HOME/GS-CAD"}
+export RMC_RMC_TOOLCHAIN
+rmc_toolchain() {
+    local dir="$1"
+    if [ ! -d "$dir/." ]; then
+	echo "$arg0: tool chain directory does not exist: $dir" >&2
+	exit 1
+    fi
+    RMC_RMC_TOOLCHAIN="$1"
+}
+
 # Installation prefix.
 #
 # usage: rmc_install yes|no|DIRECTORY
@@ -20,7 +37,7 @@ rmc_install_resolve() {
             RMC_INSTALL_ROOT="/DO_NOT_INSTALL"
             ;;
         *)
-            RMC_INSTALL_ROOT=$(cd "$RMC_ROSEBLD_ROOT" && realpath -s "$RMC_INSTALL_ROOT")
+            RMC_INSTALL_ROOT=$(cd "$RMC_ROSEBLD_ROOT" && rmc_realpath "$RMC_INSTALL_ROOT")
             ;;
     esac
 }
@@ -116,7 +133,7 @@ rmc_optim_resolve() {
 	"")
 	    RMC_OPTIM=yes
 	    ;;
-	yes|no)
+	yes|no|ambivalent)
 	    ;;
 	*)
 	    echo "$arg0: invalid optimaization mode: $RMC_OPTIM" >&2
@@ -155,3 +172,4 @@ rmc_assertions_resolve() {
 rmc_assertions_check() {
     rmc_assertions_resolve
 }
+

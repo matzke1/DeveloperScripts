@@ -73,6 +73,10 @@ rmc_autoconf_run() {
     esac    
     local cc_name="$cxx_not_base$cc_basename"
 
+    # Precompiled headers only work with GCC and LLVM
+    local with_pch=
+    [ "$RMC_CXX_VENDOR" = "gcc" -o "$RMC_CXX_VENDOR" = "llvm" ] && with_pch="--with-pch"
+
     # Run the configure command
     (
         set -e
@@ -102,7 +106,7 @@ rmc_autoconf_run() {
             --with-java="$RMC_JAVA_FILE" \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \
-            --with-pch \
+            $with_pch \
             $(rmc_autoconf_with python python "$RMC_PYTHON_FILE") \
             $qt_flags \
             $(rmc_autoconf_with sqlite sqlite3) \

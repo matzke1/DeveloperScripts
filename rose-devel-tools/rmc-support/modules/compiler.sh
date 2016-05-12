@@ -7,8 +7,9 @@
 # Vendors are:
 #        gcc      - GCC compilers (e.g., g++)
 #        llvm     - LLVM compilers (e.g., clang++)
+#        intel    - Intel compilers (e.g., icpc)
 #
-export RMC_CXX_VENDOR		# 'gcc', 'llvm', etc.
+export RMC_CXX_VENDOR		# 'gcc', 'llvm', 'intel'.
 export RMC_CXX_VERSION		# version number
 export RMC_CXX_LANGUAGE		# empty, 'c++11', etc.
 export RMC_CXX_NAME		# the name of the executable (no arguments)
@@ -48,7 +49,7 @@ rmc_compiler_resolve() {
 	local language=$(echo "$RMC_CXX_NAME" |cut -d- -f3-)
 	if rmc_is_version_string "$version"; then
 	    case "$vendor" in
-		gcc|llvm)
+		gcc|llvm|intel)
 		    RMC_CXX_VENDOR="$vendor"
 		    RMC_CXX_VERSION="$version"
 		    RMC_CXX_LANGUAGE="$language"
@@ -73,6 +74,9 @@ rmc_compiler_resolve() {
 	    llvm)
 		cxx_vendor_basename="clang++"
 		;;
+	    intel)
+		cxx_vendor_basename="icpc"
+		;;
 	    "")
 		cxx_vendor_basename="c++"
 		;;
@@ -81,33 +85,31 @@ rmc_compiler_resolve() {
 		exit 1
 		;;
 	esac
-	local cxx_command_list="$cxx_vendor_basename"
-
-	# More specifically, append the specified version number
-	if [ "$RMC_CXX_VERSION" != "" ]; then
-	    cxx_command_list="$cxx_vendor_basename-$RMC_CXX_VERSION $cxx_command_list"
-	fi
 
 	# Look for compiler commands in the RMC toolchain but use all the directories that start with the same
 	# version. The toolchain stores the full version number, like "4.8.4", but we might have only the major and
 	# minor numbers given to us in $RMC_CXX_VERSION.
 	if [ -d "$RMC_RMC_TOOLCHAIN/compiler/." ]; then
-	    local d f
-	    for d in $(find "$RMC_RMC_TOOLCHAIN/compiler" -maxdepth 1 -name "$RMC_CXX_VENDOR-$RMC_CXX_VERSION.*" |sort); do
-		f="$d/$RMC_OS_NAME_FILE/bin/$cxx_vendor_basename"
-		cxx_command_list="$f $cxx_command_list" # latest alphabetically will be first in list
+	    local d
+	    for d in $(find "$RMC_RMC_TOOLCHAIN/compiler" -maxdepth 1 -name "$RMC_CXX_VENDOR-$RMC_CXX_VERSION*" |sort -r); do
+		local f="$d/$RMC_OS_NAME_FILE/bin/$cxx_vendor_basename"
+		if [ -e "$f" ]; then
+		    RMC_CXX_NAME="$f"
+		    break
+		fi
 	    done
-	    f="$RMC_RMC_TOOLCHAIN/compiler/$RMC_CXX_VENDOR-$RMC_CXX_VERSION/$RMC_OS_NAME_FILE/bin/$cxx_vendor_basename"
-	    cxx_command_list="$f $cxx_command_list"
 	fi
 
-	# Search our list of possible commands until we find one that exists. Therefore the list should have been
-	# sorted already from best possible match to most general match.
-	for RMC_CXX_NAME in $cxx_command_list; do
-	    if [ "$(which $RMC_CXX_NAME 2>/dev/null)" != "" ]; then
-		break
-	    fi
-	done
+	# See if the base name with version is in the PATH
+	local f="$cxx_vendor_basename-$RMC_CXX_VERSION"
+	if [ "$RMC_CXX_NAME" = "" -a "$(which $f 2>/dev/null)" != "" ]; then
+	    RMC_CXX_NAME="$f"
+	fi
+
+	# See if the base name by itself is in the PATH
+	if [ "$RMC_CXX_NAME" = "" -a "$(which $cxx_vendor_basename 2>/dev/null)" != "" ]; then
+	    RMC_CXX_NAME="$cxx_vendor_basename"
+	fi
 
 	if [ "$RMC_CXX_NAME" = "" ]; then
 	    echo "$arg0: cannot find $RMC_CXX_VENDOR $RMC_CXX_VERSION C++ compiler command" >&2
@@ -115,17 +117,29 @@ rmc_compiler_resolve() {
 	fi
     fi
 
-    # Some compilers also have shared libraries that need to be in the library search path.
-    local cxx_command_root="${RMC_CXX_NAME%/bin/*}"
-    if [ "$cxx_command_root" != "$RMC_CXX_NAME" ]; then
-	local cxx_libdirs=()
-	[ -d "$cxx_command_root/lib/." ] && cxx_libdirs=("${cxx_libdirs[@]}" "$cxx_command_root/lib")
-	[ -d "$cxx_command_root/lib64/." ] && cxx_libdirs=("${cxx_libdirs[@]}" "$cxx_command_root/lib64")
+    # Where is the root for this compiler installation?
+    local cxx_command_root=
+    if [ "${RMC_CXX_NAME%/bin/*}" != "$RMC_CXX_NAME" ]; then
+	cxx_command_root="${RMC_CXX_NAME%/bin/*}"
+    elif [ "${RMC_CXX_NAME%/bin/intel64/*}" != "$RMC_CXX_NAME" ]; then
+	cxx_command_root="${RMC_CXX_NAME%/bin/intel64/*}"
+    fi
 
-	local f
-	for f in "${cxx_libdirs[@]}"; do
-	    RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$f" : "$RMC_CXX_LIBDIRS")
-	done
+    # Some compilers also have shared libraries that need to be in the library search path.
+    if [ "$cxx_command_root" != "" ]; then
+	[ -d "$cxx_command_root/lib/." ] && \
+	    RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$cxx_command_root/lib" : "$RMC_CXX_LIBDIRS")
+	[ -d "$cxx_command_root/lib64/." ] && \
+	    RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$cxx_command_root/lib64" : "$RMC_CXX_LIBDIRS")
+    fi
+    if [ "$RMC_CXX_VENDOR" = "intel" ]; then
+	local script="$RMC_RMC_TOOLCHAIN/compiler/$RMC_CXX_VENDOR-$RMC_CXX_VERSION/$RMC_OS_NAME_FILE/bin/iccvars.sh"
+	if [ ! -e "$script" ]; then
+	    echo "$arg0: intel compiler script not found: $script" >&2
+	    exit 1
+	fi
+	local dirs=$(source "$script" intel64; echo "$LD_LIBRARY_PATH")
+	RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$dirs" : "$RMC_CXX_LIBDIRS")
     fi
 
     # Try to obtain a vendor and version from the command
@@ -140,6 +154,8 @@ rmc_compiler_resolve() {
 	cxx_vendor="gcc"
     elif "$cxx_realname" --version 2>&1 |grep 'based on LLVM' >/dev/null; then
 	cxx_vendor="llvm"
+    elif "$cxx_realname" --version 2>&1 |grep 'Intel Corporation' >/dev/null; then
+	cxx_vendor="intel"
     else
 	: need to figure out how to get this info
     fi
@@ -180,6 +196,9 @@ rmc_compiler_resolve() {
 		llvm)
 		    fortran_base=gfortran
 		    ;;
+		intel)
+		    fortran_base=$(echo "$fortran_base" |sed 's/icpc/ifort/')
+		    ;;
 		*)
 		    fortran_base=
 		    ;;
@@ -190,8 +209,8 @@ rmc_compiler_resolve() {
 	    : no fortran
 	elif [ -e "$fortran_dir/$fortran_base" ]; then
 	    RMC_FORTRAN_NAME="$fortran_dir/$fortran_base"
-	elif [ -e $(which "$fortran_base") ]; then
-	    RMC_FORTRAN_NAME=$(which "$fortran_base")
+	elif [ -e $(which "$fortran_base" 2>/dev/null) ]; then
+	    RMC_FORTRAN_NAME=$(which "$fortran_base" 2>/dev/null)
 	fi
     fi
 
@@ -202,7 +221,7 @@ rmc_compiler_resolve() {
     export RMC_CXX_SWITCHES_LANGUAGE
     if [ "$RMC_CXX_LANGUAGE" != "default" ]; then
 	case "$RMC_CXX_VENDOR" in
-	    gcc|llvm)
+	    gcc|llvm|intel)
 		RMC_CXX_SWITCHES_LANGUAGE="-std=$RMC_CXX_LANGUAGE"
 		add_switches=("${add_switches[@]}" "-std=$RMC_CXX_LANGUAGE")
 		;;
@@ -220,7 +239,7 @@ rmc_compiler_resolve() {
 	exit 1
     fi
     case "$RMC_CXX_VENDOR" in
-	gcc|llvm)
+	gcc|llvm|intel)
 	    if [ "$RMC_DEBUG" = "no" ]; then
 		del_switches=("${del_switches[@]}" "-g")
 	    else
@@ -237,7 +256,7 @@ rmc_compiler_resolve() {
     # Switches affecting optimization
     export RMC_CXX_SWITCHES_OPTIM
     case "$RMC_CXX_VENDOR" in
-	gcc|llvm)
+	gcc|llvm|intel)
 	    case "$RMC_OPTIM" in
 		yes)
 		    RMC_CXX_SWITCHES_OPTIM="-O3 -fomit-frame-pointer"
@@ -283,7 +302,7 @@ rmc_compiler_resolve() {
 		fi
 	    fi
 	    ;;
-	llvm)
+	llvm|intel)
 	    if [ "$RMC_WARNINGS" = "no" ]; then
 		del_switches=("${del_switches[@]}" "-Wall")
 	    else
@@ -312,8 +331,10 @@ rmc_compiler_resolve() {
 	    fi
 	    ;;
 	*)
-	    echo "$arg0: not sure how to specify code coverage for $RMC_CXX_VENDOR compiler" >&2
-	    exit 1
+	    if [ "$RMC_CODE_COVERAGE" != "no" ]; then
+		echo "$arg0: not sure how to specify code coverage for $RMC_CXX_VENDOR compiler" >&2
+		exit 1
+	    fi
 	    ;;
     esac
 

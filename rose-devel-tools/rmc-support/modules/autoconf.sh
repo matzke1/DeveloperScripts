@@ -63,7 +63,10 @@ rmc_autoconf_run() {
     case "$cxx_basename" in
         g++*)   
             cc_basename=gcc${cxx_basename#g++}
-            ;;      
+            ;;
+	icpc*)
+	    cc_basename=icc${cxx_basename#icpc}
+	    ;;
         *)      
             cc_basename=$(echo "$cxx_basename" |perl -pe 's/\+\+//g')
             ;;      

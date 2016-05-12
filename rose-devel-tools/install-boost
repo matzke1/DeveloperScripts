@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Install versions of boost
 arg0="${0##*/}"
 
@@ -170,6 +171,7 @@ for version in $BOOST_VERSIONS; do
 	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
 	[ "$RMC_BOOST_ROOT" = "" ] && continue
 	export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
+	export RMC_RMC_TOOLCHAIN
 
 	vs=$(boost_version_string "$version")
 	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"

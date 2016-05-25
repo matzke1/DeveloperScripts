@@ -4,7 +4,7 @@
 arg0="${0##*/}"
 
 # Versions of boost to install if they aren't installed already.
-: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
+: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60 1.61"}
 
 # Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
 # VENDOR-VERSION-LANGUAGE triplets.

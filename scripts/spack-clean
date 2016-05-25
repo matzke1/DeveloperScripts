@@ -1,0 +1,4 @@
+#!/bin/bash
+
+spack "$@" |sed -r 's/\x1b\[([0-9]{1,2}(;[0-9]{1,2})?)?m//g'
+exit ${PIPESTATUS[0]}

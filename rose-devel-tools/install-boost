@@ -227,7 +227,7 @@ for version in $BOOST_VERSIONS; do
 		    toolset=clang
 		    ;;
 	    esac
-	    echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam"
+	    (set -x; echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam")
 	    if [ ! -r "$user_jam" ]; then
 		echo "$arg0: cannot create Boost.Build user Jam file: $user_jam" >&2
 		exit 1

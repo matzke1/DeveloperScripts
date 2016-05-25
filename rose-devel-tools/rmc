@@ -114,7 +114,7 @@ CONFIG_BASE_NAME=".rmc-main.cfg"
 # All exported rmc environment variables begin with the letters "RMC_" followed by a module name. Module names are things like
 # "BOOST", "YAML", etc.  Environment variables for rmc itself begin with "RMC_RMC_", like RMC_RMC_VERSION, which is the version
 # number of rmc.
-export RMC_RMC_VERSION="0.2.1"
+export RMC_RMC_VERSION="0.2.2"
 
 # Load additional functionality. These files live in the same directory as this script.
 arg0_realname=$(rmc_realpath $0)

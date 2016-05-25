@@ -106,6 +106,22 @@ rmc_compiler_resolve() {
 	    RMC_CXX_NAME="$f"
 	fi
 
+	# See if spack is installed and knows about this compiler
+	if [ "$RMC_CXX_NAME" = "" ]; then
+	    local best_spec=$(rmc_spack find "$RMC_CXX_VENDOR" |\
+				     grep "^$RMC_CXX_VENDOR@$RMC_CXX_VERSION" |\
+				     cut -d+ -f1 |\
+				     sort -r |\
+				     head -n1)
+	    if [ "$best_spec" != "" ]; then
+		local spack_prefix=$(rmc_spack_prefix "$best_spec")
+		f="$spack_prefix/bin/$cxx_vendor_basename"
+		if [ -e "$f" ]; then
+		    RMC_CXX_NAME="$f"
+		fi
+	    fi
+	fi
+		
 	# See if the base name by itself is in the PATH
 	if [ "$RMC_CXX_NAME" = "" -a "$(which $cxx_vendor_basename 2>/dev/null)" != "" ]; then
 	    RMC_CXX_NAME="$cxx_vendor_basename"

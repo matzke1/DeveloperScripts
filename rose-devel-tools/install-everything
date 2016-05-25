@@ -139,6 +139,8 @@ install_or_update_developer_scripts() {
 
 	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/rmc .
 	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-boost .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-cmake .
+	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-doxygen .
 	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-wt .
 	    ln -sf "$DEVELOPER_SCRIPTS_DIR"/rose-devel-tools/install-yaml .
 	)

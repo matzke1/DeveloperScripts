@@ -118,6 +118,7 @@ for yaml_version in $YAML_VERSIONS; do
                 mkdir "$builddir/_build"
                 cd "$builddir/_build"
 
+		set -x
                 "$RMC_CMAKE_FILE" .. \
                                   -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
                                   -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
@@ -127,6 +128,8 @@ for yaml_version in $YAML_VERSIONS; do
                 make -j$RMC_PARALLELISM
 
                 make install
+		set +x
+
                 is_installed "$temporary_prefix" || exit 1
 
 		# Remove previous installation if any (only need to do this if the old installation is a directory rather

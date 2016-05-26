@@ -53,26 +53,6 @@ rmc_autoconf_run() {
 	qt_flags="$qt_flags --with-qt-lib --with-roseQt"
     fi
 
-    # C compiler based on C++ compiler
-    local cxx_basename=${RMC_CXX_NAME##*/}
-    local cxx_not_base=${RMC_CXX_NAME%/*}
-    [ "$cxx_not_base" = "$RMC_CXX_NAME" ] && cxx_not_base=""
-    [ "$cxx_not_base" = "" ] || cxx_not_base="$cxx_not_base/"
-
-    local cc_basename=
-    case "$cxx_basename" in
-        g++*)   
-            cc_basename=gcc${cxx_basename#g++}
-            ;;
-	icpc*)
-	    cc_basename=icc${cxx_basename#icpc}
-	    ;;
-        *)      
-            cc_basename=$(echo "$cxx_basename" |perl -pe 's/\+\+//g')
-            ;;      
-    esac    
-    local cc_name="$cxx_not_base$cc_basename"
-
     # Precompiled headers only work with GCC and LLVM
     local with_pch=
     [ "$RMC_CXX_VENDOR" = "gcc" -o "$RMC_CXX_VENDOR" = "llvm" ] && with_pch="--with-pch"
@@ -82,7 +62,7 @@ rmc_autoconf_run() {
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run \
- 	    CC="$cc_name" CXX="$RMC_CXX_NAME" CXXFLAGS="'$RMC_CXX_SWITCHES'" \
+ 	    CC="$RMC_CC_NAME" CXX="$RMC_CXX_NAME" CXXFLAGS="'$RMC_CXX_SWITCHES'" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
 	    --disable-gcc-version-check \

@@ -9,7 +9,7 @@ dir0=${0%/*}
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
 
 # Name of this test sequence, or the person/software doing the testing
-: ${TEST_SEQUENCE:="$(whoami) using $arg0"}
+: ${TEST_SEQUENCE:="$(whoami)@$(hostname) using $arg0"}
 
 # URL of database or file that stores the configuration space to be tested.
 : ${CONFIGURATION_SPACE_URL:="$DATABASE"}

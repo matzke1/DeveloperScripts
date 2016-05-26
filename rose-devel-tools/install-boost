@@ -14,6 +14,7 @@ arg0="${0##*/}"
 : ${TEMPDIR:="$HOME/junk"}
 
 # RMC toolchain directory where boost will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # If non-empty, then re-install boost even if it seems to already be installed.

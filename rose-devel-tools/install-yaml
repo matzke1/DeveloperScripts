@@ -17,6 +17,7 @@ arg0="${0##*/}"
 : ${TEMPDIR:="$HOME/junk"}
 
 # RMC toolchain directory where yaml will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Which cmake to use? This can be the word "system", a full path to the cmake executable, or an RMC-known version number.
@@ -70,7 +71,7 @@ for yaml_version in $YAML_VERSIONS; do
 	    eval $(rmc clear)
 	    export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
 	    eval $(rmc resolve parallelism)
-	    eval $(RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION="$CMAKE_VERSION" rmc resolve --require cmake)
+	    eval $(RMC_CXX_NAME="$compiler" RMC_BUILD_SYSTEM=cmake RMC_CMAKE_VERSION="$CMAKE_VERSION" rmc resolve --require cmake)
             eval $(RMC_CXX_NAME="$compiler" RMC_BOOST_VERSION="$boost_version" RMC_YAML_VERSION="$yaml_version" rmc resolve yaml)
 	    [ "$RMC_CMAKE_FILE" = "" ] && continue
 	    [ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue
@@ -148,7 +149,7 @@ for yaml_version in $YAML_VERSIONS; do
 		fi
 		is_installed "$RMC_YAML_ROOT" || exit 1
 
-            ) |tee -a "$logfile"
+            ) 2>&1 |tee -a "$logfile"
 	    mv "$logfile" "$RMC_YAML_ROOT/installation.log"
         done
     done

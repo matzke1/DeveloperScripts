@@ -16,6 +16,7 @@ export RMC_CXX_NAME		# the name of the executable (no arguments)
 export RMC_CXX_SWITCHES		# extra switches needed to run the compiler (like "-std=c++11")
 export RMC_CXX_LIBDIRS		# colon-separated libraries needed by this compiler
 export RMC_FORTRAN_NAME         # name of fortran compiler
+export RMC_CC_NAME              # name of C compiler
 
 rmc_compiler() {
     if [ "$#" -eq 1 ]; then
@@ -202,7 +203,7 @@ rmc_compiler_resolve() {
     # Fortran compiler if none specified yet.
     if [ "$RMC_FORTRAN_NAME" = "" ]; then
 	local fortran_dir=$(which "$cxx_realname")
-	fortran_dir="${cxx_realname%/*}"
+	fortran_dir="${fortran_dir%/*}"
 	local fortran_base=$(basename $cxx_realname)
 	if [ "$fortran_dir" != "" ]; then
 	    case "$RMC_CXX_VENDOR" in
@@ -230,6 +231,37 @@ rmc_compiler_resolve() {
 	fi
     fi
 
+    # C compiler if none specified yet.
+    if [ "$RMC_CC_NAME" = "" ]; then
+	local cc_dir=$(which "$cxx_realname")
+	cc_dir="${cc_dir%/*}"
+	local cc_base=$(basename "$cxx_realname")
+	if [ "$cc_dir" != "" ]; then
+	    case "$RMC_CXX_VENDOR" in
+		gcc)
+		    cc_base=$(echo "$cc_base" |sed 's/g++/gcc/')
+		    ;;
+		llvm)
+		    cc_base=$(echo "$cc_base" |sed 's/clang++/clang/')
+		    ;;
+		intel)
+		    cc_base=$(echo "$cc_base" |sed 's/icpc/icc/')
+		    ;;
+		*)
+		    cc_base=
+		    ;;
+	    esac
+	fi
+
+	if [ "$cc_base" = "" ]; then
+	    : no C compiler
+	elif [ -e "$cc_dir/$cc_base" ]; then
+	    RMC_CC_NAME="$cc_dir/$cc_base"
+	elif [ -e $(which "$cc_base" 2>/dev/null) ]; then
+	    RMC_CC_NAME=$(which "$cc_base" 2>/dev/null)
+	fi
+    fi
+	
     # Extra compiler switches for various things.
     local del_switches=() add_switches=()
 

@@ -24,7 +24,7 @@ rmc_cmake_version() {
 # Obtain an installation directory name from a version. Directory need not exist.
 rmc_cmake_root() {
     local base="$1" vers="$2"
-    echo "$base/$vers/$RMC_OS_NAME_FILE"
+    echo "$base/$vers/$RMC_CXX_VENDOR-$RMC_CXX_VERSION-$RMC_CXX_LANGUAGE/$RMC_OS_NAME_FILE"
 }
 
 # Find file in installed package.
@@ -41,7 +41,7 @@ rmc_cmake_file() {
 
 # Resolve package variables
 rmc_cmake_resolve() {
-    rmc_os_check
+    rmc_compiler_check
     rmc_resolve_root_and_version cmake
 }
 
@@ -137,13 +137,14 @@ rmc_cmake_run() {
 rmc_cmake_list() {
     local base="$1"
     local link
-    for link in $(cd "$base" && find . -maxdepth 2 -type l |sort); do
+    for link in $(cd "$base" && find . -maxdepth 3 -type l |sort); do
 	if [ -e "$base/$link/bin/cmake" ]; then
 	    local version=$(echo "$link" |cut -d/ -f2)
-	    local os=$(echo "$link" |cut -d/ -f3)
+	    local compiler=$(echo "$link" |cut -d/ -f3)
+	    local os=$(echo "$link" |cut -d/ -f4)
 	    local dir=$(cd "$base" && readlink "$link")
 	    local date=$(echo "$dir" |sed 's/.*\([0-9][0-9][0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1-\2-\3/')
-	    echo "RMC_CMAKE_VERSION='$version' RMC_OS_NAME='$os' DATE='$date'"
+	    echo "RMC_CMAKE_VERSION='$version' RMC_CXX_NAME='$compiler' RMC_OS_NAME='$os' DATE='$date'"
 	fi
     done
 }

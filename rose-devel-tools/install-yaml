@@ -21,7 +21,7 @@ arg0="${0##*/}"
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # Which cmake to use? This can be the word "system", a full path to the cmake executable, or an RMC-known version number.
-: ${CMAKE_VERSION:=system}
+: ${CMAKE_VERSION:="3.1.0"}
 
 # If non-empty, then re-install yaml even if it seems to already be installed.
 : REINSTALL

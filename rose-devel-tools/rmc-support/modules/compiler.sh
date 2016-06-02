@@ -159,6 +159,20 @@ rmc_compiler_resolve() {
 	RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$dirs" : "$RMC_CXX_LIBDIRS")
     fi
 
+    # hudson-rose GCC compilers depend on various other libraries that are in strange places.
+    if uname -n |grep hudson-rose- >/dev/null; then
+	local dir
+	for dir in \
+	    /nfs/casc/overture/ROSE/opt/rhel6/x86_64/mpc/1.0/gcc/4.4.7/mpfr/3.1.2/gmp/5.1.2/lib \
+	    /nfs/casc/overture/ROSE/opt/rhel6/x86_64/mpfr/3.1.2/gcc/4.4.7/gmp/5.1.2/lib \
+	    /nfs/casc/overture/ROSE/opt/rhel6/x86_64/gmp/5.1.2/gcc/4.4.7/lib
+	    do
+	    if [ -d "$dir" ]; then
+		RMC_CXX_LIBDIRS=$(rmc_adjust_list prepend_or_move "$dir" : "$RMC_CXX_LIBDIRS")
+	    fi
+	done
+    fi
+
     # Try to obtain a vendor and version from the command
     local cxx_vendor= cxx_version=
     local cxx_realname=$(which "$RMC_CXX_NAME" 2>/dev/null)

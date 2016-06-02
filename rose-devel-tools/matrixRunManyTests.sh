@@ -1,5 +1,26 @@
 #!/bin/bash
 
+# Prompt and read response in a way that works regardless of whether stdin is redirected.  The
+# "read" command's interaction of "-i" and "-e" switches behave differently depending on whether
+# input is from a terminal.
+query() {
+        local prompt="$1"
+        local init_value="$2"
+        if [ "$(tty)" = "not a tty" ]; then
+                echo -n "$prompt" >&2
+                read REPLY
+                echo "$REPLY" >&2
+                if [ "$REPLY" = "" ]; then
+                        echo "$init_value"
+                else
+                        echo "$REPLY"
+                fi  
+        else
+                read -p "$prompt" -i "$init_value" -e REPLY
+                echo "$REPLY"
+        fi  
+}
+
 expect_yes() {
     local prompt="$1"
     read -p "$prompt [Y/n] "
@@ -25,7 +46,7 @@ override() {
     local result=
     while true; do
         local p=$(printf "  %-29s %-24s: " "$prompt" "($varname)")
-        read -p "$p" -i "$dflt" -e result
+	result=$(query "$p" "$dflt")
         if [ "$result" = "list" ]; then
             if [ "$rmc_list_item" = "" ]; then
                 echo "cannot query that" >&2
@@ -64,7 +85,7 @@ echo "The directory you provide for this question is only used to construct the 
 echo "subsequent questions."
 echo
 : ${MATRIX_ROOT:="$HOME/matrix-testing"}
-read -p "Directory to hold all matrix testing files (MATRIX_ROOT): " -i "$MATRIX_ROOT" -e MATRIX_ROOT
+MATRIX_ROOT=$(query "Directory to hold all matrix testing files (MATRIX_ROOT): " "$MATRIX_ROOT")
 mkdir -p "$MATRIX_ROOT" || exit 1
 export MATRIX_ROOT
 
@@ -75,7 +96,7 @@ echo "its parents need not exist yet.  Tests will perform best if this is a loca
 echo "finished you can delete this directory."
 echo
 : ${WORKSPACE:="$MATRIX_ROOT/tmp"}
-read -p "Temporary matrix testing workspace (WORKSPACE): " -i "$WORKSPACE" -e WORKSPACE
+WORKSPACE=$(query "Temporary matrix testing workspace (WORKSPACE): " "$WORKSPACE")
 mkdir -p "$WORKSPACE" || exit 1
 export WORKSPACE
 
@@ -84,7 +105,7 @@ echo "This is the local ROSE source repository that will be used for testing. Si
 echo "this directory it's safe for many tests to use the same ROSE source tree."
 echo
 : ${ROSE_SRC:="$HOME/GS-CAD/ROSE/matrix/source-repo"}
-read -p "Location of quiescent ROSE source tree (ROSE_SRC): " -i "$ROSE_SRC" -e ROSE_SRC
+ROSE_SRC=$(query "Location of quiescent ROSE source tree (ROSE_SRC): " "$ROSE_SRC")
 [ -e "$ROSE_SRC" ] || die "ROSE source tree must exist: $ROSE_SRC"
 export ROSE_SRC
 
@@ -104,7 +125,8 @@ echo "machine should not use a database. If no database is used, then the config
 echo "obtained by alternate means and the results will be emailed to the database (later questions)."
 echo
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
-read -p "Database URL: " -i "$DATABASE" -e DATABASE
+[ "$DATABASE" = "none" ] && DATABASE=
+DATABASE=$(query "Database URL: " "$DATABASE")
 export DATABASE
 
 
@@ -118,8 +140,7 @@ if [ "$DATABASE" = "" ]; then
     echo
     : ${CONFIGURATION_SPACE_FILE:="$MATRIX_ROOT/configurationSpace.txt"}
     while true; do
-        read -p "Configuration space file (CONFIGURATION_SPACE_FILE): " -i "$CONFIGURATION_SPACE_FILE" \
-             -e CONFIGURATION_SPACE_FILE
+        CONFIGURATION_SPACE_FILE=$(query "Configuration space file (CONFIGURATION_SPACE_FILE): " "$CONFIGURATION_SPACE_FILE")
         if [ "$CONFIGURATION_SPACE_FILE" = "" ]; then
             CONFIGURATION_SPACE_URL="$DATABASE"
         elif [ -r "$CONFIGURATION_SPACE_FILE" ]; then
@@ -141,7 +162,7 @@ echo "an email address here (do not include any 'mailto:' prefix)."
 echo
 : ${RESULTS_URL:="$DATABASE"}
 while true; do
-    read -p "Email address for results: " -i "$RESULTS_EMAIL" -e RESULTS_EMAIL
+    RESULTS_EMAIL=$(query "Email address for results: " "$RESULTS_EMAIL")
     if [ "$RESULTS_EMAIL" = "" -a "$DATABASE" = "" ]; then
         echo "error: I need an email address since there's no database" >&2
     elif [ "$RESULTS_EMAIL" != "" ]; then
@@ -165,7 +186,7 @@ echo "source tree for these tools may be the same source tree as is being tested
 echo "are compiled before testing starts. Some of the tools are scripts that live in the source tree."
 echo
 : ${ROSE_TOOLS:="$HOME/GS-CAD/ROSE/matrix/tools-build"}
-read -p "Location of build tree for ROSE matrix tools (ROSE_TOOLS): " -i "$ROSE_TOOLS" -e ROSE_TOOLS
+ROSE_TOOLS=$(query "Location of build tree for ROSE matrix tools (ROSE_TOOLS): " "$ROSE_TOOLS")
 if [ ! -e "$ROSE_TOOLS/projects/MatrixTesting/matrixTestResult" ]; then
     echo "You must build the ROSE library and the projects/MatrixTesting directories before you can start"
     echo "any matrix tests.  You should do this with RMC so that this script can find the correct dynamic"

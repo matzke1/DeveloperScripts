@@ -113,7 +113,7 @@ rmc_compiler_resolve() {
 				     grep "^$RMC_CXX_VENDOR@$RMC_CXX_VERSION" |\
 				     cut -d+ -f1 |\
 				     sort -r |\
-				     head -n1)
+				     head -n1 2>/dev/null)
 	    if [ "$best_spec" != "" ]; then
 		local spack_prefix=$(rmc_spack_prefix "$best_spec")
 		f="$spack_prefix/bin/$cxx_vendor_basename"

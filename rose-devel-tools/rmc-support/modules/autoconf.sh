@@ -56,6 +56,8 @@ rmc_autoconf_run() {
     # Precompiled headers only work with GCC and LLVM
     local with_pch=
     [ "$RMC_CXX_VENDOR" = "gcc" -o "$RMC_CXX_VENDOR" = "llvm" ] && with_pch="--with-pch"
+    # As of June 2016, GCC's precompiled headers introduce an off-by-one error in error messages and DWARF line numbers
+    with_pch="--without-pch"
 
     # Run the configure command
     (

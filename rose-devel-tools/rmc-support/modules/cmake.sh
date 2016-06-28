@@ -115,10 +115,10 @@ rmc_cmake_run() {
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run "$RMC_CMAKE_FILE" "$RMC_ROSESRC_ROOT" \
             $cmake_build_type \
-	    -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
-	    -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
-            -DCMAKE_INSTALL_PREFIX="$RMC_INSTALL_ROOT" \
-            -DASSERTION_BEHAVIOR="$RMC_ASSERTIONS" \
+	    -DCMAKE_CXX_COMPILER="'$RMC_CXX_NAME'" \
+	    -DCMAKE_CXX_FLAGS="'$RMC_CXX_SWITCHES'" \
+            -DCMAKE_INSTALL_PREFIX="'$RMC_INSTALL_ROOT'" \
+            -DASSERTION_BEHAVIOR="'$RMC_ASSERTIONS'" \
             $(rmc_cmake_define boost) \
             $(rmc_cmake_define dlib) \
             $(rmc_cmake_define doxygen DOXYGEN bin/doxygen) \

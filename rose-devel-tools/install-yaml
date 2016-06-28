@@ -120,6 +120,7 @@ for yaml_version in $YAML_VERSIONS; do
 
 		set -x
                 "$RMC_CMAKE_FILE" .. \
+		                  -DBUILD_SHARED_LIBS=Yes \
                                   -DCMAKE_CXX_COMPILER="$RMC_CXX_NAME" \
                                   -DCMAKE_CXX_FLAGS="$RMC_CXX_SWITCHES" \
                                   -DBOOST_ROOT="$RMC_BOOST_ROOT" \

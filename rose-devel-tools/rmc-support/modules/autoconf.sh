@@ -64,7 +64,10 @@ rmc_autoconf_run() {
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run \
- 	    CC="$RMC_CC_NAME" CXX="$RMC_CXX_NAME" CXXFLAGS="'$RMC_CXX_SWITCHES'" \
+ 	    CC="$RMC_CC_NAME" \
+	    CXX="$RMC_CXX_NAME" \
+	    CXXFLAGS="'$RMC_CXX_SWITCHES'" \
+	    FC="$RMC_FORTRAN_NAME" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
 	    --disable-gcc-version-check \

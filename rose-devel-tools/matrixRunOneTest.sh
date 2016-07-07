@@ -81,6 +81,8 @@ BUILD_STEPS=(
     projects-markus
     projects-peihung
     projects-leo
+    tutorial-build
+    install
     end
 )
 
@@ -140,6 +142,16 @@ run_projects-peihung_commands() {
 run_projects-leo_commands() {
     rmc make -C projects --dry-run check-projects-leo >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-leo || rmc make -C projects -j1 check-projects-leo
+}
+
+run_tutorial-build_commands(){
+    rmc make -C tutorial --dry-run >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C tutorial all || rmc make -C tutorial -j1
+}
+
+run_install_commands() {
+    rmc make --dry-run install-rose-library >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make install-rose-library || rmc make -j1 install-rose-library
 }
 
 run_end_commands() {

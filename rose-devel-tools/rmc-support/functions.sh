@@ -137,7 +137,8 @@ rmc_adjust_list() {
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
     #perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
-    perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)*$/)' "$1"
+    #perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)*$/)' "$1"
+    perl -e 'exit(0 == $ARGV[0] =~ /^(\d+(\.\d+)*|[0-9a-f]{40})$/)' "$1"
 }
 
 ########################################################################################################################

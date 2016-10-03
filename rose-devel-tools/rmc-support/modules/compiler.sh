@@ -305,8 +305,9 @@ rmc_compiler_resolve() {
 	    if [ "$RMC_DEBUG" = "no" ]; then
 		del_switches=("${del_switches[@]}" "-g")
 	    else
-		RMC_CXX_SWITCHES_DEBUG="-g"
-		add_switches=("${add_switches[@]}" "-g")
+		RMC_CXX_SWITCHES_DEBUG="-g -rdynamic"
+		add_switches=("${add_switches[@]}" "-g" "-rdynamic")
+		del_switches=("${del_switches[@]}" "-fomit-frame-pointer")
 	    fi
 	    ;;
 	*)
@@ -323,11 +324,11 @@ rmc_compiler_resolve() {
 		yes)
 		    RMC_CXX_SWITCHES_OPTIM="-O3 -fomit-frame-pointer"
 		    del_switches=("${del_switches[@]}" "-O" "-O0" "-O1" "-O2" "-Os" "-Og" "-Ofast")
-		    add_switches=("${add_switches[@]}" "-O3" "-fomit-frame-pointer")
+		    add_switches=("${add_switches[@]}" "-O3" "-fomit-frame-pointer" "-DNDEBUG")
 		    ;;
 		no)
 		    RMC_CXX_SWITCHES_OPTIM="-O0"
-		    del_switches=("${del_switches[@]}" "-O" "-O1" "-O2" "-O3" "-Os" "-Og" "-Ofast" "-fomit-frame-pointer")
+		    del_switches=("${del_switches[@]}" "-O" "-O1" "-O2" "-O3" "-Os" "-Og" "-Ofast" "-fomit-frame-pointer" "-DNDEBUG")
 		    add_switches=("${add_switches[@]}" "-O0")
 		    ;;
 		ambivalent)
@@ -402,11 +403,16 @@ rmc_compiler_resolve() {
 
     # Update the list of all switches based on what needs to be deleted and added.
     local switch
-    for switch in "${del_switches[@]}"; do
-	RMC_CXX_SWITCHES=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES)
-    done
     for switch in "${add_switches[@]}"; do
 	RMC_CXX_SWITCHES=$(rmc_adjust_switches insert "$switch" $RMC_CXX_SWITCHES)
+    done
+    for switch in "${del_switches[@]}"; do
+	RMC_CXX_SWITCHES=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES)
+	RMC_CXX_SWITCHES_LANGUAGE=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES_LANGUAGE)
+	RMC_CXX_SWITCHES_DEBUG=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES_DEBUG)
+	RMC_CXX_SWITCHES_OPTIM=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES_OPTIM)
+	RMC_CXX_SWITCHES_WARN=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES_WARN)
+	RMC_CXX_SWITCHES_COVERAGE=$(rmc_adjust_switches erase "$switch" $RMC_CXX_SWITCHES_COVERAGE)
     done
 }
 

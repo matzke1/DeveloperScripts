@@ -32,12 +32,14 @@ rmc_install_resolve() {
     case "$RMC_INSTALL_ROOT" in
         ""|yes)
             RMC_INSTALL_ROOT="$RMC_ROSEBLD_ROOT/installed"
+	    export ROSE_INSTALLED="$RMC_INSTALL_ROOT"
             ;;
         no)
             RMC_INSTALL_ROOT="/DO_NOT_INSTALL"
             ;;
         *)
             RMC_INSTALL_ROOT=$(cd "$RMC_ROSEBLD_ROOT" && rmc_realpath "$RMC_INSTALL_ROOT")
+	    export ROSE_INSTALLED="$RMC_INSTALL_ROOT"
             ;;
     esac
 }

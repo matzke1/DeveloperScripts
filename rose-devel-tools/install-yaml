@@ -30,11 +30,20 @@ arg0="${0##*/}"
 # Download source tarball into current working directory
 get_source() {
     local version="$1" destination="$2"
+    local remote="https://github.com/jbeder/yaml-cpp"
+    local local_repo="$HOME/Downloads/yaml-cpp-$version"
     if [ ! -f "$HOME/Downloads/yaml-cpp-$version.tar.gz" ]; then
 	rm -rf "$HOME/Downloads/yaml-cpp-$version"
-	git clone -b "release-$version" https://github.com/jbeder/yaml-cpp "$HOME/Downloads/yaml-cpp-$version"
-	# "git -C DIRECTORY" is not always available
-	(cd "$HOME/Downloads/yaml-cpp-$version" && git archive --format=tar --prefix="yaml-cpp-$version/" HEAD) |\
+	case "$version" in
+	????????????????????????????????????????)
+	    git clone "$remote" "$local_repo"
+	    (cd "$local_repo" && git reset --hard "$version" && git clean -dfx)
+	    ;;
+	*)
+	    git clone -b "release-$version" "$remote" "$local_repo"
+	    ;;
+	esac
+	(cd "$local_repo" && git archive --format=tar --prefix="yaml-cpp-$version/" HEAD) |\
 	    gzip > "$HOME/Downloads/yaml-cpp-$version.tar.gz"
 	rm -rf "$HOME/Downloads/yaml-cpp-$version"
     fi
@@ -48,7 +57,7 @@ is_installed() {
         echo "$arg0: failed to install (missing $hdr)" >&2
         return 1
     fi
-    local lib="$prefix/lib/libyaml-cpp.a"
+    local lib="$prefix/lib/libyaml-cpp.so"
     if [ ! -r "$lib" ]; then
         echo "$arg0: failed to install (missing $lib)" >&2
         return 1

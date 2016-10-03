@@ -746,10 +746,14 @@ do_make() {
     case "$where" in
         binary)
             dirs=("-C $RMC_ROSEBLD_ROOT/src"
-                  "-C $RMC_ROSEBLD_ROOT/tests/roseTests/binaryTests"
+		  "-C $RMC_ROSEBLD_ROOT/tests/smoke/specimens/binary"
+                  "-C $RMC_ROSEBLD_ROOT/tests/smoke/unit/Sawyer"
+                  "-C $RMC_ROSEBLD_ROOT/tests/smoke/unit/Utility"
+		  "-C $RMC_ROSEBLD_ROOT/tests/smoke/functional/BinaryAnalysis"
+		  "-C $RMC_ROSEBLD_ROOT/tests/nonsmoke/specimens/binary"
+		  "-C $RMC_ROSEBLD_ROOT/tests/nonsmoke/functional/BinaryAnalysis"
                   "-C $RMC_ROSEBLD_ROOT/projects/BinaryAnalysisTools"
                   "-C $RMC_ROSEBLD_ROOT/projects/simulator2"
-                  "-C $RMC_ROSEBLD_ROOT/projects/BinaryCloneDetection"
             )
             ;;
         source)

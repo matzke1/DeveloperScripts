@@ -9,6 +9,7 @@ arg0="${0##*/}"
 : ${TEMPDIR:="$HOME/junk"}
 
 # RMC toolchain directory where doxygen will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # If non-empty, then re-install doxygen even if it seems to already be installed.

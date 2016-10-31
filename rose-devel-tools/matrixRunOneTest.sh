@@ -9,7 +9,7 @@ dir0=${0%/*}
 : ${DATABASE:="postgresql://rose:fcdc7b4207660a1372d0cd5491ad856e@www.hoosierfocus.com/rose_matrix"}
 
 # Name of this test sequence, or the person/software doing the testing
-: ${TEST_SEQUENCE:="$(whoami) using $arg0"}
+: ${TEST_SEQUENCE:="$(whoami)@$(hostname) using $arg0"}
 
 # URL of database or file that stores the configuration space to be tested.
 : ${CONFIGURATION_SPACE_URL:="$DATABASE"}
@@ -81,6 +81,8 @@ BUILD_STEPS=(
     projects-markus
     projects-peihung
     projects-leo
+    tutorial-build
+    install
     end
 )
 
@@ -140,6 +142,16 @@ run_projects-peihung_commands() {
 run_projects-leo_commands() {
     rmc make -C projects --dry-run check-projects-leo >>"$COMMAND_DRIBBLE" 2>&1
     rmc make -C projects check-projects-leo || rmc make -C projects -j1 check-projects-leo
+}
+
+run_tutorial-build_commands(){
+    rmc make -C tutorial --dry-run >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make -C tutorial all || rmc make -C tutorial -j1
+}
+
+run_install_commands() {
+    rmc make --dry-run install-rose-library >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make install-rose-library || rmc make -j1 install-rose-library
 }
 
 run_end_commands() {
@@ -295,7 +307,7 @@ report_results() {
     local testid=
     if [ "${database#mailto:}" = "$database" ]; then
         # The database is available, so use it.
-        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" -L 'tool(>=trace)' $dry_run \
+        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
                      "${kvpairs[@]}" \
                      rose="$rose_version" \
                      rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \

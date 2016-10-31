@@ -19,6 +19,7 @@ mkdir -p $HOME/bin
     ln -sf $DEV_ROOT/scripts/rg-clone .
     ln -sf $DEV_ROOT/scripts/rg-findfile .
     ln -sf $DEV_ROOT/scripts/rg-search .
+    ln -sf $DEV_ROOT/scripts/spack-clean .
 )
 
 #
@@ -35,6 +36,11 @@ mkdir -p $HOME/bin
     ln -sf $DEV_ROOT/rose-devel-tools/install-doxygen .
     ln -sf $DEV_ROOT/rose-devel-tools/matrixRunOneTest.sh .
     ln -sf $DEV_ROOT/rose-devel-tools/matrixRunManyTests.sh .
+
+    # Intel compiler wrappers
+    ln -sf $DEV_ROOT/rose-devel-tools/intel-compiler.sh icc-14.0.3
+    ln -sf $DEV_ROOT/rose-devel-tools/intel-compiler.sh icpc-14.0.3
+    ln -sf $DEV_ROOT/rose-devel-tools/intel-compiler.sh ifort-14.0.3
 )
 
 #

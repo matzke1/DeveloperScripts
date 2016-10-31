@@ -1,9 +1,10 @@
 #!/bin/bash
+
 # Install versions of boost
 arg0="${0##*/}"
 
 # Versions of boost to install if they aren't installed already.
-: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60"}
+: ${BOOST_VERSIONS:="1.45 1.46 1.47 1.48 1.49 1.50 1.51 1.52 1.53 1.54 1.55 1.56 1.57 1.58 1.59 1.60 1.61 1.62"}
 
 # Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
 # VENDOR-VERSION-LANGUAGE triplets.
@@ -13,6 +14,7 @@ arg0="${0##*/}"
 : ${TEMPDIR:="$HOME/junk"}
 
 # RMC toolchain directory where boost will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # If non-empty, then re-install boost even if it seems to already be installed.
@@ -21,24 +23,26 @@ arg0="${0##*/}"
 # chrono is needed by date_time in some versions of boost.
 # random and signals are needed by Wt
 # the remaining are needed by ROSE
-LIBRARIES_1_43_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_44_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_45_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_46_0="       date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_47_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_48_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_49_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_50_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_51_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_52_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_53_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_54_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_55_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_56_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_57_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_58_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_59_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
-LIBRARIES_1_60_0="chrono date_time filesystem iostreams program_options random regex signals system thread wave"
+LIBRARIES_1_43_0="       date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_44_0="       date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_45_0="       date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_46_0="       date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_47_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_48_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_49_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_50_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_51_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_52_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_53_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_54_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_55_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_56_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_57_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_58_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_59_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_60_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_61_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
+LIBRARIES_1_62_0="chrono date_time filesystem iostreams program_options random regex serialization signals system thread wave"
 
 # Most people disable zlib and bzip2 compressions support because
 # the libraries are often not installed. Unfortunately, the way
@@ -61,6 +65,8 @@ IOSTREAM_FLAGS_1_57_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_58_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_59_0="-sNO_BZIP2=1"
 IOSTREAM_FLAGS_1_60_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_61_0="-sNO_BZIP2=1"
+IOSTREAM_FLAGS_1_62_0="-sNO_BZIP2=1"
 
 # The name of boost's build system has changed over time.
 BOOST_BUILD_COMMAND_1_43_0="./bjam"
@@ -81,6 +87,8 @@ BOOST_BUILD_COMMAND_1_57_0="./b2"
 BOOST_BUILD_COMMAND_1_58_0="./b2"
 BOOST_BUILD_COMMAND_1_59_0="./b2"
 BOOST_BUILD_COMMAND_1_60_0="./b2"
+BOOST_BUILD_COMMAND_1_61_0="./b2"
+BOOST_BUILD_COMMAND_1_62_0="./b2"
 
 # The relative name for user-specific config (see "./b2 --debug-configuration")
 BOOST_USERCONFIG_FILE_1_43_0=tools/build/v2/user-config.jam
@@ -101,6 +109,8 @@ BOOST_USERCONFIG_FILE_1_57_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_58_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_59_0=tools/build/src/user-config.jam
 BOOST_USERCONFIG_FILE_1_60_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_61_0=tools/build/src/user-config.jam
+BOOST_USERCONFIG_FILE_1_62_0=tools/build/src/user-config.jam
 
 
 libraries() {
@@ -170,6 +180,7 @@ for version in $BOOST_VERSIONS; do
 	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue;
 	[ "$RMC_BOOST_ROOT" = "" ] && continue
 	export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
+	export RMC_RMC_TOOLCHAIN
 
 	vs=$(boost_version_string "$version")
 	logfile="boost-${version}_${RMC_CXX_VENDOR}-${RMC_CXX_VERSION}-${RMC_CXX_LANGUAGE}.log"
@@ -221,7 +232,7 @@ for version in $BOOST_VERSIONS; do
 		    toolset=clang
 		    ;;
 	    esac
-	    echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam"
+	    (set -x; echo "using $toolset : $RMC_CXX_VERSION : $RMC_CXX_NAME $RMC_CXX_SWITCHES ;" > "$user_jam")
 	    if [ ! -r "$user_jam" ]; then
 		echo "$arg0: cannot create Boost.Build user Jam file: $user_jam" >&2
 		exit 1

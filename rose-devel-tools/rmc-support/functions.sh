@@ -136,7 +136,9 @@ rmc_adjust_list() {
 ########################################################################################################################
 # Check whether $1 looks like a version number.
 rmc_is_version_string() {
-    perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
+    #perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)+$/)' "$1"
+    #perl -e 'exit(0 == $ARGV[0] =~ /^\d+(\.\d+)*$/)' "$1"
+    perl -e 'exit(0 == $ARGV[0] =~ /^(\d+(\.\d+)*|[0-9a-f]{40})$/)' "$1"
 }
 
 ########################################################################################################################
@@ -479,6 +481,21 @@ rmc_list() {
 }
 
 ########################################################################################################################
+# Run spack but remove annoying ANSI escapes. This also causes spack to use a single column for some output (similar to
+# the way "ls" uses a single column when output is not to a tty).
+rmc_spack() {
+    spack "$@" |sed -r 's/\x1b\[([0-9]{1,2}(;[0-9]{1,2})?)?m//g'
+    return ${PIPESTATUS[0]}
+}
+
+########################################################################################################################
+# Get the installation directory for a spack spec.
+rmc_spack_prefix() {
+    local spec="$1"
+    spack env "$spec" bash -c 'echo $SPACK_PREFIX'
+}
+
+########################################################################################################################
 # The following functions are to resolve interdependencies in the user's configuration settings and to adjust variables
 # to their final values.  This is also where we check that the certain desired packages are actually available. The check
 # is performed when it is easy to do, otherwise we leave most of the checking up to the configure/cmake steps (that's
@@ -514,6 +531,7 @@ resolve() {
     rmc_sqlite_check
     rmc_qt_check
     rmc_doxygen_check
+    rmc_dwarf_check
     resolve_so_paths
 }
 

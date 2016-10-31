@@ -34,6 +34,7 @@ rmc_os_resolve() {
     RMC_OS_NAME_SHORT=$(echo "$RMC_OS_NAME" | sed \
                         -e 's/Red Hat Enterprise Linux Workstation release \([0-9]\+\.[0-9]\+\).*/RHEL \1/' \
                         -e 's/Red Hat Enterprise Linux Server \([0-9]\+\.[0-9]\+\).*/RHEL \1/' \
+			-e 's/Red Hat Enterprise Linux Server release \([0-9]\+\.[0-9]\+\).*/RHEL \1/' \
                         -e 's/Debian GNU.Linux/Debian/')
 }
 

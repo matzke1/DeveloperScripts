@@ -53,29 +53,21 @@ rmc_autoconf_run() {
 	qt_flags="$qt_flags --with-qt-lib --with-roseQt"
     fi
 
-    # C compiler based on C++ compiler
-    local cxx_basename=${RMC_CXX_NAME##*/}
-    local cxx_not_base=${RMC_CXX_NAME%/*}
-    [ "$cxx_not_base" = "$RMC_CXX_NAME" ] && cxx_not_base=""
-    [ "$cxx_not_base" = "" ] || cxx_not_base="$cxx_not_base/"
-
-    local cc_basename=
-    case "$cxx_basename" in
-        g++*)   
-            cc_basename=gcc${cxx_basename#g++}
-            ;;      
-        *)      
-            cc_basename=$(echo "$cxx_basename" |perl -pe 's/\+\+//g')
-            ;;      
-    esac    
-    local cc_name="$cxx_not_base$cc_basename"
+    # Precompiled headers only work with GCC and LLVM
+    local with_pch=
+    [ "$RMC_CXX_VENDOR" = "gcc" -o "$RMC_CXX_VENDOR" = "llvm" ] && with_pch="--with-pch"
+    # As of June 2016, GCC's precompiled headers introduce an off-by-one error in error messages and DWARF line numbers
+    with_pch="--without-pch"
 
     # Run the configure command
     (
         set -e
         cd "$RMC_ROSEBLD_ROOT"
         rmc_execute $dry_run \
- 	    CC="$cc_name" CXX="$RMC_CXX_NAME" CXXFLAGS="'$RMC_CXX_SWITCHES'" \
+ 	    CC="$RMC_CC_NAME" \
+	    CXX="$RMC_CXX_NAME" \
+	    CXXFLAGS="'$RMC_CXX_SWITCHES'" \
+	    FC="$RMC_FORTRAN_NAME" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
 	    --disable-gcc-version-check \
@@ -95,11 +87,12 @@ rmc_autoconf_run() {
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \
             $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
+	    $(rmc_autoconf_with dwarf) \
 	    $(rmc_autoconf_with fortran gfortran "$RMC_FORTRAN_NAME") \
             --with-java="$RMC_JAVA_FILE" \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \
-            --with-pch \
+            $with_pch \
             $(rmc_autoconf_with python python "$RMC_PYTHON_FILE") \
             $qt_flags \
             $(rmc_autoconf_with sqlite sqlite3) \

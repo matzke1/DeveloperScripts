@@ -19,6 +19,7 @@ arg0="${0##*/}"
 : ${CMAKE_VERSION:=system}
 
 # RMC toolchain directory where Wt will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
 : ${TOOLCHAIN:="$HOME/GS-CAD"}
 
 # If non-empty, then re-install wt even if it seems to already be installed.

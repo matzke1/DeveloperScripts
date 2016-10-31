@@ -307,7 +307,7 @@ report_results() {
     local testid=
     if [ "${database#mailto:}" = "$database" ]; then
         # The database is available, so use it.
-        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" -L 'tool(>=trace)' $dry_run \
+        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
                      "${kvpairs[@]}" \
                      rose="$rose_version" \
                      rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \

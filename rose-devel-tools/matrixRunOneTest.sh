@@ -54,6 +54,7 @@ dir0=${0%/*}
 : ${OVERRIDE_CMAKE:=}
 : ${OVERRIDE_DLIB:=}
 : ${OVERRIDE_DOXYGEN:=}
+: ${OVERRIDE_DWARF:=}
 : ${OVERRIDE_EDG:=}
 : ${OVERRIDE_JAVA:=}
 : ${OVERRIDE_MAGIC:=}
@@ -401,6 +402,7 @@ setup_workspace() {
         modify_config rmc_cmake         $OVERRIDE_CMAKE
         modify_config rmc_dlib          $OVERRIDE_DLIB
         modify_config rmc_doxygen       $OVERRIDE_DOXYGEN
+	modify_config rmc_dwarf         $OVERRIDE_DWARF
         modify_config rmc_edg           $OVERRIDE_EDG
         modify_config rmc_java          $OVERRIDE_JAVA
         modify_config rmc_magic         $OVERRIDE_MAGIC

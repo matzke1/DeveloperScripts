@@ -531,6 +531,7 @@ resolve() {
     rmc_sqlite_check
     rmc_qt_check
     rmc_doxygen_check
+    rmc_dwarf_check
     resolve_so_paths
 }
 

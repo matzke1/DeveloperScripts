@@ -1,0 +1,143 @@
+#!/bin/bash
+set -x
+
+# Install versions of the DWARF library
+arg0="${0##*/}"
+
+# Versions of libdwarf to install if they aren't installed already.
+: ${DWARF_VERSIONS:="20120410"}
+
+# Space-separated list of compilers to use as the "rmc_compiler" value.  These can be executable names or
+# VENDOR-VERSION-LANGUAGE triplets.
+: ${COMPILERS:="g++"}
+
+# Directory where we build stuff. Using a local directory instead of NFS will speed things up.
+: ${TEMPDIR:="$HOME/junk"}
+
+# RMC toolchain directory where dwarf will be installed.
+: ${TOOLCHAIN:="$RMC_RMC_TOOLCHAIN"}
+: ${TOOLCHAIN:="$HOME/GS-CAD"}
+
+# if non-empty, then re-install dwarf even if it seems to already be installed.
+: REINSTALL
+
+
+# Download source tarball into current working directory
+get_source() {
+    local version="$1" destination="$2"
+    local remote_name="NOT_SURE_WHERE_THE_SOURCE_REPO_IS_LOCATED"
+    local local_name="$HOME/Downloads/dwarfutils-$version.tar.gz"
+    if [ ! -f "$local_name" ]; then
+     	echo "download to $local_name" >&2
+	exit 1
+    fi
+    ln -sf "$local_name" "$destination"
+}
+
+is_installed() {
+    local prefix="$1"
+    local hdr="$prefix/include/libdwarf.h"
+    if [ ! -r "$hdr" ]; then
+        echo "$arg0: failed to install (missing $hdr)" >&2
+        return 1
+    fi
+    local lib="$prefix/lib/libdwarf.so"
+    if [ ! -r "$lib" ]; then
+        echo "$arg0: failed to install (missing $lib)" >&2
+        return 1
+    fi
+    return 0
+}
+
+for dwarf_version in $DWARF_VERSIONS; do
+    for compiler in $COMPILERS; do
+        (figlet -c "$dwarf_version $compiler" || banner "$dwarf_version $compiler") 2>/dev/null
+
+	eval $(rmc clear)
+	export RMC_RMC_TOOLCHAIN="$TOOLCHAIN"
+	eval $(rmc resolve parallelism)
+	eval $(RMC_CXX_NAME="$compiler" RMC_DWARF_VERSION="$dwarf_version" rmc resolve dwarf)
+	[ "$RMC_CXX_VENDOR" = "" -o "$RMC_CXX_VERSION" = "" -o "$RMC_CXX_LANGUAGE" = "" ] && continue
+	[ "$RMC_DWARF_ROOT" = "" ] && continue
+	export LD_LIBRARY_PATH=$(rmc vector prepend_or_leave "$RMC_RMC_LIBDIRS" : "$LD_LIBRARY_PATH")
+
+	logfile="dwarf-$dwarf_version.log"
+	date >"$logfile"
+	echo "dwarf-$dwarf_version for $RMC_DWARF_ROOT"
+	echo "log file is " $(rmc realpath "$logfile")
+	if [ "$REINSTALL" != "" ]; then
+	    : install even if it looks to be installed
+	elif is_installed "$RMC_DWARF_ROOT" 2>/dev/null; then
+	    echo "already installed; skipping"
+	    echo "already installed; skipping" >>"$logfile"
+	    continue
+	fi
+
+	temporary_prefix="$RMC_DWARF_ROOT-$(date '+%Y%m%d')"
+
+	mkdir -p "$TEMPDIR"
+	(
+	    set -e
+	    cd "$TEMPDIR"
+
+	    echo "downloading dwarfutils-$dwarf_version..." >&2
+	    tarball="dwarfutils-$dwarf_version.tar.gz"
+	    get_source "$dwarf_version" "$tarball"
+	    if [ ! -f "$tarball" ]; then
+		echo "$arg0: couldn't download $tarball" >&2
+		exit 1
+	    fi
+
+	    builddir="dwarfutils-$dwarf_version"
+	    echo "unpacking into $builddir..." >&2
+	    rm -rf "$builddir"
+	    tar xf "$tarball"
+	    if [ ! -d "$builddir" ]; then
+		echo "$arg0: unpacking failed for $tarball into $builddir" >&2
+		exit 1
+	    fi
+
+	    cd "$builddir/libdwarf"
+
+	    set -x
+	    CC="$RMC_CC_NAME" ./configure --prefix="$temporary_prefix" --enable-shared
+
+	    make -j$RMC_PARALLELISM
+
+	    # There is no "make install" target, so do it by hand.
+	    mkdir -p "$temporary_prefix/lib"
+	    mkdir -p "$temporary_prefix/include"
+	    cp libdwarf.so "$temporary_prefix/lib/."
+	    cp dwarf.h libdwarf.h "$temporary_prefix/include/."
+
+	    # There is no version number, so create a file that has one.
+	    echo "#define LIBDWARF_VERSION_NUMBER ${dwarf_version}ul" > "$temporary_prefix/include/libdwarf_version.h"
+
+	    set +x
+
+	    is_installed "$temporary_prefix" || exit 1
+
+	    # Remove previous installation if any (only need to do this if the old installation is a directory rather
+	    # than a symlink.
+	    if [ ! -h "$RMC_DWARF_ROOT" -a -d "$RMC_DWARF_ROOT" ]; then
+		rm -rf "$RMC_DWARF_ROOT.bak"
+		mv "$RMC_DWARF_ROOT" "$RMC_DWARF_ROOT.bak"
+	    else
+		rm -f "$RMC_DWARF_ROOT"
+	    fi
+
+	    # Link in the new installation. The "-r" switch of "ln" is not always available, so do it the hard way.
+	    if false; then
+		ln -sfr "$temporary_prefix" "$RMC_DWARF_ROOT"
+	    else
+		temporary_base=$(basename "$temporary_prefix")
+		real_base=$(basename "$RMC_DWARF_ROOT")
+		dir="${temporary_prefix%/$temporary_base}"
+		(cd "$dir" && ln -sf "$temporary_base" "$real_base")
+	    fi
+	    is_installed "$RMC_DWARF_ROOT" || exit 1
+
+	) 2>&1 |tee -a "$logfile"
+	mv "$logfile" "$RMC_DWARF_ROOT/installation.log"
+    done
+done

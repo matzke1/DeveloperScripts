@@ -87,6 +87,7 @@ rmc_autoconf_run() {
             --with-boost="$RMC_BOOST_ROOT" \
             $(rmc_autoconf_with dlib) \
             $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
+	    $(rmc_autoconf_with dwarf) \
 	    $(rmc_autoconf_with fortran gfortran "$RMC_FORTRAN_NAME") \
             --with-java="$RMC_JAVA_FILE" \
             $(rmc_autoconf_with readline libreadline) \

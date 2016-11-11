@@ -1,0 +1,6 @@
+#!/usr/bin/perl
+# Reads all input, then writes it out in random order by lines.
+use strict;
+
+my @lines = <>;
+print splice @lines, int(rand @lines), 1 while @lines;

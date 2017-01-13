@@ -19,6 +19,7 @@ mkdir -p $HOME/bin
     ln -sf $DEV_ROOT/scripts/rg-clone .
     ln -sf $DEV_ROOT/scripts/rg-findfile .
     ln -sf $DEV_ROOT/scripts/rg-search .
+    ln -sf $DEV_ROOT/scripts/shuffle-lines .
     ln -sf $DEV_ROOT/scripts/spack-clean .
 )
 

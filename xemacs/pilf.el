@@ -200,6 +200,7 @@ The return value is a symbol indicating the language construct that is being ope
 	(if (or (c-in-literal) (not (looking-at "{")))
 	    nil
 	  (cond ((looking-back "\\bnamespace[ \t\n\r]+\\sw+[ \t\n\r]*") 'namespace)
+		((looking-back "\\bnamespace[ \t\n\r]*")                'namespace)
 		((looking-back "\\bdo[ \t\n\r]*")                       'do)
 		((looking-back "\\belse[ \t\n\r]*")                     'else)
 		((looking-back "\\bcase[ \t]+[a-zA-Z_0-9]+[ \t]*:[ \t\n\r]*")   'case)
@@ -999,7 +1000,7 @@ Inserts '*/' at the cursor, adjusting white space. Does nothing when not in a C 
     (replace-match (concat (match-string 1) (match-string 2)) t t))
 
    ;; Re-insert the space we removed from "#if d" if it becomes "#ifdefi" (as in "#if defined")
-   ((looking-back "^\\([ \t]*#[ \t]*if\\)defi")
+   ((looking-back "^\\([ \t]*#[ \t]*if\\)def i")
     (replace-match (concat (match-string 1) " defi")))
 
    ;; Insert a single space before the quote or '<' for an #include directive

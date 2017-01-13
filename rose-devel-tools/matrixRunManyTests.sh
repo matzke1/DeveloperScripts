@@ -234,6 +234,7 @@ while true; do
     override "  Override cmake versions"     OVERRIDE_CMAKE         cmake
     override "  Override dlib versions"      OVERRIDE_DLIB          dlib
     override "  Override doxygen versions"   OVERRIDE_DOXYGEN       doxygen
+    override "  Override dwarf versions"     OVERRIDE_DWARF         dwarf
     override "  Override edg versions"       OVERRIDE_EDG
     override "  Override java versions"      OVERRIDE_JAVA          java
     override "  Override magic versions"     OVERRIDE_MAGIC         magic
@@ -251,7 +252,7 @@ done
 export OVERRIDE_BUILD OVERRIDE_LANGUAGES OVERRIDE_COMPILER OVERRIDE_DEBUG
 export OVERRIDE_OPTIMIZE OVERRIDE_WARNINGS OVERRIDE_CODE_COVERAGE OVERRIDE_PARALLELISM
 export OVERRIDE_ASSERTIONS OVERRIDE_BOOST OVERRIDE_CMAKE OVERRIDE_DLIB
-export OVERRIDE_DOXYGEN OVERRIDE_EDG OVERRIDE_JAVA OVERRIDE_MAGIC OVERRIDE_PYTHON
+export OVERRIDE_DOXYGEN OVERRIDE_DWARF OVERRIDE_EDG OVERRIDE_JAVA OVERRIDE_MAGIC OVERRIDE_PYTHON
 export OVERRIDE_QT OVERRIDE_READLINE OVERRIDE_SQLITE OVERRIDE_WT
 export OVERRIDE_YAML OVERRIDE_YICES
 

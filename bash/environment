@@ -71,5 +71,6 @@ if [ -d $HOME/.spock/bin ]; then
     eval $(path-adjust insert --append $HOME/.spock/bin)
     export SPOCK_SCRIPTS="$SPOCK_ROOT/scripts"
 
-    export SPOCK_VARDIR="$HOME/GS-CAD/spock/var"
+    [ -d $HOME/GS-CAD/spock/var ] &&
+	export SPOCK_VARDIR="$HOME/GS-CAD/spock/var"
 fi

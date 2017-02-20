@@ -60,3 +60,16 @@ fi
 
 [ -d $HOME/GS-CAD/gcc-4.2.4/installed/bin ] && eval $(path-adjust insert --append $HOME/GS-CAD/gcc-4.2.4/installed/bin)
 
+
+################################################################################
+# RMC-2
+################################################################################
+
+if [ -d $HOME/.spock/bin ]; then
+    export SPOCK_ROOT="$HOME/.spock"
+    export SPOCK_BINDIR="$SPOCK_ROOT/bin"
+    eval $(path-adjust insert --append $HOME/.spock/bin)
+    export SPOCK_SCRIPTS="$SPOCK_ROOT/scripts"
+
+    export SPOCK_VARDIR="$HOME/GS-CAD/spock/var"
+fi

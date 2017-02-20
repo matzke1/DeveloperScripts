@@ -415,8 +415,16 @@ setup_workspace() {
         modify_config rmc_yices         $OVERRIDE_YICES
         cat .rmc-main.cfg
 
-        rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
-        exit ${PIPESTATUS[0]}
+	case "$(rmc --version)" in
+	    rmc-0*)
+		rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
+		exit ${PIPESTATUS[0]}
+		;;
+	    *)
+		rmc --install=yes echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
+		exit ${PIPESTATUS[0]}
+		;;
+	esac
 
     ) 99>&2 2>&1 |tee "$LOG_FILE" |filter_output >&2
     [ "${PIPESTATUS[0]}" -ne 0 ] && return 1

@@ -3,7 +3,7 @@
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp"))
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/cc-mode"))
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/gnus/lisp"))
-(require 'gnus-load)
+;(require 'gnus-load)
 
 (setq inhibit-startup-message t)        ;do not display startup message
 (setq enable-recursive-minibuffers t)   ;allow minibuffer use in minibuffer

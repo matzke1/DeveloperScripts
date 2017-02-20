@@ -73,4 +73,6 @@ if [ -d $HOME/.spock/bin ]; then
 
     [ -d $HOME/GS-CAD/spock/var ] &&
 	export SPOCK_VARDIR="$HOME/GS-CAD/spock/var"
+    [ -d $HOME/junk/. ] &&
+	export SPOCK_BLDDIR="$HOME/junk"
 fi

@@ -415,7 +415,9 @@ setup_workspace() {
         modify_config rmc_yices         $OVERRIDE_YICES
         cat .rmc-main.cfg
 
-	case "$(rmc --version)" in
+	rmc_version=$(rmc --version)
+	echo "using rmc version $rmc_version" >&2
+	case "$rmc_version" in
 	    rmc-0*)
 		rmc echo "RMC basic sanity checks pass" 2>&1 |tee /proc/self/fd/99
 		exit ${PIPESTATUS[0]}

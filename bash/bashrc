@@ -49,6 +49,15 @@ if [ -n "$PS1" ]; then
 	# case would tend to support setf rather than setaf.)
 	PROMPT_USE_COLOR=yes
     fi
+
+    # Architecture name
+    os=
+    if [ -n "$SPOCK_SCRIPTS" ]; then
+	os=$("$SPOCK_SCRIPTS/spock-os-name" --short)
+    elif [ -n "$(which spock-shell)" ]; then
+	os=$(spock-shell bash -c '$SPOCK_SCRIPTS/spock-os-name --short')
+    fi
+    [ -n "$os" ] && os="[$os]"
     
     # Do something in the prompt if the last command takes more than N seconds.
     command_prompt () {
@@ -109,7 +118,7 @@ if [ -n "$PS1" ]; then
 	PS1=
 	PS1="$PS1"'$(command_prompt)'
 	PS1="$PS1"'$(prompt_xterm_title)'
-	PS1="$PS1$(prompt_color '\u@\h '             32)"
+	PS1="$PS1$(prompt_color "\\u@\\h$os "        32)"
 	PS1="$PS1$(prompt_color '\W '                33)"
 	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
 	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"

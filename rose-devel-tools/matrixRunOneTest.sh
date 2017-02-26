@@ -33,6 +33,10 @@ dir0=${0%/*}
 : ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
 : ROSE_TOOLS_SRC
 
+# If non-empty, output is verbose. This means standard output and standard error from test phases go to the terminal
+# in addition to the log file.
+: ${VERBOSE}
+
 # Restrict compilers, ect. to only those in these lists. This helps speed up processing because it means this script
 # chooses the dependencies instead of letting the database choose them. If we let the database choose them and the
 # database has many more that what we have, then we spend most our time failing in the very first consistency check. The
@@ -270,8 +274,12 @@ output_section_heading() {
 ########################################################################################################################
 # Filter output for a running command. Reads standard input and writes only a few important things to standard output.
 filter_output() {
-    perl -e '$|=1; while(<STDIN>) {/^$ARGV[0]\s+(.*?)\s+$ARGV[0]$/ && print "Starting next step: ", lc($1), "...\n"}' \
-        "$OUTPUT_SECTION_SEPARATOR"
+    if [ -n "$VERBOSE" ]; then
+	cat
+    else
+	perl -e '$|=1; while(<STDIN>) {/^$ARGV[0]\s+(.*?)\s+$ARGV[0]$/ && print "Starting next step: ", lc($1), "...\n"}' \
+	     "$OUTPUT_SECTION_SEPARATOR"
+    fi
 }
 
 ########################################################################################################################
@@ -415,7 +423,7 @@ setup_workspace() {
         modify_config rmc_yices         $OVERRIDE_YICES
         cat .rmc-main.cfg
 
-	rmc_version=$(rmc --version)
+	rmc_version=$(rmc --version 2>&1)
 	echo "using rmc version $rmc_version" >&2
 	case "$rmc_version" in
 	    rmc-0*)

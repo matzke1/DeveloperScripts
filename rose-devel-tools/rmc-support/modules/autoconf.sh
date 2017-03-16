@@ -40,6 +40,18 @@ rmc_autoconf_with_or_nothing() {
     fi
 }
 
+# Name of the fortran compiler that we actually use, which might be different than RMC_FORTRAN_*.  At this time, ROSE
+# does not support the Intel Fortran compiler (ifort), so if the Intel C/C++ compilers are used, then do not specify
+# a Fortran compiler -- ROSE will automatically use whatever "gfortran" is in $PATH (if any).  Similarly, if LLVM C/C++
+# compilers are used, use the "gfortran" in $PATH since LLVM doesn't have a Fortran compiler.
+rmc_rose_fortran_compiler() {
+    case "$RMC_CXX_VENDOR" in
+	gcc) echo "$RMC_FORTRAN_NAME" ;;
+	llvm|intel) : ambivalent ;;
+	*) echo "$arg0: unknown compiler vendor: $RMC_CXX_VENDOR" >&2; exit 1 ;;
+    esac
+}
+
 # Run the "configure" command
 rmc_autoconf_run() {
     local dry_run="$1"
@@ -67,7 +79,7 @@ rmc_autoconf_run() {
  	    CC="$RMC_CC_NAME" \
 	    CXX="$RMC_CXX_NAME" \
 	    CXXFLAGS="'$RMC_CXX_SWITCHES'" \
-	    FC="$RMC_FORTRAN_NAME" \
+	    FC="$(rmc_rose_fortran_compiler)" \
             $RMC_ROSESRC_ROOT/configure \
             --disable-boost-version-check \
 	    --disable-gcc-version-check \
@@ -88,7 +100,7 @@ rmc_autoconf_run() {
             $(rmc_autoconf_with dlib) \
             $(rmc_autoconf_with doxygen doxygen "$RMC_DOXYGEN_FILE") \
 	    $(rmc_autoconf_with dwarf) \
-	    $(rmc_autoconf_with fortran gfortran "$RMC_FORTRAN_NAME") \
+	    $(rmc_autoconf_with_or_nothing gfortran "$(rmc_rose_fortran_compiler)") \
             --with-java="$RMC_JAVA_FILE" \
             $(rmc_autoconf_with readline libreadline) \
             $(rmc_autoconf_with magic) \

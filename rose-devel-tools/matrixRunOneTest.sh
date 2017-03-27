@@ -199,6 +199,7 @@ OUTPUT_SECTION_SEPARATOR='=================-================='
 
 TEST_SUBDIR="matrix-test-pid$$"
 LOG_FILE="$WORKSPACE/$TEST_SUBDIR.log"
+STATS_FILE="$WORKSPACE/$TEST_SUBDIR.stats"
 COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
 TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
@@ -444,6 +445,13 @@ setup_workspace() {
 }
 
 ########################################################################################################################
+# Returns the output from a particular phase of the test.
+output_from() {
+    local phase="$1"
+    sed -n "/^$OUTPUT_SECTION_SEPARATOR $phase $OUTPUT_SECTION_SEPARATOR/,/^$OUTPUT_SECTION_SEPARATOR/ p" <"$LOG_FILE"
+}
+
+########################################################################################################################
 
 run_test() {
     local testid
@@ -474,6 +482,27 @@ run_test() {
             fi
         done
 
+	# If all tests passed, then run some scripts to count the number, location, and types of warning messages. Look only at the
+	# compiler warnings emitted during the library-build step.
+	if [ "$disposition" = "end" ]; then
+	    (
+		if [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
+		    echo
+		    echo "Location of compiler warnings from the library-build step (limit 40 locations):"
+		    output_from library-build |sort |uniq |"$ROSE_SRC/scripts/countWarnings.pl" |sort -nrs |head -n40
+		fi
+
+		if [ -x "$ROSE_SRC/scripts/countWarningTypes.pl" ]; then
+		    echo
+		    echo "Types of compiler warnings from the library-build step (limit 40 types):"
+		    output_from library-build |sort |uniq |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
+		fi
+	    ) >"$STATS_FILE"
+
+	    # Update log file with stats as separate step since stats are calculated from the log file.
+	    cat "$STATS_FILE" >>"$LOG_FILE"
+	fi
+	
         # Send some info back to the database
         if [ "$disposition" != "setup" ]; then
             local t1=$(date '+%s')
@@ -502,5 +531,3 @@ run_test() {
 date
 echo "logging to $LOG_FILE"
 run_test
-
-

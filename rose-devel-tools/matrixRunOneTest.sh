@@ -448,7 +448,11 @@ setup_workspace() {
 # Returns the output from a particular phase of the test.
 output_from() {
     local phase="$1"
-    sed -n "/^$OUTPUT_SECTION_SEPARATOR $phase $OUTPUT_SECTION_SEPARATOR/,/^$OUTPUT_SECTION_SEPARATOR/ p" <"$LOG_FILE"
+    if [ "$phase" = "all" ]; then
+	cat "$LOG_FILE"
+    else
+	sed -n "/^$OUTPUT_SECTION_SEPARATOR $phase $OUTPUT_SECTION_SEPARATOR/,/^$OUTPUT_SECTION_SEPARATOR/ p" <"$LOG_FILE"
+    fi
 }
 
 ########################################################################################################################
@@ -482,20 +486,23 @@ run_test() {
             fi
         done
 
-	# If all tests passed, then run some scripts to count the number, location, and types of warning messages. Look only at the
-	# compiler warnings emitted during the library-build step.
+	# If all tests passed, then run some scripts to count the number, location, and types of warning
+	# messages. Originally we looked only at the compiler warnings emitted during the library-build step, but then
+	# modified this to look at warnings across all phases; originally we suppressed duplicates, but now we
+	# don't. These two changes are so that the numbers in the tables match more closely the "nwarnings" field of the
+	# test results.
 	if [ "$disposition" = "end" ]; then
 	    (
 		if [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
 		    echo
 		    echo "Location of compiler warnings from the library-build step (limit 40 locations):"
-		    output_from library-build |sort |uniq |"$ROSE_SRC/scripts/countWarnings.pl" |sort -nrs |head -n40
+		    output_from all |"$ROSE_SRC/scripts/countWarnings.pl" |sort -nrs |head -n40
 		fi
 
 		if [ -x "$ROSE_SRC/scripts/countWarningTypes.pl" ]; then
 		    echo
 		    echo "Types of compiler warnings from the library-build step (limit 40 types):"
-		    output_from library-build |sort |uniq |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
+		    output_from all |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
 		fi
 	    ) >"$STATS_FILE"
 

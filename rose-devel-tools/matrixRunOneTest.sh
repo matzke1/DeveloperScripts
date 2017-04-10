@@ -495,13 +495,13 @@ run_test() {
 	    (
 		if [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
 		    echo
-		    echo "Location of compiler warnings from the library-build step (limit 40 locations):"
+		    echo "Location of compiler warnings:"
 		    output_from all |"$ROSE_SRC/scripts/countWarnings.pl" |sort -nrs |head -n40
 		fi
 
 		if [ -x "$ROSE_SRC/scripts/countWarningTypes.pl" ]; then
 		    echo
-		    echo "Types of compiler warnings from the library-build step (limit 40 types):"
+		    echo "Types of compiler warnings (limit 40 types):"
 		    output_from all |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
 		fi
 	    ) >"$STATS_FILE"

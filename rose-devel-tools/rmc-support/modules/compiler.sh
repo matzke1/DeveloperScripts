@@ -305,8 +305,8 @@ rmc_compiler_resolve() {
 	    if [ "$RMC_DEBUG" = "no" ]; then
 		del_switches=("${del_switches[@]}" "-g")
 	    else
-		RMC_CXX_SWITCHES_DEBUG="-g -rdynamic"
-		add_switches=("${add_switches[@]}" "-g" "-rdynamic")
+		RMC_CXX_SWITCHES_DEBUG="-g"
+		add_switches=("${add_switches[@]}" "-g")
 		del_switches=("${del_switches[@]}" "-fomit-frame-pointer")
 	    fi
 	    ;;

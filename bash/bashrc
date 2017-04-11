@@ -26,7 +26,7 @@ shopt -s histappend
 shopt -s checkwinsize
 
 # Turn off this incredibly stupid autocompleting mode. Pressing TAB fails
-# to list file names an many situations.
+# to list file names in many situations.
 shopt -u progcomp
 
 # Make sure system directories are in $MANPATH so if we add more paths

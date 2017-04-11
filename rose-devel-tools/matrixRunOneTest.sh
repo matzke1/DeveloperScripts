@@ -503,6 +503,12 @@ run_test() {
 		    echo
 		    echo "Types of compiler warnings (limit 40 types):"
 		    output_from all |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
+		elif [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
+		    # As of 2017-04-11, the countWarningsTypes.pl functionality has been merged into the countWarnings.pl
+		    # script to avoid duplication of the warning pattern matching.
+		    echo
+		    echo "Types of compiler warnings (limit 40 types):"
+		    output_from all |"$ROSE_SRC/scripts/countWarnings.pl" --types |sort -nrs |head -n40
 		fi
 	    ) >"$STATS_FILE"
 

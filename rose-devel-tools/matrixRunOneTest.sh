@@ -88,6 +88,7 @@ BUILD_STEPS=(
     projects-leo
     tutorial-build
     install
+    bindist
     end
 )
 
@@ -157,6 +158,11 @@ run_tutorial-build_commands(){
 run_install_commands() {
     rmc make --dry-run install-rose-library >>"$COMMAND_DRIBBLE" 2>&1
     rmc make install-rose-library || rmc make -j1 install-rose-library
+}
+
+run_bindist_commands() {
+    rmc make --dry-run check-rose-installer-rmc2 >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make check-rose-installer-rmc2
 }
 
 run_end_commands() {
@@ -542,5 +548,6 @@ run_test() {
 ########################################################################################################################
 
 date
+mkdir -p "$WORKSPACE"
 echo "logging to $LOG_FILE"
 run_test

@@ -27,11 +27,8 @@ dir0=${0%/*}
 # The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
 : ${ROSE_SRC:=$HOME/GS-CAD/ROSE/matrix/source-repo}
 
-# The ROSE project build directory that contains the matrix testing tools, configured with RMC. It should have a
-# corresponding source directory where things like shell scripts would exist. The ROSE_TOOLS_SRC is the empty string
-# then it will be obtained by running an rmc command in the build directory.
-: ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
-: ROSE_TOOLS_SRC
+# The ROSE installation prefix directory where the matrix testing tools have been installed. It must have a "bin" subdir.
+: ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/installed}
 
 # If non-empty, output is verbose. This means standard output and standard error from test phases go to the terminal
 # in addition to the log file.
@@ -210,15 +207,6 @@ COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
 TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
 
-# Get the source directory corresponding to the tools build directory.
-if [ "$ROSE_TOOLS_SRC" = "" ]; then
-    ROSE_TOOLS_SRC=$(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC')
-    if [ "$ROSE_TOOLS_SRC" = "" ]; then
-        echo "$arg0: cannot find ROSE_TOOLS_SRC for tools build directory $ROSE_TOOLS" >&2
-        exit 1
-    fi
-fi
-
 ########################################################################################################################
 # Recompute/move file names based on test number.
 adjust_file_names() {
@@ -294,7 +282,7 @@ filter_output() {
 report_results() {
     local database="$1"; shift
     local kvpairs
-    eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
+    eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS/bin/matrixScanEnvironment.sh))"
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
 
     local dry_run= command_output=
@@ -323,7 +311,7 @@ report_results() {
     local testid=
     if [ "${database#mailto:}" = "$database" ]; then
         # The database is available, so use it.
-        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
+        testid=$($ROSE_TOOLS/bin/matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
                      "${kvpairs[@]}" \
                      rose="$rose_version" \
                      rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
@@ -333,11 +321,11 @@ report_results() {
                 echo "$arg0: matrixTestResult faild to insert the test" >&2
                 return 1
             fi
-            rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
+            $ROSE_TOOLS/bin/matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
             if [ "$command_output" != "" ]; then
-                rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
+                $ROSE_TOOLS/bin/matrixAttachments --attach --title="Final output" $testid "$command_output"
             fi
-            rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+            $ROSE_TOOLS/bin/matrixErrors update $testid
             adjust_file_names $testid
         fi
 
@@ -400,7 +388,7 @@ setup_workspace() {
 
         (
             echo "rmc_rosesrc '$ROSE_SRC'"
-            rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
+            $ROSE_TOOLS/bin/matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
         ) >.rmc-main.cfg
 
         # Maybe we should override some things in the config -- the config we get from the database is just a hint.

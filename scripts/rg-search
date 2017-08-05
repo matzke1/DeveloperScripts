@@ -3,5 +3,189 @@
 # Usage:
 #   rg-search [GREP_ARGUMENTS] PATTERN
 
-top_srcdir="$(git rev-parse --show-cdup)" || exit 1
-git ls-tree -r --name-only --full-tree -z HEAD |xargs -0 -n1 -I{} grep --with-filename --line-number --perl-regexp -- "$@" $top_srcdir{}
+arg0="${0##*/}"
+
+# Parse command-line
+matcher=grep
+haystackType=
+pattern=
+rootDir=
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+	-h|--help)
+	    ######--------------------------------------------------------------------------------
+	    echo "usage: $arg0 [SWITCHES] PATTERN [HAYSTACK]"
+	    echo
+	    echo "SWITCHES"
+	    echo "    -C DIR"
+	    echo "        Change to the specified directory before commencing the search."
+	    echo
+	    echo "    --c, --c++"
+	    echo "        Parses the PATTERN as a sequence of C/C++ tokens and looks for that"
+	    echo "        sequence in the HAYSTACK. The inputs are not processed through the"
+	    echo "        C preprocessor, and the search does not consider preprocesor directives,"
+	    echo "        comments, or white space. String literals only match in full and this"
+	    echo "        happens after escape sequences are translated."
+	    echo
+	    echo "    --fs"
+	    echo "        Use the find(1) command to search for files in the current working"
+	    echo "        directory and below. Names that are common editor backup files are"
+	    echo "        skipped."
+	    echo
+	    echo "    --git"
+            echo "        Treat the current working directory as part of a Git repository and"
+	    echo "        search the currently checked-out versions of the files that are checked"
+	    echo "        into the repo."
+	    echo
+	    echo "    --name"
+	    echo "        The pattern is part of a file name, so show any file names that match."
+	    echo
+	    echo "HAYSTACK"
+	    echo "    * If file names are specified, then search those files."
+	    echo
+	    echo "    * If the --git or --fs switches were specified, search the Git repository"
+	    echo "      or the filesystem, respectively, as described in subsequent bullets."
+	    echo
+	    echo "    * If the working directory (after -C) is part of a Git repository, then"
+	    echo "      search all the files that belong to the repository."
+	    echo
+	    echo "    * If all else fails, recursively search the working directory (after -C)"
+	    echo "      looking at all files except those whose names comonly represent editor"
+	    echo "      backup files."
+	    exit 0
+	    ;;
+	    
+	--)
+	    shift
+	    break
+	    ;;
+
+	-C)
+	    rootDir="$2"
+	    shift 2
+	    ;;
+
+	-c|--c|--c++)
+	    matcher=c++
+	    shift
+	    ;;
+
+	--fs)
+	    haystackType=filesystem
+	    shift
+	    ;;
+
+	--git)
+	    haystackType=git
+	    shift
+	    ;;
+
+	--name)
+	    matcher=name
+	    shift
+	    ;;
+
+	-*)
+	    echo "$arg0: error: unrecognized switch: '$1'" >&2
+	    exit 1
+	    ;;
+	
+	*)
+	    pattern="$1"
+	    shift
+	    break
+	    ;;
+    esac
+done
+
+haystack=("$@")
+if [ "$pattern" = "" ]; then
+    echo "$arg0: error: no pattern or empty pattern specified" >&2
+    exit 1
+fi
+
+
+# If no haystack type was specified, then choose one
+guessHaystackType() {
+    if [ -n "$haystackType" ]; then
+	echo "$haystackType"
+    elif [ "${#haystack[*]}" -gt 0 ]; then
+	echo listed
+    elif [ -n "$(git rev-parse HEAD 2>/dev/null)" ]; then
+	echo git
+    else
+	echo filesystem
+    fi
+}
+
+# Convert relative names to absolute names
+absolutePaths() {
+    local prefix="$1"
+    # It seems that awk can't handle NUL characters, so we need to translate them to something else. This will
+    # obviously break if filenames have linefeeds, but that's not too likely in normal usage.
+    tr '\000' '\n' |\
+	awk -v prefix="$prefix" '/^\// {print; next} {printf "%s/%s\n", prefix, $0}' |\
+	tr '\n' '\000'
+}
+
+# Emits the list of filenames with each name NUL-terminated.
+haystack() {
+    case "$haystackType" in
+	git)
+	    git ls-tree -rz --name-only --full-tree HEAD |absolutePaths $(git rev-parse --show-toplevel)
+	    ;;
+	listed)
+	    for file in "${haystack[@]}"; do
+		echo -n "$file"
+		echo -en "\000"
+	    done |absolutePaths $(pwd)
+	    ;;
+	filesystem)
+	    find $(pwd) -type f -not \( -name '*~' -or -name '*.bak' -or -name '#*' \) -print0
+	    ;;
+	*)
+	    echo "$arg0: error: unknown haystack type '$(guessHaystackType)'" >&2
+	    ;;
+    esac
+}
+
+# Filter file names to select only files that have C/C++ source code
+filterNames() {
+    if [ "$haystackType" != listed ]; then
+	case "$matcher" in
+	    c++)
+		tr '\000' '\n' |\
+		    sed -n '/\(\.[cChH]\|\.[ch]pp\|\.[cChH]++\)$/p' |\
+		    tr '\n' '\000'
+		;;
+	    *)
+		cat
+		;;
+	esac
+    fi
+}
+
+# Search files
+search() {
+    case "$matcher" in
+	grep)
+	    haystack |filterNames |xargs -0 grep --with-filename --line-number --perl-regexp -- "$pattern"
+	    ;;
+	c++)
+	    haystack |filterNames |xargs -0 searchCode "$pattern"
+	    ;;
+	name)
+	    haystack |filterNames |tr '\000' '\n' |grep "$pattern" |sed 's/$/:1: found/'
+	    ;;
+	*)
+	    echo "$arg0: error: unknown matcher '$matcher'" >&2
+	    ;;
+    esac
+}
+
+if [ -n "$rootDir" ]; then
+    cd "$rootDir" || exit 1
+fi
+
+haystackType=$(guessHaystackType)
+search

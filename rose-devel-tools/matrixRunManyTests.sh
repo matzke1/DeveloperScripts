@@ -180,22 +180,16 @@ section "Matrix Tools"
 
 echo
 echo "Testing requires that the tools in the ROSE projects/MatrixTesting directory are built. You can"
-echo "do that by compiling the ROSE 'src' and 'projects/MatrixTesting' using RMC. The matrix testing"
-echo "tools do not need to be installed--they will be run by RMC directly from the build tree.  The"
-echo "source tree for these tools may be the same source tree as is being tested as long as the tools"
-echo "are compiled before testing starts. Some of the tools are scripts that live in the source tree."
-echo
+echo "do that by running 'make install-rose-library && make -C projects/MatrixTesting install'. The"
+echo "value you specify here should be the ROSE prefix directory--the directory to which ROSE was installed"
+echo "and which contains a 'bin' subdirectory."
 : ${ROSE_TOOLS:="$HOME/GS-CAD/ROSE/matrix/tools-build"}
 ROSE_TOOLS=$(query "Location of build tree for ROSE matrix tools (ROSE_TOOLS): " "$ROSE_TOOLS")
-if [ ! -e "$ROSE_TOOLS/projects/MatrixTesting/matrixTestResult" ]; then
-    echo "You must build the ROSE library and the projects/MatrixTesting directories before you can start"
-    echo "any matrix tests.  You should do this with RMC so that this script can find the correct dynamic"
-    echo "libraries, but you don't need to 'make install' anything."
+if [ ! -e "$ROSE_TOOLS/bin/matrixTestResult" ]; then
+    echo "You must build and install the ROSE library and the projects/MatrixTesting directories before"
+    echo "you can start any matrix tests."
     exit 1
 fi
-[ $(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC') != "" ] || die "must be configured with RMC: $ROSE_TOOLS"
-export ROSE_TOOLS="$ROSE_TOOLS/projects/MatrixTesting"
-
 
 ########################################################################################################################
 section "Config Space Overrides"

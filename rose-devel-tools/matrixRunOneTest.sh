@@ -27,11 +27,8 @@ dir0=${0%/*}
 # The directory containing the ROSE source code.  This should probably not be a directory that you're actively editing.
 : ${ROSE_SRC:=$HOME/GS-CAD/ROSE/matrix/source-repo}
 
-# The ROSE project build directory that contains the matrix testing tools, configured with RMC. It should have a
-# corresponding source directory where things like shell scripts would exist. The ROSE_TOOLS_SRC is the empty string
-# then it will be obtained by running an rmc command in the build directory.
-: ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/projects/MatrixTesting}
-: ROSE_TOOLS_SRC
+# The ROSE installation prefix directory where the matrix testing tools have been installed. It must have a "bin" subdir.
+: ${ROSE_TOOLS:=$HOME/GS-CAD/ROSE/matrix/tools-build/installed}
 
 # If non-empty, output is verbose. This means standard output and standard error from test phases go to the terminal
 # in addition to the log file.
@@ -88,6 +85,7 @@ BUILD_STEPS=(
     projects-leo
     tutorial-build
     install
+    bindist
     end
 )
 
@@ -159,6 +157,11 @@ run_install_commands() {
     rmc make install-rose-library || rmc make -j1 install-rose-library
 }
 
+run_bindist_commands() {
+    rmc make --dry-run check-rose-installer-rmc2 >>"$COMMAND_DRIBBLE" 2>&1
+    rmc make check-rose-installer-rmc2
+}
+
 run_end_commands() {
     echo "success!"
 }
@@ -199,18 +202,10 @@ OUTPUT_SECTION_SEPARATOR='=================-================='
 
 TEST_SUBDIR="matrix-test-pid$$"
 LOG_FILE="$WORKSPACE/$TEST_SUBDIR.log"
+STATS_FILE="$WORKSPACE/$TEST_SUBDIR.stats"
 COMMAND_DRIBBLE="$WORKSPACE/$TEST_SUBDIR.cmds"
 TEST_DIRECTORY="$WORKSPACE/$TEST_SUBDIR"
 TARBALL="$WORKSPACE/$TEST_SUBDIR.tar.gz"
-
-# Get the source directory corresponding to the tools build directory.
-if [ "$ROSE_TOOLS_SRC" = "" ]; then
-    ROSE_TOOLS_SRC=$(rmc -C "$ROSE_TOOLS" bash -c 'echo $RG_SRC')
-    if [ "$ROSE_TOOLS_SRC" = "" ]; then
-        echo "$arg0: cannot find ROSE_TOOLS_SRC for tools build directory $ROSE_TOOLS" >&2
-        exit 1
-    fi
-fi
 
 ########################################################################################################################
 # Recompute/move file names based on test number.
@@ -287,7 +282,7 @@ filter_output() {
 report_results() {
     local database="$1"; shift
     local kvpairs
-    eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS_SRC/projects/MatrixTesting/matrixScanEnvironment.sh))"
+    eval "kvpairs=($(rmc -C $TEST_DIRECTORY $ROSE_TOOLS/bin/matrixScanEnvironment.sh))"
     local rose_version=$(cd $ROSE_SRC && git rev-parse HEAD)
 
     local dry_run= command_output=
@@ -316,7 +311,7 @@ report_results() {
     local testid=
     if [ "${database#mailto:}" = "$database" ]; then
         # The database is available, so use it.
-        testid=$(rmc -C $ROSE_TOOLS ./matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
+        testid=$($ROSE_TOOLS/bin/matrixTestResult --database="$database" --log='tool(>=trace)' $dry_run \
                      "${kvpairs[@]}" \
                      rose="$rose_version" \
                      rose_date=$(cd $ROSE_SRC && git log -n1 --pretty=format:'%ct') \
@@ -326,11 +321,11 @@ report_results() {
                 echo "$arg0: matrixTestResult faild to insert the test" >&2
                 return 1
             fi
-            rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
+            $ROSE_TOOLS/bin/matrixAttachments --attach --title="Commands" $testid "$COMMAND_DRIBBLE"
             if [ "$command_output" != "" ]; then
-                rmc -C "$ROSE_TOOLS" ./matrixAttachments --attach --title="Final output" $testid "$command_output"
+                $ROSE_TOOLS/bin/matrixAttachments --attach --title="Final output" $testid "$command_output"
             fi
-            rmc -C $ROSE_TOOLS ./matrixErrors update $testid
+            $ROSE_TOOLS/bin/matrixErrors update $testid
             adjust_file_names $testid
         fi
 
@@ -393,7 +388,7 @@ setup_workspace() {
 
         (
             echo "rmc_rosesrc '$ROSE_SRC'"
-            rmc -C $ROSE_TOOLS ./matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
+            $ROSE_TOOLS/bin/matrixNextTest --format=rmc --database="$CONFIGURATION_SPACE_URL"
         ) >.rmc-main.cfg
 
         # Maybe we should override some things in the config -- the config we get from the database is just a hint.
@@ -444,6 +439,17 @@ setup_workspace() {
 }
 
 ########################################################################################################################
+# Returns the output from a particular phase of the test.
+output_from() {
+    local phase="$1"
+    if [ "$phase" = "all" ]; then
+	cat "$LOG_FILE"
+    else
+	sed -n "/^$OUTPUT_SECTION_SEPARATOR $phase $OUTPUT_SECTION_SEPARATOR/,/^$OUTPUT_SECTION_SEPARATOR/ p" <"$LOG_FILE"
+    fi
+}
+
+########################################################################################################################
 
 run_test() {
     local testid
@@ -474,6 +480,36 @@ run_test() {
             fi
         done
 
+	# If all tests passed, then run some scripts to count the number, location, and types of warning
+	# messages. Originally we looked only at the compiler warnings emitted during the library-build step, but then
+	# modified this to look at warnings across all phases; originally we suppressed duplicates, but now we
+	# don't. These two changes are so that the numbers in the tables match more closely the "nwarnings" field of the
+	# test results.
+	if [ "$disposition" = "end" ]; then
+	    (
+		if [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
+		    echo
+		    echo "Location of compiler warnings:"
+		    output_from all |"$ROSE_SRC/scripts/countWarnings.pl" |sort -nrs |head -n40
+		fi
+
+		if [ -x "$ROSE_SRC/scripts/countWarningTypes.pl" ]; then
+		    echo
+		    echo "Types of compiler warnings (limit 40 types):"
+		    output_from all |"$ROSE_SRC/scripts/countWarningTypes.pl" |sort -nrs |head -n40
+		elif [ -x "$ROSE_SRC/scripts/countWarnings.pl" ]; then
+		    # As of 2017-04-11, the countWarningsTypes.pl functionality has been merged into the countWarnings.pl
+		    # script to avoid duplication of the warning pattern matching.
+		    echo
+		    echo "Types of compiler warnings (limit 40 types):"
+		    output_from all |"$ROSE_SRC/scripts/countWarnings.pl" --types |sort -nrs |head -n40
+		fi
+	    ) >"$STATS_FILE"
+
+	    # Update log file with stats as separate step since stats are calculated from the log file.
+	    cat "$STATS_FILE" >>"$LOG_FILE"
+	fi
+	
         # Send some info back to the database
         if [ "$disposition" != "setup" ]; then
             local t1=$(date '+%s')
@@ -500,7 +536,6 @@ run_test() {
 ########################################################################################################################
 
 date
+mkdir -p "$WORKSPACE"
 echo "logging to $LOG_FILE"
 run_test
-
-

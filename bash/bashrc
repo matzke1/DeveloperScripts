@@ -94,10 +94,12 @@ if [ -n "$PS1" ]; then
     }
 
     prompt_xterm_title() {
-        local title="$USER@$(uname -n)"
-	echo -en '\033]2;'
-	echo -n "$title"
-	echo -en '\007'
+	if [ "$TERM" = "xterm" ]; then
+            local title="$USER@$(uname -n)"
+	    echo -en '\033]2;'
+	    echo -n "$title"
+	    echo -en '\007'
+	fi
     }
 
     prompt_git_info() {

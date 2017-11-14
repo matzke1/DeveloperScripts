@@ -66,6 +66,7 @@ dir0=${0%/*}
 : ${OVERRIDE_WT:=}
 : ${OVERRIDE_YAML:=}
 : ${OVERRIDE_YICES:=}
+: ${OVERRIDE_Z3:=}
 
 
 # The list of steps. Each step also has a function named "run_${STEP}_commands". If the function fails then the test status
@@ -416,6 +417,7 @@ setup_workspace() {
         modify_config rmc_wt            $OVERRIDE_WT
         modify_config rmc_yaml          $OVERRIDE_YAML
         modify_config rmc_yices         $OVERRIDE_YICES
+	modify_config rmc_z3            $OVERRIDE_Z3
         cat .rmc-main.cfg
 
 	rmc_version=$(rmc --version 2>&1)

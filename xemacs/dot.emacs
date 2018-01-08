@@ -1,5 +1,10 @@
 ;; Robb's emacs startup file                                                                           -*- lisp -*-
 
+
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp"))
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/cc-mode"))
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp/gnus/lisp"))
@@ -22,6 +27,7 @@
 (setq column-number-mode t)		;turn on column numbers in mode line
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
+(ido-mode)
 
 ;cursor might disappear when running with reverse video, so make it a color that shows up on either
 ;a light or dark background.
@@ -34,7 +40,16 @@
 ;; Frame width
 (global-set-key (kbd "<M-S-f4>") (lambda () (interactive) (set-frame-width (selected-frame) 133)))
 (global-set-key (kbd "<f4>")     (lambda () (interactive) (set-frame-width (selected-frame) 80)))
-(set-frame-width (selected-frame) 133)
+;(set-frame-width (selected-frame) 133)
+
+;; The split-window-sensibly is insensible. Splitting windows so they're side-by-side rather than
+;; one on top of the other doesn't work well when the user has adjusted the frame size to be
+;; suitable for editing. If the code is up to 132 columns wide and the user has disabled
+;; truncate-lines then splitting in half side by side only makes sense if the window is
+;; at least 2 * 132 + n characters wide (where "n" accounts for however much additional space
+;; would be lost due to scroll bars, gutters, etc.
+(setq split-width-threshold nil)
+(setq split-height-threshold nil)
 
 ;; Additional key bindings
 (global-set-key (kbd "<f3>") 'goto-line)
@@ -129,6 +144,9 @@
 
 ;; Perl programming
 (setq perl-indent-level 4)
+
+;; Tup build system files
+(load-file "~/.emacs.d/tup-mode/tup-mode.el")
 
 ;; C programming
 (defconst rpm-c-style
@@ -297,6 +315,14 @@
 (load "pilf")				;Robb's new C/C++ minor mode (2010)
 (add-hook 'c-mode-hook 'rpm-c-mode-hook)
 (add-hook 'c++-mode-hook 'rpm-c-mode-hook)
+
+; Allow ANSI color code escapes in the compile window
+(require 'ansi-color)
+(defun colorize-compilation-buffer ()
+  (toggle-read-only)
+  (ansi-color-apply-on-region compilation-filter-start (point))
+  (toggle-read-only))
+(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Selectively hides C/C++ 'if' and 'ifdef' regions.

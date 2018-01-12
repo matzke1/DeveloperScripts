@@ -1,0 +1,505 @@
+#!/bin/bash
+set -e
+arg0="${0##*/}"
+
+STAGING_REPO=$HOME/GS-CAD/ROSE/sources/staging
+JENKINS_USER=$USER
+
+# Special remotes and branch names in the $STAGING_REPO
+#
+#  remote "devel" is the central ROSE developer repo.
+#
+#  branch "*-jenkins" where "*" is the project name are the commits
+#  that are ready to be (or have already been) pushed to Jenkins for
+#  testing and possibly integration.
+#
+#  Anything not matched above is considered to be a user "project" branch
+
+
+usage() {
+    echo "usage: $arg0 SUBCOMMAND..."
+}
+
+die() {
+    echo "$arg0:" "$@" >&2
+    exit 1
+}
+
+remote_add() {
+    local repo="$1"
+    local name="$(basename $repo)"
+
+    git remote add "$name" "$repo"
+    local path
+    for path in $(git submodule |awk '{print $2}'); do
+	(cd "$path" && git remote add "$name" "$repo/$path")
+    done
+}
+
+submodule_paths() {
+    git submodule |awk '{print $2}'
+}
+
+# Name of current branch or empty
+branch_current() {
+    git branch |awk '/^\*/ {print $2}'
+}
+
+########################################################################################################################
+# Commands for work-in-progress (WIP)
+########################################################################################################################
+
+cmd_wip_help() {
+    echo "$arg0 create DIRECTORY PROJECTS..."
+    echo "    Creates a new directory for doing work."
+    echo "$arg0 rebase PROJECT"
+    echo "    Rebases current work onto another project."
+    echo "$arg0 push"
+    echo "    Push current branch back to staging area."
+    echo "$arg0 jenkins"
+    echo "    Push current branch back to staging area and mark it as ready-for-testing."
+}
+
+# Create a new working directory
+cmd_wip_create() {
+    local directory=
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    *)
+		directory="$arg"
+		break
+		;;
+	esac
+    done
+
+    # Create the working directory
+    [ -n "$directory" ] || die "no directory specified"
+    git clone --branch staging "$STAGING_REPO" "$directory" || return 1
+
+    (
+	cd "$directory"
+	
+	# Initialize the submodules and change their URLs to be the subdirs of the staging area
+	echo "$arg0: updating submodules"
+	git submodule --quiet init
+	local path
+	for path in $(git submodule |awk '{print $2}'); do
+	    git config --local "submodule.$path.url" "$STAGING_REPO/$path"
+	done
+	git submodule --quiet update
+
+	# The default remote is called "staging" instead of "origin". This will help other commands ensure they're
+	# running in a properly initialized repo, and will help prevent novice users from messing things up.
+	./scripts/smgit remote rename origin staging
+	./scripts/smgit fetch staging
+
+	# If the base-name of the directory matches a branch in the staging repo, then check out that branch.
+	local project=$(basename $directory)
+	local project_commit=$(git rev-parse "staging/$project" 2>/dev/null)
+	if [ -n "$project_commit" ]; then
+	    ./scripts/smgit checkout -b "$project" $project_commit
+	fi
+
+	# If additional projects are specified on the command-line, merge each of them into this branch.
+	for project in "$@"; do
+	    project_commit=$(git rev-parse "staging/$project" 2>/dev/null)
+	    [ -n "$project_commit" ] || die "no remote project branch for \"$project\""
+	    echo "$arg0: merging from $project..."
+	    if ! ./scripts/smgit merge "staging/$project"; then
+		if git mergetool; then
+		    git commit -F .git/MERGE_MSG
+		else
+		    die "merge from $project failed"
+		fi
+	    fi
+	done
+    )
+}
+
+cmd_wip_rebase() {
+    local cur_project=$(branch_current)
+    local other_project=staging
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    *)
+		other_project="$arg"
+		break
+		;;
+	esac
+    done
+    [ "$#" -eq 0 ] || die "incorrect usage"
+    ./scripts/smgit fetch staging
+    git rev-parse "staging/$other_project" 2>/dev/null || die "no such project \"$other_project\""
+
+    if ! git rebase "staging/$other_project"; then
+	if git mergetool; then
+	    git rebase --continue
+	    #git commit -m "($cur_project) Rebased onto $other_project with conflicts"
+	else
+	    echo "$arg0: rebase $cur_projet onto $other_project failed" >&2
+	    die "use 'git rebase --abort' to undo this rebase attempt"
+	fi
+    fi
+}
+
+cmd_wip_push() {
+    local cur_project=$(branch_current)
+    ./scripts/smgit push staging HEAD:"$cur_project"
+}
+
+cmd_wip_jenkins() {
+    local cur_project=$(branch_current)
+    local remote_branch="${cur_project}-jenkins"
+    cmd_wip_push
+
+    # Do not push certain commits to Jenkins
+    if git log --no-merges --oneline HEAD "^staging/$cur_project" |grep '(Tup)'; then
+	die "previous list of commits are not suitable for Jenkins testing; please remove and try again"
+    fi
+    ./scripts/smgit push staging HEAD:"$remote_branch"
+}
+
+cmd_wip() {
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -h|--help|help)
+		cmd_wip_help
+		exit 0
+		;;
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    create|jenkins|push|rebase)
+		arg0="$arg0 $arg"
+		eval "cmd_wip_$arg \"\$@\""
+		return $?
+		;;
+	    *)
+		die "unknown subcommand \"$arg\""
+		;;
+	esac
+    done
+    cmd_wip_help
+    exit 1
+}
+
+########################################################################################################################
+# Operations for Jenkins. These happen mostly in the staging repository
+########################################################################################################################
+
+cmd_jenkins_help() {
+    echo "$arg0 status"
+    echo "   show jenkins testing status"
+    echo "$arg0 fetch"
+    echo "   update staging repo with jenkins results"
+    echo "$arg0 [SWITCHES] test"
+    echo "   push all dirty *-jenkins branches to jenkins."
+    echo "   --dry-run: don't execute commands, just print them"
+    echo "   --test: push to jenkins \"-test\" branches"
+    echo "   --backup: push to development repo, but not for jenkins"
+}
+
+cmd_jenkins_status() {
+    (
+	cd $STAGING_REPO
+	for branch in $(git branch |cut -c3-); do
+	    case "$branch" in
+		*-jenkins)
+		    local project="${branch%-jenkins}"
+		    echo "${project}:"
+
+		    # If all this project's commits are in the remote master, then testing has been completed.
+		    local ncommits=$(git rev-list --no-merges --count "$branch" ^devel/master)
+		    if [ $ncommits -eq 0 ]; then
+			echo "    merged"
+		    else
+			# List those comments that have not been pushed to jenkins yet
+			local jenkins_dev_branch="$JENKINS_USER/$project-dev"
+			git log --no-merges --oneline "$branch" "^devel/$jenkins_dev_branch" |\
+			    sed 's/^/    local only /'
+			git log --no-merges --oneline "devel/$jenkins_dev_branch" ^devel/master |\
+			    sed 's/^/    testing    /'
+		    fi
+		    ;;
+	    esac
+	done
+    )
+}
+
+cmd_jenkins_test() {
+    local dry_run=
+    local integrate="-dev"
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -n|--dry-run)
+		dry_run=yes
+		;;
+	    --test)
+		integrate="-test"
+		;;
+	    --backup)
+		integrate=
+		;;
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    *)
+		die "incorrect usage"
+		;;
+	esac
+    done
+    
+    (
+	cd $STAGING_REPO
+	for branch in $(git branch |cut -c3-); do
+	    case "$branch" in
+		*-jenkins)
+		    local project="${branch%-jenkins}"
+		    local branch_for_jenkins="$JENKINS_USER/${project}${integrate}"
+
+		    local printed_header=
+
+		    #-----
+		    # Push the submodules first, as needed. The submodule commits that are used by the main
+		    # branch-to-be-tested must be present in their Jenkins repositories before Jenkins can test the main
+		    # branch. They don't need to be named anything in particular, just be present. Dan names his
+		    # submodule branches the same as the main repo branches, so we'll do similarly.
+		    #-----
+		    local submodule
+		    for submodule in $(submodule_paths); do
+
+			# In order to decide whether any submodule commits need to be pushed, we want to ask "Does the
+			# remote submodule lack any commits referenced by the main-repo branch we're about to test?"
+			# However, we ask an easier question the might result in more "yes" answers and result in us
+			# pushing things that don't really need to be pushed. The question we ask is "Does the submodule
+			# branch used by the main repo's master branch lack any commits referenced by the main-repo
+			# branch we're about to test?"
+			local sm_to_push=$(git rev-parse "$branch:$submodule")
+			local sm_master=$(git rev-parse "devel/master:$submodule")
+			local ncommits=$(git -C "$submodule" rev-list --count $sm_to_push ^$sm_master)
+
+			if [ $ncommits -gt 0 ]; then
+
+			    # Print what needs to be pushed
+			    if [ "$printed_header" = "" ]; then
+				echo "project \"$project\" needs to be tested"
+				printed_header=yes
+			    fi
+			    git -C "$submodule" log --no-merges --oneline $sm_to_push ^$sm_master |\
+				awk -v sm="$submodule" '{print "    " $0 " (" sm ")"}'
+
+			    # Perform the push (or dry-run)
+			    local cmd="git -C $submodule push devel $sm_to_push:'$branch_for_jenkins'"
+			    echo "+ $cmd" >&2
+			    [ "$dry_run" = "" ] && eval "$cmd"
+			fi
+		    done
+
+		    #-----
+		    # Now push the main-repo branch if needed. Unlike submodules, we need to push to a particular branch
+		    # name in order for Jenkins to find it. The names are "$USER/$PROJECT-(dev|test)". If the "-dev" or
+		    # "-test" suffix is omitted, then all we're doing is pushing a backup copy of our local branch that
+		    # will be ignored by Jenkins.
+		    #-----
+		    local needs_push=
+		    if ! git rev-parse "devel/$branch_for_jenkins" >/dev/null 2>&1; then
+			needs_push=yes # remote branch doesn't exist yet
+		    elif [ $(git rev-list --no-merges --count "$branch" "^devel/$branch_for_jenkins") -gt 0 ]; then
+			needs_push=yes # local has commits not in remote
+		    fi
+
+		    if [ -n "$needs_push" ]; then
+
+			# Print what needs to be tested. This is not just what needs to be pushed to the jenkins branch,
+			# but rather what isn't on the remote master yet. I.e., those commits on our branch that Jenkins
+			# hasn't merged either because they haven't been tested, or they've been tested already and
+			# failed.
+			if [ "$printed_header" = "" ]; then
+			    echo "project \"$project\" needs to be tested"
+			    printed_header=yes
+			fi
+			git log --no-merges --oneline "$branch" "^devel/master" | sed 's/^/    /'
+
+			# The push (or dry-run)
+			cmd="git push devel $branch:'$branch_for_jenkins'"
+			echo "+ $cmd" >&2
+			[ "$dry_run" = "" ] && eval "$cmd"
+		    fi
+		    ;;
+	    esac
+	done
+    )
+}
+
+cmd_jenkins_fetch() {
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    *)
+		die "incorrect usage";
+		;;
+	esac
+    done
+
+    (
+	cd $STAGING_REPO
+	./scripts/smgit fetch devel
+	if [ "$(branch_current)" = "devel" ]; then
+	    git reset --hard devel/master
+	    git submodule update --no-fetch
+	else
+	    git branch -D devel
+	    git branch devel devel/master
+	fi
+    )
+}
+
+cmd_jenkins() {
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -h|--help|help)
+		cmd_jenkins_help
+		exit 0
+		;;
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    fetch|status|test)
+		arg0="$arg0 $arg"
+		eval "cmd_jenkins_$arg \"\$@\""
+		return $?
+		;;
+	    *)
+		die "unknown subcommand \"$arg\""
+		;;
+	esac
+    done
+    cmd_jenkins_help
+    exit 1
+}
+
+########################################################################################################################
+# Operations for the Tup build system
+########################################################################################################################
+
+cmd_tup_help() {
+    echo "$arg0 patch"
+    echo "    Adds Tup patches to this project"
+    echo "$arg0 mkbuild DIR [RMC_INIT_ARGS...]"
+    echo "    Creates a build directory suitable for tup"
+}
+
+# Add tup patches to current project
+cmd_tup_patch() {
+    [ "$#" -ne 0 ] && die "incorrect usage"
+    local cur_project=$(branch_current)
+    ./scripts/smgit fetch staging
+    local n=$(git rev-list --no-merges --count staging/tup ^HEAD)
+    [ $n -ne 1 ] && die "unexpected number of tup commits: $n"
+    ./scripts/smgit merge staging/tup
+    ./scripts/smgit branch "${cur_project}-tup-patches"
+}
+
+# Create a tup build directory
+cmd_tup_mkbuild() {
+    local builddir=_build curproj=$(branch_current)
+    local initargs=()
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -*)
+		# Assume switch is for rmc-init
+		initargs=("${initargs[@]}" "$arg")
+		;;
+	    *)
+		builddir="$arg"
+		if [ "${#initargs[*]}" -gt 0 ]; then
+		    # I guess they weren't rmc-init switches after all
+		    die "unknown command-line switch \"${initargs[0]}\""
+		fi
+		break
+		;;
+	esac
+    done
+
+    # Try to add Tup patches if not already
+    if ! git rev-parse "${curproj}-tup-patches" >/dev/null 2>&1; then
+	cmd_tup_patch
+    fi
+
+    (
+	cd $(git rev-parse --show-toplevel)
+	mkdir "$builddir"
+
+	[ ! -e configure ] && ./build
+	BUILD=tup rmc -C "$builddir" init "${initargs[@]}" "$@" $(pwd)
+	echo "$arg0: running rmc config..."
+	rmc -C "$builddir" config
+	echo "$arg0: entering build environment..."
+	rmc -C "$builddir"
+    )
+}
+
+
+cmd_tup() {
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -h|--help|help)
+		cmd_tup_help
+		exit 0
+		;;
+	    mkbuild|patch)
+		arg0="$arg0 $arg"
+		eval "cmd_tup_$arg \"\$@\""
+		return $?
+		;;
+	    *)
+		die "unknown subcommand \"$arg\""
+		;;
+	esac
+    done
+    cmd_tup_help
+    exit 1
+}
+	    
+########################################################################################################################
+# Main
+########################################################################################################################
+
+while [ "$#" -gt 0 ]; do
+    arg="$1"; shift
+    case "$arg" in
+	-h|--help)
+	    usage
+	    exit 0
+	    ;;
+	-*)
+	    die "unknown command-line switch \"$arg\""
+	    ;;
+	jenkins|tup|wip)
+	    arg0="$arg0 $arg"
+	    eval "cmd_$arg \"\$@\""
+	    exit $?
+	    ;;
+	*)
+	    die "unknown subcommand \"$arg\""
+	    ;;
+    esac
+done
+usage
+exit 1

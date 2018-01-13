@@ -8,6 +8,7 @@ export ENSCRIPT="--media=Letter --font=Courier8"
 export LC_PAPER="en_US.UTF-8"
 export LC_ALL="C"
 export LESS="RSf"
+export TERMINAL=terminator
 
 ##############################################################################
 # Distcc and ccache

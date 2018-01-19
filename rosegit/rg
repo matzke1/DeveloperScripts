@@ -54,7 +54,7 @@ cmd_wip_help() {
     echo "    Creates a new directory for doing work."
     echo "$arg0 rebase PROJECT"
     echo "    Rebases current work onto another project."
-    echo "$arg0 push"
+    echo "$arg0 save"
     echo "    Push current branch back to staging area."
     echo "$arg0 jenkins"
     echo "    Push current branch back to staging area and mark it as ready-for-testing."
@@ -78,7 +78,7 @@ cmd_wip_create() {
 
     # Create the working directory
     [ -n "$directory" ] || die "no directory specified"
-    git clone --branch staging "$STAGING_REPO" "$directory" || return 1
+    git clone --branch devel "$STAGING_REPO" "$directory" || return 1
 
     (
 	cd "$directory"
@@ -99,14 +99,16 @@ cmd_wip_create() {
 
 	# If the base-name of the directory matches a branch in the staging repo, then check out that branch.
 	local project=$(basename $directory)
-	local project_commit=$(git rev-parse "staging/$project" 2>/dev/null)
+	local project_commit=$(git rev-parse --verify "staging/$project" 2>/dev/null)
 	if [ -n "$project_commit" ]; then
 	    ./scripts/smgit checkout -b "$project" $project_commit
+	else
+	    git branch -m devel "$project"
 	fi
 
 	# If additional projects are specified on the command-line, merge each of them into this branch.
 	for project in "$@"; do
-	    project_commit=$(git rev-parse "staging/$project" 2>/dev/null)
+	    project_commit=$(git rev-parse --verify "staging/$project" 2>/dev/null)
 	    [ -n "$project_commit" ] || die "no remote project branch for \"$project\""
 	    echo "$arg0: merging from $project..."
 	    if ! ./scripts/smgit merge "staging/$project"; then
@@ -122,7 +124,7 @@ cmd_wip_create() {
 
 cmd_wip_rebase() {
     local cur_project=$(branch_current)
-    local other_project=staging
+    local upstream=staging/devel
     while [ "$#" -gt 0 ]; do
 	local arg="$1"; shift
 	case "$arg" in
@@ -130,16 +132,26 @@ cmd_wip_rebase() {
 		die "unknown command-line switch \"$arg\""
 		;;
 	    *)
-		other_project="$arg"
+		upstream="$arg"
 		break
 		;;
 	esac
     done
     [ "$#" -eq 0 ] || die "incorrect usage"
-    ./scripts/smgit fetch staging
-    git rev-parse "staging/$other_project" 2>/dev/null || die "no such project \"$other_project\""
+    local other_project="${upstream#staging/}"
+    upstream="staging/$other_project"
 
-    if ! git rebase "staging/$other_project"; then
+    # Make sure we have the latest staging available.
+    ./scripts/smgit fetch staging
+    git rev-parse --verify "$upstream" 2>/dev/null || die "no such project \"$other_project\""
+
+    # Make sure submodules are all up-to-date
+    git submodule |grep '^[^ ]' && die "submodules need to be updated before rebasing"
+
+    # Make sure everything's committed
+    git status --porcelain=1 --untracked-files=no |grep . && die "changes need to be committed before rebasing"
+	
+    if ! git rebase "$upstream"; then
 	if git mergetool; then
 	    git rebase --continue
 	    #git commit -m "($cur_project) Rebased onto $other_project with conflicts"
@@ -150,21 +162,21 @@ cmd_wip_rebase() {
     fi
 }
 
-cmd_wip_push() {
+cmd_wip_save() {
     local cur_project=$(branch_current)
-    ./scripts/smgit push staging HEAD:"$cur_project"
+    ./scripts/smgit push staging +HEAD:"$cur_project"
 }
 
 cmd_wip_jenkins() {
     local cur_project=$(branch_current)
     local remote_branch="${cur_project}-jenkins"
-    cmd_wip_push
+    cmd_wip_save
 
     # Do not push certain commits to Jenkins
     if git log --no-merges --oneline HEAD "^staging/$cur_project" |grep '(Tup)'; then
 	die "previous list of commits are not suitable for Jenkins testing; please remove and try again"
     fi
-    ./scripts/smgit push staging HEAD:"$remote_branch"
+    ./scripts/smgit push staging +HEAD:"$remote_branch"
 }
 
 cmd_wip() {
@@ -178,7 +190,7 @@ cmd_wip() {
 	    -*)
 		die "unknown command-line switch \"$arg\""
 		;;
-	    create|jenkins|push|rebase)
+	    create|jenkins|save|rebase)
 		arg0="$arg0 $arg"
 		eval "cmd_wip_$arg \"\$@\""
 		return $?
@@ -201,7 +213,7 @@ cmd_jenkins_help() {
     echo "   show jenkins testing status"
     echo "$arg0 fetch"
     echo "   update staging repo with jenkins results"
-    echo "$arg0 [SWITCHES] test"
+    echo "$arg0 [SWITCHES] run"
     echo "   push all dirty *-jenkins branches to jenkins."
     echo "   --dry-run: don't execute commands, just print them"
     echo "   --test: push to jenkins \"-test\" branches"
@@ -220,14 +232,23 @@ cmd_jenkins_status() {
 		    # If all this project's commits are in the remote master, then testing has been completed.
 		    local ncommits=$(git rev-list --no-merges --count "$branch" ^devel/master)
 		    if [ $ncommits -eq 0 ]; then
-			echo "    merged"
+			git log --no-merges --oneline --since='1 week ago' --max-count=10 "$branch" |\
+			    sed 's/^/    passed     /'
 		    else
 			# List those comments that have not been pushed to jenkins yet
-			local jenkins_dev_branch="$JENKINS_USER/$project-dev"
-			git log --no-merges --oneline "$branch" "^devel/$jenkins_dev_branch" |\
-			    sed 's/^/    local only /'
-			git log --no-merges --oneline "devel/$jenkins_dev_branch" ^devel/master |\
-			    sed 's/^/    testing    /'
+			local jenkins_dev_branch="devel/$JENKINS_USER/$project-dev"
+			local jenkins_dev_commit=$(git rev-parse --verify $jenkins_dev_branch 2>/dev/null)
+			git log --no-merges --oneline "$project" "^$branch" |\
+			    sed 's/^/    wip        /'
+			if [ -n "$jenkins_dev_commit" ]; then
+			    git log --no-merges --oneline "$branch" "^$jenkins_dev_branch" |\
+				sed 's/^/    staged     /'
+			    git log --no-merges --oneline "$jenkins_dev_branch" ^devel/master |\
+				sed 's/^/    testing    /'
+			else
+			    git log --no-merges --oneline "$branch" "^devel/master" |\
+				sed 's/^/    staged     /'
+			fi
 		    fi
 		    ;;
 	    esac
@@ -235,108 +256,118 @@ cmd_jenkins_status() {
     )
 }
 
-cmd_jenkins_test() {
-    local dry_run=
-    local integrate="-dev"
-    while [ "$#" -gt 0 ]; do
-	local arg="$1"; shift
-	case "$arg" in
-	    -n|--dry-run)
-		dry_run=yes
-		;;
-	    --test)
-		integrate="-test"
-		;;
-	    --backup)
-		integrate=
-		;;
-	    -*)
-		die "unknown command-line switch \"$arg\""
-		;;
-	    *)
-		die "incorrect usage"
-		;;
-	esac
-    done
-    
+cmd_jenkins_run() {
     (
 	cd $STAGING_REPO
-	for branch in $(git branch |cut -c3-); do
-	    case "$branch" in
-		*-jenkins)
-		    local project="${branch%-jenkins}"
-		    local branch_for_jenkins="$JENKINS_USER/${project}${integrate}"
 
-		    local printed_header=
+	local dry_run=
+	local integrate="-dev"
 
-		    #-----
-		    # Push the submodules first, as needed. The submodule commits that are used by the main
-		    # branch-to-be-tested must be present in their Jenkins repositories before Jenkins can test the main
-		    # branch. They don't need to be named anything in particular, just be present. Dan names his
-		    # submodule branches the same as the main repo branches, so we'll do similarly.
-		    #-----
-		    local submodule
-		    for submodule in $(submodule_paths); do
+	# Branches (without the "-jenkins" suffix) which should be tested.
+	local projects=()
 
-			# In order to decide whether any submodule commits need to be pushed, we want to ask "Does the
-			# remote submodule lack any commits referenced by the main-repo branch we're about to test?"
-			# However, we ask an easier question the might result in more "yes" answers and result in us
-			# pushing things that don't really need to be pushed. The question we ask is "Does the submodule
-			# branch used by the main repo's master branch lack any commits referenced by the main-repo
-			# branch we're about to test?"
-			local sm_to_push=$(git rev-parse "$branch:$submodule")
-			local sm_master=$(git rev-parse "devel/master:$submodule")
-			local ncommits=$(git -C "$submodule" rev-list --count $sm_to_push ^$sm_master)
-
-			if [ $ncommits -gt 0 ]; then
-
-			    # Print what needs to be pushed
-			    if [ "$printed_header" = "" ]; then
-				echo "project \"$project\" needs to be tested"
-				printed_header=yes
-			    fi
-			    git -C "$submodule" log --no-merges --oneline $sm_to_push ^$sm_master |\
-				awk -v sm="$submodule" '{print "    " $0 " (" sm ")"}'
-
-			    # Perform the push (or dry-run)
-			    local cmd="git -C $submodule push devel $sm_to_push:'$branch_for_jenkins'"
-			    echo "+ $cmd" >&2
-			    [ "$dry_run" = "" ] && eval "$cmd"
-			fi
-		    done
-
-		    #-----
-		    # Now push the main-repo branch if needed. Unlike submodules, we need to push to a particular branch
-		    # name in order for Jenkins to find it. The names are "$USER/$PROJECT-(dev|test)". If the "-dev" or
-		    # "-test" suffix is omitted, then all we're doing is pushing a backup copy of our local branch that
-		    # will be ignored by Jenkins.
-		    #-----
-		    local needs_push=
-		    if ! git rev-parse "devel/$branch_for_jenkins" >/dev/null 2>&1; then
-			needs_push=yes # remote branch doesn't exist yet
-		    elif [ $(git rev-list --no-merges --count "$branch" "^devel/$branch_for_jenkins") -gt 0 ]; then
-			needs_push=yes # local has commits not in remote
-		    fi
-
-		    if [ -n "$needs_push" ]; then
-
-			# Print what needs to be tested. This is not just what needs to be pushed to the jenkins branch,
-			# but rather what isn't on the remote master yet. I.e., those commits on our branch that Jenkins
-			# hasn't merged either because they haven't been tested, or they've been tested already and
-			# failed.
-			if [ "$printed_header" = "" ]; then
-			    echo "project \"$project\" needs to be tested"
-			    printed_header=yes
-			fi
-			git log --no-merges --oneline "$branch" "^devel/master" | sed 's/^/    /'
-
-			# The push (or dry-run)
-			cmd="git push devel $branch:'$branch_for_jenkins'"
-			echo "+ $cmd" >&2
-			[ "$dry_run" = "" ] && eval "$cmd"
-		    fi
+	while [ "$#" -gt 0 ]; do
+	    local arg="$1"; shift
+	    case "$arg" in
+		-n|--dry-run)
+		    dry_run=yes
+		    ;;
+		--test)
+		    integrate="-test"
+		    ;;
+		--backup)
+		    integrate=
+		    ;;
+		-*)
+		    die "unknown command-line switch \"$arg\""
+		    ;;
+		*)
+		    projects=("${projects[@]}" "$arg")
 		    ;;
 	    esac
+	done
+
+	if [ ${#projects[*]} -eq 0 ]; then
+	    projects=($(git branch |cut -c3- |sed -n 's/-jenkins$//p'))
+	    if [ ${#projects[*]} -eq 0 ]; then
+		echo "$arg0: no projects saved yet; nothing to do"
+		exit 0
+	    fi
+	fi
+
+	for project in "${projects[@]}"; do
+	    local project_sha1=$(git rev-parse --verify "$project" 2>/dev/null)
+	    [ "$project_sha1" = "" ] && die "unknown project \"$project\", or it has not been saved yet"
+	    local branch="${project}-jenkins"
+	    local branch_sha1=$(git rev-parse --verify "$branch" 2>/dev/null)
+	    [ "$branch_sha1" = "" ] && die "project \"$project\" not staged for jenkins yet"
+
+	    local branch_for_jenkins="$JENKINS_USER/${project}${integrate}"
+	    local printed_header=
+
+	    #-----
+	    # Push the submodules first, as needed. The submodule commits that are used by the main branch-to-be-tested
+	    # must be present in their Jenkins repositories before Jenkins can test the main branch. They don't need to
+	    # be named anything in particular, just be present. Dan names his submodule branches the same as the main
+	    # repo branches, so we'll do similarly.
+	    #-----
+	    local submodule
+	    for submodule in $(submodule_paths); do
+
+		# In order to decide whether any submodule commits need to be pushed, we want to ask "Does the remote
+		# submodule lack any commits referenced by the main-repo branch we're about to test?"  However, we ask
+		# an easier question the might result in more "yes" answers and result in us pushing things that don't
+		# really need to be pushed. The question we ask is "Does the submodule branch used by the main repo's
+		# master branch lack any commits referenced by the main-repo branch we're about to test?"
+		local sm_to_push=$(git rev-parse --verify "$branch:$submodule")
+		local sm_master=$(git rev-parse --verify "devel/master:$submodule")
+		local ncommits=$(git -C "$submodule" rev-list --count $sm_to_push ^$sm_master)
+
+		if [ $ncommits -gt 0 ]; then
+
+		    # Print what needs to be pushed
+		    if [ "$printed_header" = "" ]; then
+			echo "project \"$project\" needs to be tested"
+			printed_header=yes
+		    fi
+		    git -C "$submodule" log --no-merges --oneline $sm_to_push ^$sm_master |\
+			awk -v sm="$submodule" '{print "    " $0 " (" sm ")"}'
+
+		    # Perform the push (or dry-run)
+		    local cmd="git -C $submodule push devel $sm_to_push:'$branch_for_jenkins'"
+		    echo "+ $cmd" >&2
+		    [ "$dry_run" = "" ] && eval "$cmd"
+		fi
+	    done
+
+	    #-----
+	    # Now push the main-repo branch if needed. Unlike submodules, we need to push to a particular branch name in
+	    # order for Jenkins to find it. The names are "$USER/$PROJECT-(dev|test)". If the "-dev" or "-test" suffix
+	    # is omitted, then all we're doing is pushing a backup copy of our local branch that will be ignored by
+	    # Jenkins.
+	    #-----
+	    local needs_push=
+	    if ! git rev-parse --verify "devel/$branch_for_jenkins" >/dev/null 2>&1; then
+		needs_push=yes # remote branch doesn't exist yet
+	    elif [ $(git rev-list --no-merges --count "$branch" "^devel/$branch_for_jenkins") -gt 0 ]; then
+		needs_push=yes # local has commits not in remote
+	    fi
+
+	    if [ -n "$needs_push" ]; then
+		# Print what needs to be tested. This is not just what needs to be pushed to the jenkins branch, but
+		# rather what isn't on the remote master yet. I.e., those commits on our branch that Jenkins hasn't
+		# merged either because they haven't been tested, or they've been tested already and failed.
+		if [ "$printed_header" = "" ]; then
+		    echo "project \"$project\" needs to be tested"
+		    printed_header=yes
+		fi
+		git log --no-merges --oneline "$branch" "^devel/master" | sed 's/^/    /'
+
+		# The push (or dry-run)
+		cmd="git push devel +$branch:'$branch_for_jenkins'"
+		echo "+ $cmd" >&2
+		[ "$dry_run" = "" ] && eval "$cmd"
+	    fi
 	done
     )
 }
@@ -378,7 +409,7 @@ cmd_jenkins() {
 	    -*)
 		die "unknown command-line switch \"$arg\""
 		;;
-	    fetch|status|test)
+	    fetch|status|run)
 		arg0="$arg0 $arg"
 		eval "cmd_jenkins_$arg \"\$@\""
 		return $?
@@ -437,7 +468,7 @@ cmd_tup_mkbuild() {
     done
 
     # Try to add Tup patches if not already
-    if ! git rev-parse "${curproj}-tup-patches" >/dev/null 2>&1; then
+    if ! git rev-parse --verify "${curproj}-tup-patches" >/dev/null 2>&1; then
 	cmd_tup_patch
     fi
 

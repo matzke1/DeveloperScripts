@@ -5,6 +5,10 @@ arg0="${0##*/}"
 STAGING_REPO=$HOME/GS-CAD/ROSE/sources/staging
 JENKINS_USER=$USER
 
+# Some people don't bother trying to keep the Git subject lines to a reasonable length. Therefore, we filter some Git
+# log output to trim the lines.
+: ${COLUMNS:=100}
+
 # Special remotes and branch names in the $STAGING_REPO
 #
 #  remote "devel" is the central ROSE developer repo.
@@ -37,7 +41,7 @@ remote_add() {
 }
 
 submodule_paths() {
-    git submodule |awk '{print $2}'
+    git submodule foreach --quiet 'echo $path'
 }
 
 # Name of current branch or empty
@@ -163,8 +167,13 @@ cmd_wip_rebase() {
 }
 
 cmd_wip_save() {
-    local cur_project=$(branch_current)
-    ./scripts/smgit push staging +HEAD:"$cur_project"
+    (
+	set -e
+	cd $(git rev-parse --show-toplevel)
+	local cur_project=$(branch_current)
+	git push staging +HEAD:"$cur_project"
+	git submodule foreach "git push staging +HEAD:$cur_project"
+    )
 }
 
 cmd_wip_jenkins() {
@@ -176,7 +185,13 @@ cmd_wip_jenkins() {
     if git log --no-merges --oneline HEAD "^staging/$cur_project" |grep '(Tup)'; then
 	die "previous list of commits are not suitable for Jenkins testing; please remove and try again"
     fi
-    ./scripts/smgit push staging +HEAD:"$remote_branch"
+
+    (
+	set -e
+	cd $(git rev-parse --show-toplevel)
+	git push staging +HEAD:"$remote_branch"
+	git submodule foreach "git push staging +HEAD:$remote_branch"
+    )
 }
 
 cmd_wip() {
@@ -232,22 +247,32 @@ cmd_jenkins_status() {
 		    # If all this project's commits are in the remote master, then testing has been completed.
 		    local ncommits=$(git rev-list --no-merges --count "$branch" ^devel/master)
 		    if [ $ncommits -eq 0 ]; then
-			git log --no-merges --oneline --since='1 week ago' --max-count=10 "$branch" |\
-			    sed 's/^/    passed     /'
+			ncommits=$(git rev-list --no-merges --since='1 week ago' --max-count=10 --count "$branch")
+			if [ $ncommits -gt 0 ]; then
+			    git log --no-merges --oneline --since='1 week ago' --max-count=10 "$branch" |\
+				sed 's/^/    passed     /' |\
+				cut -c1-$COLUMNS
+			else
+			    echo "    merged"
+			fi
 		    else
 			# List those comments that have not been pushed to jenkins yet
 			local jenkins_dev_branch="devel/$JENKINS_USER/$project-dev"
 			local jenkins_dev_commit=$(git rev-parse --verify $jenkins_dev_branch 2>/dev/null)
 			git log --no-merges --oneline "$project" "^$branch" |\
-			    sed 's/^/    wip        /'
+			    sed 's/^/    wip        /' |\
+			    cut -c1-$COLUMNS
 			if [ -n "$jenkins_dev_commit" ]; then
-			    git log --no-merges --oneline "$branch" "^$jenkins_dev_branch" |\
-				sed 's/^/    staged     /'
+			    git log --no-merges --oneline "$branch" "^$jenkins_dev_branch" ^devel/master |\
+				sed 's/^/    staged     /' |\
+				cut -c1-$COLUMNS
 			    git log --no-merges --oneline "$jenkins_dev_branch" ^devel/master |\
-				sed 's/^/    testing    /'
+				sed 's/^/    testing    /' |\
+				cut -c1-$COLUMNS
 			else
 			    git log --no-merges --oneline "$branch" "^devel/master" |\
-				sed 's/^/    staged     /'
+				sed 's/^/    staged     /' |\
+				cut -c1-$COLUMNS
 			fi
 		    fi
 		    ;;
@@ -395,6 +420,15 @@ cmd_jenkins_fetch() {
 	    git branch -D devel
 	    git branch devel devel/master
 	fi
+
+	# The checked out commits in the submodules need branch names otherwise "git fetch" in the working repos
+	# won't be able to fetch these commits.
+	for sha1_submodule in $(git submodule foreach --quiet 'echo $sha1:$path'); do
+	    local sha1="${sha1_submodule%%:*}"
+	    local submodule="${sha1_submodule#*:}"
+	    (cd "$submodule" && git branch -D devel 2>/dev/null || true)
+	    (cd "$submodule" && git branch devel $sha1)
+	done
     )
 }
 

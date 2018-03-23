@@ -8,12 +8,14 @@ select-vector - select vectors for compiling with boost
 
 =head1 USAGE
 
-$0 [-N] JSON_FILES...
+$0 [-N] [--validate] JSON_FILES...
 
 =head1 DESCRIPTION
 
 Reads the JSON files specified on the command-line and computes their intersection. Then uses the intersection
 to generate a list of version vectors. Finally selects up to N vectors and prints them to standard output.
+
+The "--validate" switch controls how much information is displayed when validating the first JSON file.
 
 =cut
 
@@ -52,11 +54,11 @@ sub validate {
 
 # Read, parse, and validate a JSON file
 sub read_json {
-    my($file_name) = @_;
+    my($file_name,$verbose) = @_;
     open JSON, "<", $file_name or die "$file_name: $!\n";
     my $json = decode_json join "", <JSON>;
     close JSON;
-    return validate $json;
+    return validate $json, $verbose;
 }
 
 # Compute intersection of two version lists.
@@ -156,7 +158,7 @@ sub shuffle {
 
 ########################################################################################################################
 
-my $max_output;
+my($max_output,$validate);
 while (@ARGV && $ARGV[0] =~ /^-/) {
     if ($ARGV[0] eq '--') {
 	shift @ARGV;
@@ -167,6 +169,9 @@ while (@ARGV && $ARGV[0] =~ /^-/) {
     } elsif ($ARGV[0] =~ /^(-h|--help)$/) {
 	system "perldoc", $0;
 	exit 0
+    } elsif ($ARGV[0] eq '--validate') {
+	$validate = 1;
+	shift @ARGV;
     } elsif ($ARGV[0] =~ /^-/) {
 	die "unknown switch \"$ARGV[0]\"; see --help\n";
     } else {
@@ -177,7 +182,7 @@ die "incorrect usage; see --help\n" unless @ARGV;
 
 
 # Read all JSON files mentioned on the command line and compute their intersection
-my $intersection = read_json shift @ARGV;
+my $intersection = read_json shift(@ARGV), $validate;
 for my $file_name (@ARGV) {
     $intersection = intersect $intersection, read_json $file_name;
     last unless $intersection;
@@ -194,4 +199,3 @@ if (defined $max_output) {
 for my $vector (@vectors) {
     print join(" ", map {"$_='$vector->{$_}'"} qw/boost_version os_name cxx_vendor cxx_lang cxx_version/), "\n";
 }
-

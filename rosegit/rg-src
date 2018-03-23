@@ -6,9 +6,13 @@
 #     ls $(rosegit-src)
 #     ln -s $(rosegit-src)/*.bin .
 
-cwd=$(rmc realpath .)
-bld=$(rmc realpath "$ROSE_BUILD")
-src=$(rmc realpath "$ROSE_SOURCE")
+#cwd=$(rmc realpath .)
+#bld=$(rmc realpath "$ROSE_BUILD")
+#src=$(rmc realpath "$ROSE_SOURCE")
+
+cwd=$(realpath .)
+bld=$(realpath "$ROSE_BUILD")
+src=$(realpath "$ROSE_SOURCE")
 
 base="${cwd#$bld/}"
 

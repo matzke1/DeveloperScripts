@@ -26,7 +26,7 @@ shopt -s histappend
 shopt -s checkwinsize
 
 # Turn off this incredibly stupid autocompleting mode. Pressing TAB fails
-# to list file names an many situations.
+# to list file names in many situations.
 shopt -u progcomp
 
 # Make sure system directories are in $MANPATH so if we add more paths
@@ -49,6 +49,15 @@ if [ -n "$PS1" ]; then
 	# case would tend to support setf rather than setaf.)
 	PROMPT_USE_COLOR=yes
     fi
+
+    # Architecture name
+    os=
+    if [ -n "$SPOCK_SCRIPTS" ]; then
+	os=$("$SPOCK_SCRIPTS/spock-os-name" --short)
+    elif [ -n "$(which spock-shell)" ]; then
+	os=$(spock-shell bash -c '$SPOCK_SCRIPTS/spock-os-name --short')
+    fi
+    [ -n "$os" ] && os="[$os]"
     
     # Do something in the prompt if the last command takes more than N seconds.
     command_prompt () {
@@ -85,10 +94,12 @@ if [ -n "$PS1" ]; then
     }
 
     prompt_xterm_title() {
-        local title="$USER@$(uname -n)"
-	echo -en '\033]2;'
-	echo -n "$title"
-	echo -en '\007'
+	if [ "$TERM" = "xterm" ]; then
+            local title="$USER@$(uname -n)"
+	    echo -en '\033]2;'
+	    echo -n "$title"
+	    echo -en '\007'
+	fi
     }
 
     prompt_git_info() {
@@ -109,7 +120,7 @@ if [ -n "$PS1" ]; then
 	PS1=
 	PS1="$PS1"'$(command_prompt)'
 	PS1="$PS1"'$(prompt_xterm_title)'
-	PS1="$PS1$(prompt_color '\u@\h '             32)"
+	PS1="$PS1$(prompt_color "\\u@\\h$os "        32)"
 	PS1="$PS1$(prompt_color '\W '                33)"
 	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
 	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"

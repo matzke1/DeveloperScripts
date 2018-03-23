@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# Generates a gource video of ROSE (or any) source code.
+
+start_date=$(date '+%Y')-01-01
+stop_date=$(date '+%Y-%m-%d')
+output=gource.mp4
+title=
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+	--start-date=*)
+	    start_date="${1#--start-date=}"
+	    ;;
+	--stop-date=*)
+	    stop_date="${1#--stop-date=}"
+	    ;;
+	--output=*)
+	    output="${1#--output=}"
+	    ;;
+	--title=*)
+	    title="${1#--title=}"
+	    ;;
+	*)
+	    echo "$0: unknown command-line argument: $1" >&2
+	    exit 1
+	    ;;
+    esac
+    shift
+done
+
+encode() {
+    case "$output" in
+	*.mp4)
+	    ffmpeg -y -r 60 \
+		   -f image2pipe -vcodec ppm -i - \
+		   -vcodec libx264 -preset ultrafast -pix_fmt yuv420p -crf 1 -threads 0 -bf 0 \
+		   $output
+	    ;;
+	*.webm)
+	    ffmpeg -y -r 60 \
+		   -f image2pipe -vcodec ppm -i - \
+		   -vcodec libvpx -b 10000K \
+		   $output
+	    ;;
+	*)
+	    echo "$0: unsure how to encode to $output" 2>&1
+	    exit 1
+	    ;;
+    esac
+}
+if [ "$title" = "" -a "$start_date" != "" -a "$stop_date" != "" ]; then
+    title="Files modified between $start_date and $stop_date"
+fi
+
+gource --start-date "$start_date" --stop-date "$stop_date" --title "$title" \
+       -s 1 --hide filenames --disable-progress --stop-at-end \
+       --bloom-multiplier 1 --bloom-intensity 0.25 \
+       --highlight-users --highlight-colour 00ff00 --user-friction 0.1 \
+       --output-ppm-stream - --output-framerate 60 |\
+    encode

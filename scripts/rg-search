@@ -155,7 +155,7 @@ filterNames() {
 	case "$matcher" in
 	    c++)
 		tr '\000' '\n' |\
-		    sed -n '/\(\.[cChH]\|\.[ch]pp\|\.[cChH]++\)$/p' |\
+		    sed -n '/\(\.[cChH]\|\.[ch]pp\|\.[cChH]++\|\.d\)$/p' |\
 		    tr '\n' '\000'
 		;;
 	    *)

@@ -77,11 +77,20 @@ if [ -n "$PS1" ]; then
 	    local elapsed=$[stop_time - start_time]
 	    if [ $elapsed -gt 15 ]; then
 		sec_to_hms $elapsed >>/dev/tty
-		if [ -n "$LOLA" -a -n "$cmd_name" ]; then
+		local result_text=
+		if [ -n "$cmd_name" ]; then
 		    if [ "$status" -ne 0 ]; then
-			lola_say "$cmd_name failed after $(extended_hms $elapsed)"
+			result_text="$cmd_name failed after $(extended_hms $elapsed)"
 		    else
-			lola_say "$cmd_name completed in $(extended_hms $elapsed)"
+			result_text="$cmd_name completed in $(extended_hms $elapsed)"
+		    fi
+		fi
+
+		if [ -n "$result_text" ]; then
+		    if [ -n "$LOLA" ]; then
+			lola_say "$result_text"
+		    elif [ -n "$(which notify-send)" ]; then
+			notify-send "$result_text"
 		    fi
 		else
 		    echo -en '\a' >&2

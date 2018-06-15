@@ -54,6 +54,8 @@ branch_current() {
 ########################################################################################################################
 
 cmd_wip_help() {
+    echo "$arg0 clone PROJECT [DIRECTORY]"
+    echo "    Checks out an existing project."
     echo "$arg0 create DIRECTORY PROJECTS..."
     echo "    Creates a new directory for doing work."
     echo "$arg0 rebase PROJECT"
@@ -62,6 +64,61 @@ cmd_wip_help() {
     echo "    Push current branch back to staging area."
     echo "$arg0 jenkins"
     echo "    Push current branch back to staging area and mark it as ready-for-testing."
+}
+
+# Initialize the submodules and change their URLs to be the subdirs of the staging area. This command should be run
+# with the CWD being the top of the ROSE source repository.
+initialize_submodules() {
+    echo "$arg0: updating submodules"
+    git submodule --quiet init
+    local path
+    for path in $(git submodule |awk '{print $2}'); do
+	git config --local "submodule.$path.url" "$STAGING_REPO/$path"
+    done
+    git submodule --quiet update
+}
+
+# Change the name of the default remote from "origin" to "staging". This will help other commands ensure they're running
+# in a properly initialized repo, and will help prevent novice users from messing things up.
+initialize_remotes() {
+	./scripts/smgit remote rename origin staging
+	./scripts/smgit fetch staging
+}    
+
+# Clone an existing branch
+cmd_wip_clone() {
+    local branch= directory=
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -*)
+		die "unknown command-line switch \"$arg\""
+		;;
+	    *)
+		if [ "$branch" = "" ]; then
+		    branch="$arg"
+		elif [ "$directory" = "" ]; then
+		    directory="$arg"
+		else
+		    echo "usage: $arg0 BRANCH [DIRECTORY]" >&2
+		    exit 1
+		fi
+		;;
+	esac
+    done
+    if [ "$branch" = "" ]; then
+	echo "usage: $arg0 BRANCH DIRECTORY" >&2
+	exit 1
+    fi
+    [ "$directory" = "" ] && directory="$branch"
+
+    git clone --branch "$branch" "$STAGING_REPO" "$directory" || return 1
+    (
+	set -e
+	cd "$directory"
+	initialize_submodules
+	initialize_remotes
+    )
 }
 
 # Create a new working directory
@@ -86,20 +143,9 @@ cmd_wip_create() {
 
     (
 	cd "$directory"
-	
-	# Initialize the submodules and change their URLs to be the subdirs of the staging area
-	echo "$arg0: updating submodules"
-	git submodule --quiet init
-	local path
-	for path in $(git submodule |awk '{print $2}'); do
-	    git config --local "submodule.$path.url" "$STAGING_REPO/$path"
-	done
-	git submodule --quiet update
 
-	# The default remote is called "staging" instead of "origin". This will help other commands ensure they're
-	# running in a properly initialized repo, and will help prevent novice users from messing things up.
-	./scripts/smgit remote rename origin staging
-	./scripts/smgit fetch staging
+	initialize_submodules
+	initialize_remotes
 
 	# If the base-name of the directory matches a branch in the staging repo, then check out that branch.
 	local project=$(basename $directory)
@@ -205,7 +251,7 @@ cmd_wip() {
 	    -*)
 		die "unknown command-line switch \"$arg\""
 		;;
-	    create|jenkins|save|rebase)
+	    create|clone|jenkins|save|rebase)
 		arg0="$arg0 $arg"
 		eval "cmd_wip_$arg \"\$@\""
 		return $?
@@ -250,7 +296,7 @@ cmd_jenkins_status() {
 		    if [ $ncommits -eq 0 ]; then
 			ncommits=$(git rev-list --no-merges --since='1 week ago' --author="$me" --max-count=10 --count "$branch")
 			if [ $ncommits -gt 0 ]; then
-			    git log --no-merges --oneline --since='1 week ago' --author="$me" --max-count=10 "$branch" |\
+			    git log --no-decorate --no-merges --oneline --since='1 week ago' --author="$me" --max-count=10 "$branch" |\
 				sed 's/^/    passed     /' |\
 				cut -c1-$COLUMNS
 			else
@@ -260,18 +306,18 @@ cmd_jenkins_status() {
 			# List those comments that have not been pushed to jenkins yet
 			local jenkins_dev_branch="devel/$JENKINS_USER/$project-dev"
 			local jenkins_dev_commit=$(git rev-parse --verify $jenkins_dev_branch 2>/dev/null)
-			git log --no-merges --oneline "$project" "^$branch" |\
+			git log --no-decorate --no-merges --oneline "$project" "^$branch" |\
 			    sed 's/^/    wip        /' |\
 			    cut -c1-$COLUMNS
 			if [ -n "$jenkins_dev_commit" ]; then
-			    git log --no-merges --oneline "$branch" "^$jenkins_dev_branch" ^devel/master |\
+			    git log --no-decorate --no-merges --oneline "$branch" "^$jenkins_dev_branch" ^devel/master |\
 				sed 's/^/    staged     /' |\
 				cut -c1-$COLUMNS
-			    git log --no-merges --oneline "$jenkins_dev_branch" ^devel/master |\
+			    git log --no-decorate --no-merges --oneline "$jenkins_dev_branch" ^devel/master |\
 				sed 's/^/    testing    /' |\
 				cut -c1-$COLUMNS
 			else
-			    git log --no-merges --oneline "$branch" "^devel/master" |\
+			    git log --no-decorate --no-merges --oneline "$branch" "^devel/master" |\
 				sed 's/^/    staged     /' |\
 				cut -c1-$COLUMNS
 			fi

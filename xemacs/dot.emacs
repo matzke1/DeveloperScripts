@@ -66,6 +66,11 @@
 (global-set-key [mouse-4] (lambda () (interactive) (scroll-down 5)))
 (global-set-key [mouse-5] (lambda () (interactive) (scroll-up 5)))
 
+(require 'package)
+(add-to-list 'package-archives
+         '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+(package-initialize)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)
 ;(add-to-list 'load-path "~/.emacs.d")
@@ -272,6 +277,7 @@
   ;; other customizations
   (setq tab-width 8)			; The normal tab width
   (setq indent-tabs-mode nil)		; insert SPC rather than TAB characters
+  (setq truncate-lines t)
 
   (make-local-variable 'compile-command) ; set compile command on a per buffer basis
   (setq compile-command "make ")
@@ -310,11 +316,18 @@
   (imenu-add-to-menubar "TAGS")
 )
 
+(defun rpm-d-mode-hook ()
+  (setq tab-width 8)
+  (setq indent-tabs-mode nil)
+  (setq truncate-lines t)
+  (setq fill-column (- 132 5))
+  (setq comment-column 64))
 
 ;(load "rpmc")				;Robb's C minor mode
 (load "pilf")				;Robb's new C/C++ minor mode (2010)
 (add-hook 'c-mode-hook 'rpm-c-mode-hook)
 (add-hook 'c++-mode-hook 'rpm-c-mode-hook)
+(add-hook 'd-mode-hook 'rpm-d-mode-hook)
 
 ; Allow ANSI color code escapes in the compile window
 (require 'ansi-color)
@@ -344,6 +357,10 @@
 (global-set-key "\C-cl" 'org-store-link)
 (global-set-key "\C-ca" 'org-agenda)
 (global-set-key "\C-cb" 'org-iswitchb)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; E-mail
+(load-file "~/DeveloperScripts/xemacs/mu4e-config.el")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (custom-set-variables

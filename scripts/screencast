@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ "$1" = "" ]; then
+    echo "usage: $0 WINDOW_ID"
+    echo "Get the WINDOW_ID with 'xwininfo -frame'"
+    exit 1
+fi
+
+i=0
+while true; do
+    name=$(printf "cap_%05d.miff" $i)
+    #name=$(printf "cap_%05d.png" $i)
+    import -frame -window "$1" $name
+    i=$[i+1]
+    echo -n "." >&2
+    read -t 0.1 quit
+    [ "$quit" != "" ] && break
+done
+
+echo "Generating capture.m2v..."
+convert -antialias -resize 720x486! -delay 20 *.miff capture.m2v

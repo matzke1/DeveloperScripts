@@ -1,0 +1,15 @@
+#!/bin/bash
+
+MAILDIR=$HOME/HoosierFocus-Maildir/INBOX/new
+
+while basename=$(inotifywait -qe moved_to --format '%f' "$MAILDIR"); do
+    filename="$MAILDIR/$basename"
+    from=$(formail -X From: <"$filename")
+    subject=$(formail -X Subject: <"$filename")
+
+    from="${from:0:75}"
+    subject="${subject:0:200}"
+
+    notify-send -u normal -t 10000 "$from" "$subject"
+done
+

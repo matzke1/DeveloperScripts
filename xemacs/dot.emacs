@@ -321,7 +321,7 @@
   (imenu-add-to-menubar "TAGS")
 )
 
-(defun rmc-d-mode-hook ()
+(defun rpm-d-mode-hook ()
   (setq tab-width 8)
   (setq indent-tabs-mode nil)
   (setq truncate-lines t)

@@ -611,7 +611,103 @@ cmd_tup() {
     cmd_tup_help
     exit 1
 }
-	    
+
+########################################################################################################################
+# Operations for matrix testing
+########################################################################################################################
+
+cmd_matrix_help() {
+    echo "$arg0 push HOST"
+    echo "    Push the current development commit to the specified remote machine. Locally, the branch to push is"
+    echo "    staging/devel, the remote repository is $HOST:GS-CAD/ROSE/matrix/source-repo, and the remote branch"
+    echo "    is matrix-testing-YYYYMMDD based on the staging/devel commit date. The main ROSE repo and all submodules"
+    echo "    are pushed."
+    echo
+    echo "$arg0 stage HOST"
+    echo "    Same as 'push' except it also causes the repository to be reconfigured for testing. BE SURE TO STOP"
+    echo "    MATRIX TESTING ON THE HOST BEFORE EXECUTING THIS COMMAND!"
+}
+
+cmd_matrix_push() {
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    -*)
+		die "unknown command-line switch \"$1\""
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    [ "$#" -ne 1 ] && die "incorrect usage"
+    local host="$1"
+
+    # Compute the remote branch name
+    local remote_branch=matrix-testing-$(git log -n1 --format='%cd' --date='format:%Y%m%d' staging/devel)
+
+    (set -x; git push "${host}:GS-CAD/ROSE/matrix/source-repo" "staging/devel:refs/heads/${remote_branch}")
+
+    for sha1_path in $(git submodule foreach --quiet 'echo "$sha1:$path"'); do
+	local sha1="${sha1_path%%:*}"
+	local path="${sha1_path#*:}"
+	(
+	    set -ex
+	    cd "$path"
+	    git push "${host}:GS-CAD/ROSE/matrix/source-repo/${path}" "$sha1:refs/heads/${remote_branch}"
+	)
+    done
+}
+
+cmd_matrix_stage() {
+    cmd_matrix_push "$@"
+
+    while [ "$#" -gt 0 ]; do
+	case "$1" in
+	    -*)
+		die "unknown command-line switch \"$1\""
+		;;
+	    *)
+		break
+		;;
+	esac
+    done
+    [ "$#" -ne 1 ] && die "incorrect usage"
+    local host="$1"
+
+    # Compute the remote branch name
+    local remote_branch=matrix-testing-$(git log -n1 --format='%cd' --date='format:%Y%m%d' staging/devel)
+
+    read -p "Has matrix testing been stopped on $host? [yes] "
+    case "$REPLY" in
+	y*|"") ;;
+	*) exit 1 ;;
+    esac
+    
+    ssh "$host" "set -ex; cd GS-CAD/ROSE/matrix/source-repo; git checkout $remote_branch; git submodule update; ./scripts/smgit clean -dfx; ./build"
+}
+
+cmd_matrix() {
+    while [ "$#" -gt 0 ]; do
+	local arg="$1"; shift
+	case "$arg" in
+	    -h|--help|help)
+		cmd_matrix_help
+		exit 0
+		;;
+	    push|stage)
+		arg0="$arg0 $arg"
+		eval "cmd_matrix_$arg \"\$@\""
+		return $?
+		;;
+	    *)
+		die "unknown subcommand \"$arg\""
+		;;
+	esac
+    done
+    cmd_matrix_help
+    exit 1
+}
+
 ########################################################################################################################
 # Main
 ########################################################################################################################
@@ -626,7 +722,7 @@ while [ "$#" -gt 0 ]; do
 	-*)
 	    die "unknown command-line switch \"$arg\""
 	    ;;
-	jenkins|tup|wip)
+	jenkins|tup|wip|matrix)
 	    arg0="$arg0 $arg"
 	    eval "cmd_$arg \"\$@\""
 	    exit $?

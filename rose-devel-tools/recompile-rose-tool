@@ -1,0 +1,129 @@
+#!/bin/bash
+set -e
+
+: ${RG_SRC:=${HOME}/rose-wip/estcp}
+: ${RG_BLD:=${RG_SRC}/_build}
+: ${INSTALL_PREFIX:=${HOME}/rose-installed}
+
+: ${DATE:=$(date +%Y-%m-%d)}
+
+use_existing_rose=
+rose_release=
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+
+	# Date of ROSE release, such as 2018-08-31
+	--date=yesterday)
+	    DATE=$(date --date=yesterday '+%Y-%m-%d')
+	    shift
+	    ;;
+	--date=*)
+	    DATE="${1#--date=}"
+	    shift
+	    ;;
+
+	# Mode of ROSE release, such as "debug" or "release"
+	--mode=*)
+	    MODE="${1#--mode=}"
+	    shift
+	    ;;
+
+	# Release number, such as "1" or "001"
+	--release=*)
+	    rose_release="${1#--release=}"
+	    shift
+	    ;;
+
+	# Don't install a new version of ROSE; use the latest installation for this date.
+	--old)
+	    use_existing_rose=yes
+	    shift
+	    ;;
+
+	-*)
+	    echo "$0: unrecognized switch: '$1'" >&2
+	    exit 1
+	    ;;
+
+	*)
+	    echo "usage: $0 [SWITCHES]" >&2
+	    exit 1
+	    ;;
+    esac
+done
+
+
+# Compute the ROSE installation prefix directory name
+rose_install_prefix() {
+    # Date
+    if [ "$DATE" = "" ]; then
+	if [ -n "$use_existing_rose" ]; then
+	    local latest_date=$(cd "$INSTALL_PREFIX" && ls -d ????-??-?? 2>/dev/null |tail -n1)
+	    if [ "$latest_date" = "" ]; then
+		echo "$0: no ROSE installations in $INSTALL_PREFIX" >&2
+		exit 1
+	    fi
+	    DATE="$latest_date"
+	else
+	    DATE=$(date '+%Y-%m-%d')
+	fi
+    fi
+
+    # Mode
+    if [ "$MODE" = "" ]; then
+	if [ -n "$use_existing_rose" ]; then
+	    local best=$(ls -d "$INSTALL_PREFIX"/${DATE}/*-[0-9][0-9][0-9] 2>/dev/null |tail -n1)
+	    if [ "$best" = "" ]; then
+		echo "$0: no ROSE installation in ${INSTALL_PREFIX}/${DATE}" >&2
+		exit 1
+	    fi
+	    MODE="${best##*/}"
+	    MODE="${MODE%-*}"
+	else
+	    if grep '^CONFIG_C_CXX_OPTIM=-O0' "$RG_BLD/tup.config" >/dev/null; then
+		MODE=debug
+	    else
+		MODE=release
+	    fi
+	fi
+    fi
+
+    # Release number
+    if [ "$rose_release" = "" ]; then
+	local prev_n=$(ls -d "${INSTALL_PREFIX}/${DATE}/${MODE}-"[0-9][0-9][0-9] 2>/dev/null |tail -n1)
+	if [ "$prev_n" = "" ]; then
+	    prev_n=0
+	else
+	    prev_n="${prev_n: -3:3}"
+	    prev_n=$((10#$prev_n)) # strip leading zeros to prevent octal interpretation
+	fi
+	if [ -n "$use_existing_rose" ]; then
+	    rose_release=$(printf "%03d" $prev_n)
+	else
+	    rose_release=$(printf "%03d" $[prev_n + 1])
+	fi
+    fi
+
+    echo "${INSTALL_PREFIX}/${DATE}/${MODE}-${rose_release}"
+    return 0
+}
+
+ROSE_ROOT=$(rose_install_prefix)
+
+if [ "$use_existing_rose" = "" ]; then
+    (
+	set -x
+	rmc -C "$RG_BLD" make
+	rmc -C "$RG_BLD" ../scripts/tup/install-staged $ROSE_ROOT
+    )
+fi
+
+(set -x; cp $ROSE_ROOT/include/rose-installed-make.cfg rose.cfg)
+
+if [ -x configure ]; then
+    (set -x; ./configure)
+fi
+
+(set -x; spock-shell --with tup make)
+

@@ -32,6 +32,7 @@ mkdir -p $HOME/bin
     cd $HOME/bin
     ln -sf $DEV_ROOT/rose-devel-tools/matrixRunOneTest.sh .
     ln -sf $DEV_ROOT/rose-devel-tools/matrixRunManyTests.sh .
+    ln -sf $DEV_ROOT/rose-devel-tools/recompile-rose-tool .
 )
 
 #

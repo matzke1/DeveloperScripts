@@ -71,6 +71,11 @@
          '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 
+;; Pressing Control-Z when emacs is running in the i3 window manager causes emacs to enter some kindo of weird state
+;; where the window flashes if you press C-g, but doesn't respond to anything else. Sinze "z" is right next to "x" on
+;; my keyboard, and since C-x is a common prefix, it's therefore easy to accidentally hit C-z.
+(global-unset-key (kbd "C-z"))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)
 ;(add-to-list 'load-path "~/.emacs.d")
@@ -316,7 +321,7 @@
   (imenu-add-to-menubar "TAGS")
 )
 
-(defun rpm-d-mode-hook ()
+(defun rmc-d-mode-hook ()
   (setq tab-width 8)
   (setq indent-tabs-mode nil)
   (setq truncate-lines t)
@@ -364,11 +369,12 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (custom-set-variables
-  ;; custom-set-variables was added by Custom.
-  ;; If you edit it by hand, you could mess it up, so be careful.
-  ;; Your init file should contain only one such instance.
-  ;; If there is more than one, they won't work right.
- '(ansi-color-names-vector ["#2e3436" "#a40000" "#4e9a06" "#c4a000" "#204a87" "#5c3566" "#729fcf" "#eeeeec"])
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ansi-color-names-vector
+   ["#2e3436" "#a40000" "#4e9a06" "#c4a000" "#204a87" "#5c3566" "#729fcf" "#eeeeec"])
  '(blink-matching-paren t)
  '(column-number-mode t)
  '(compilation-context-lines 0)
@@ -393,8 +399,8 @@
  '(vc-handled-backends (quote (RCS CVS SVN SCCS Bzr Hg Mtn Arch)))
  '(which-function-mode t))
 (custom-set-faces
-  ;; custom-set-faces was added by Custom.
-  ;; If you edit it by hand, you could mess it up, so be careful.
-  ;; Your init file should contain only one such instance.
-  ;; If there is more than one, they won't work right.
- '(default ((t (:inherit nil :stipple nil :background "black" :foreground "white" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 67 :width normal :foundry "unknown" :family "DejaVu Sans Mono")))))
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(default ((t (:inherit nil :stipple nil :background "black" :foreground "white" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 113 :width normal :foundry "PfEd" :family "DejaVu Sans Mono")))))

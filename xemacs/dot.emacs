@@ -136,8 +136,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filladapt -- better filling functions. "Filling" is the process of moving new-line characters
 ;; within a "paragraph" in order to make the lines all approximately the same length.
-(require 'filladapt)
-(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
+;(require 'filladapt)
+;(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
 ;(add-hook 'c-mode-hook 'turn-off-filladapt-mode) ; except C source code
 ;(setq filladapt-mode-line-string nil)   ; and don't advertise the minor mode
 
@@ -389,6 +389,10 @@
  '(hide-ifdef-initially t)
  '(hide-ifdef-shadow t)
  '(next-error-highlight t)
+ '(org-agenda-files nil)
+ '(package-selected-packages
+   (quote
+    (nhexl-mode auto-complete yaml-mode filladapt d-mode)))
  '(save-place t nil (saveplace))
  '(scroll-bar-mode (quote right))
  '(show-paren-mode t)

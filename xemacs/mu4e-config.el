@@ -57,7 +57,13 @@
 	 "Week (all messages)" ?W)
 
 	("date:7d..now AND NOT flag:trashed AND (maildir:/INBOX OR maildir:/Sent)"
-	 "Week (inbox)" ?w)))
+	 "Week (inbox)" ?w)
+
+	("date:31d..now"
+	 "Month (all messages)" ?M)
+
+	("date:31d..now AND NOT flag:trashed AND (maildir:/INBOX OR maildir:/Sent)"
+	 "Month (inbox)" ?m)))
 
 ;;--------------------
 ;; Message summary

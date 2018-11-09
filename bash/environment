@@ -79,16 +79,5 @@ fi
 
 if [ -d $HOME/spack ]; then
     eval $(path-adjust insert --append $HOME/spack/bin)
-
-    lmod="$(spack location -i lmod 2>/dev/null)"
-    [ -n "$lmod" ] && source "$lmod/lmod/lmod/init/bash"
-
     source "$HOME/spack/share/spack/setup-env.sh"
-
-    for usedir in $(module avail 2>&1 |sed -n '/^-/ s/^-\+ \(.*\) -\+$/\1/p'); do
-        module unuse "$usedir"
-    done
-    for usedir in $(find $HOME/spack/share/spack/lmod -type d -name Core); do
-        module use "$usedir"
-    done
 fi

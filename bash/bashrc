@@ -54,7 +54,7 @@ if [ -n "$PS1" ]; then
     os=
     if [ -n "$SPOCK_SCRIPTS" ]; then
 	os=$("$SPOCK_SCRIPTS/spock-os-name" --short)
-    elif [ -n "$(which spock-shell)" ]; then
+    elif [ -n "$(type -p spock-shell)" ]; then
 	os=$(spock-shell bash -c '$SPOCK_SCRIPTS/spock-os-name --short')
     fi
     [ -n "$os" ] && os="[$os]"
@@ -89,7 +89,7 @@ if [ -n "$PS1" ]; then
 		if [ -n "$result_text" ]; then
 		    if [ -n "$LOLA" ]; then
 			lola_say "$result_text"
-		    elif [ -n "$(which notify-send)" ]; then
+		    elif [ -n "$(type -p notify-send)" ]; then
 			notify-send "$result_text"
 		    fi
 		else

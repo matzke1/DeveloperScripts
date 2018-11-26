@@ -28,7 +28,8 @@
   message-send-mail-function 'smtpmail-send-it
   smtpmail-smtp-server       "mail.hoosierfocus.com"
   smtpmail-smtp-user         "matzke"
-  smtpmail-smtp-service      25
+  ;smtpmail-smtp-service      25              ; standard port
+  smtpmail-smtp-service      2525             ; to bypass Comcast consumer firewall
   smtpmail-stream-type       'starttls
 )
 
@@ -57,7 +58,13 @@
 	 "Week (all messages)" ?W)
 
 	("date:7d..now AND NOT flag:trashed AND (maildir:/INBOX OR maildir:/Sent)"
-	 "Week (inbox)" ?w)))
+	 "Week (inbox)" ?w)
+
+	("date:31d..now"
+	 "Month (all messages)" ?M)
+
+	("date:31d..now AND NOT flag:trashed AND (maildir:/INBOX OR maildir:/Sent)"
+	 "Month (inbox)" ?m)))
 
 ;;--------------------
 ;; Message summary

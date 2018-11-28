@@ -72,3 +72,13 @@ if [ -d $HOME/.spock/bin ]; then
     [ -d $HOME/junk/. ] &&
 	export SPOCK_BLDDIR="$HOME/junk"
 fi
+
+################################################################################
+# "go" language
+################################################################################
+
+[ -d "$HOME/go" ] && : ${GOPATH:=$HOME/go}
+if [ -n "$GOPATH" ]; then
+    export GOPATH
+    eval $(path-adjust insert --append "$GOPATH/bin")
+fi

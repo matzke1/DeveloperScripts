@@ -123,3 +123,20 @@
       '(("t" "todo" entry (file-headline "~/todo.org" "Tasks")
 	 "* TODO [#A] %?\nSCHEDULED: %(org-insert-time-stamp (org-read-date nil t \"+0d\"))\n%a\n")))
 
+;;--------------------
+;; Make stupid ical/vcal attachments human-usable
+;;--------------------
+
+(defun process-ical-appointments (msg attachnum)
+  "schedule appointments into /home/matzke/events-g.org"
+  (mu4e-view-pipe-attachment msg attachnum
+			     "/home/matzke/go/bin/ical2org -count -d=/home/matzke/events-g.org -a=/home/matzke/events-g.org -"))
+
+(add-to-list 'mu4e-view-attachment-actions '("schedule appointment" . process-ical-appointments) t)
+
+(defun view-ical-appointments (msg attachnum)
+  "convert ical attachment and show in buffer"
+  (mu4e-view-pipe-attachment msg attachnum "/home/matzke/go/bin/ical2org -"))
+
+(add-to-list 'mu4e-view-attachment-actions '("view appointment" . view-ical-appointments) t)
+

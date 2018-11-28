@@ -1,4 +1,4 @@
-# Environment variables							-*- shell-script -*-
+# Environment variables                                                 -*- shell-script -*-
 # Must be parsable by dash and bash
 
 eval $(~/bin/path-adjust insert ~/bin)
@@ -23,7 +23,7 @@ if [ "$DISTCC_HOSTS" = "" ]; then
     DISTCC_HOSTS="--localslots_cpp=$CPPSLOTS localhost/$NPROCS"
 
     if [ $(hostname) != "wortheni" ]; then
-	DISTCC_HOSTS="$DISTCC_HOSTS wortheni/10,lzo"
+        DISTCC_HOSTS="$DISTCC_HOSTS wortheni/10,lzo"
     fi
 fi
 
@@ -64,13 +64,22 @@ fi
 
 
 ################################################################################
-# RMC-2
+# RMC/Spock
 ################################################################################
 
 if [ -d $HOME/.spock/bin ]; then
     eval $(path-adjust insert --append $HOME/.spock/bin)
     [ -d $HOME/junk/. ] &&
-	export SPOCK_BLDDIR="$HOME/junk"
+        export SPOCK_BLDDIR="$HOME/junk"
+fi
+
+################################################################################
+# Spack
+################################################################################
+
+if [ -d $HOME/spack ]; then
+    eval $(path-adjust insert --append $HOME/spack/bin)
+    source "$HOME/spack/share/spack/setup-env.sh"
 fi
 
 ################################################################################

@@ -170,8 +170,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; filladapt -- better filling functions. "Filling" is the process of moving new-line characters
 ;; within a "paragraph" in order to make the lines all approximately the same length.
-(require 'filladapt)
-(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
+;(require 'filladapt)
+;(setq-default filladapt-mode t)         ; enable filladapt for all buffers...
 ;(add-hook 'c-mode-hook 'turn-off-filladapt-mode) ; except C source code
 ;(setq filladapt-mode-line-string nil)   ; and don't advertise the minor mode
 
@@ -355,7 +355,7 @@
   (imenu-add-to-menubar "TAGS")
 )
 
-(defun rmc-d-mode-hook ()
+(defun rpm-d-mode-hook ()
   (setq tab-width 8)
   (setq indent-tabs-mode nil)
   (setq truncate-lines t)

@@ -27,7 +27,6 @@
 (setq column-number-mode t)		;turn on column numbers in mode line
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
-(ido-mode)
 
 ;cursor might disappear when running with reverse video, so make it a color that shows up on either
 ;a light or dark background.
@@ -75,6 +74,41 @@
 ;; where the window flashes if you press C-g, but doesn't respond to anything else. Sinze "z" is right next to "x" on
 ;; my keyboard, and since C-x is a common prefix, it's therefore easy to accidentally hit C-z.
 (global-unset-key (kbd "C-z"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; IDO mode
+
+(setq ido-enable-flex-matching t)
+(setq ido-everywhere t)
+(ido-mode 1)
+
+(require 'ido-vertical-mode)
+(ido-vertical-mode t)
+(setq ido-vertical-define-keys 'C-n-and-C-p-up-down-left-right)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Smex (IDO for M-x)
+
+(global-set-key (kbd "M-x") 'smex)
+(global-set-key (kbd "M-X") 'smex-major-mode-commands)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Projectile (requires emacs 25 or later)
+
+(if (version< emacs-version "25")
+    nil
+  (unless (package-installed-p 'projectile)
+    (package-install 'projectile))
+  (projectile-mode +1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Magit (git in emacs)
+
+(if (version< emacs-version "25")
+    nil
+  (unless (package-installed-p 'magit)
+    (package-install 'magit)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)
@@ -389,6 +423,7 @@
  '(hide-ifdef-initially t)
  '(hide-ifdef-shadow t)
  '(next-error-highlight t)
+ '(org-agenda-files nil)
  '(save-place t nil (saveplace))
  '(scroll-bar-mode (quote right))
  '(show-paren-mode t)

@@ -126,12 +126,33 @@ if [ -n "$PS1" ]; then
     }
 
     prompt_shell_level() {
-	[ "$SHLVL" -gt 1 ] && echo -n "L$SHLVL "
+	if [ "$SHLVL" -gt 1 ];then
+	    echo -en " \033[37;41mL${SHLVL}\033[0m"
+	fi
     }
     
     prompt_git_info() {
 	local branchname=$(git branch --no-color 2>/dev/null |sed -n 's/^\* *//p')
-	[ -n "$branchname" ] && echo -n "$branchname "
+	if [ -n "$branchname" ]; then
+	    echo -en " B=\033[35m${branchname}\033[0m"
+	fi
+    }
+
+    prompt_stack() {
+	if [ -n "$PS1_STACK" ]; then
+	    for item in $PS1_STACK; do
+		case "$item" in
+		    *:*)
+			key="${item%%:*}"
+			value="${item#*:}"
+			echo -en " ${key}=\033[31m${value}\033[0m"
+			;;
+		    *)
+			echo -en " \033[31m${item}\033[0m"
+			;;
+		esac
+	    done
+	fi
     }
 
     if (echo "$PS1" |grep command_prompt >/dev/null 2>&1); then
@@ -142,11 +163,11 @@ if [ -n "$PS1" ]; then
 	PS1="$PS1"'$(prompt_xterm_title)'
 
 	PS1="$PS1$(prompt_color "$(echo -en '\u2554\u2550 ')" 32)"
-	PS1="$PS1$(prompt_color "\\u@\\h$os "        32)"
-	PS1="$PS1$(prompt_color '\W '                33)"
-	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
-	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"
-	PS1="$PS1"'\[\e[31m\]$(prompt_shell_level)\[\e[0m\]'
+	PS1="$PS1$(prompt_color "\\u@\\h$os"         32)"
+	PS1="$PS1$(prompt_color ' \W'                33)"
+	PS1="$PS1"'$(prompt_git_info)'
+	PS1="$PS1"'$(prompt_stack)'
+	PS1="$PS1"'$(prompt_shell_level)'
 
 	PS1="$PS1"'\n'
 	PS1="$PS1$(prompt_color "$(echo -en '\u255a\u2550 ')" 32)"
@@ -156,7 +177,7 @@ if [ -n "$PS1" ]; then
 
 
     # If we're running under "screen" then set the prompt stack
-    [ -n "$STY" ] && PS1_STACK="screen $PS1_STACK"
+    [ -n "$STY" ] && PS1_STACK="$PS1_STACK screen"
 fi
 
 ##############################################################################

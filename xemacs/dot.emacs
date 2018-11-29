@@ -2,7 +2,8 @@
 
 
 (require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+;(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
 (package-initialize)
 
 (add-to-list 'load-path (expand-file-name "~/.emacs.d/lisp"))
@@ -65,10 +66,6 @@
 (global-set-key [mouse-4] (lambda () (interactive) (scroll-down 5)))
 (global-set-key [mouse-5] (lambda () (interactive) (scroll-up 5)))
 
-(require 'package)
-(add-to-list 'package-archives
-         '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(package-initialize)
 
 ;; Pressing Control-Z when emacs is running in the i3 window manager causes emacs to enter some kindo of weird state
 ;; where the window flashes if you press C-g, but doesn't respond to anything else. Sinze "z" is right next to "x" on

@@ -97,9 +97,23 @@ if [ -n "$PS1" ]; then
 		fi
 	    fi
 	fi
+    }
 
-	[ "$SHLVL" -gt 1 ] && echo "L$SHLVL "
+    prompt_color() {
+	local string="$1" color="$2" bg="$3"
+	if [ -n "$color$bg" ]; then
+	    echo -n '\[\e['
+	    [ -n "$color" ] && echo -n "$color"
+	    [ -n "$color" -a -n "$bg" ] && echo -n ";"
+	    [ -n "$bg" ] && echo -n "$bg"
+	    echo -n 'm\]'
+	fi
 
+	echo -n "$string"
+
+	if [ -n "$color$bg" ]; then
+	    echo -n '\[\e[0m\]'
+	fi
     }
 
     prompt_xterm_title() {
@@ -111,29 +125,32 @@ if [ -n "$PS1" ]; then
 	fi
     }
 
+    prompt_shell_level() {
+	[ "$SHLVL" -gt 1 ] && echo -n "L$SHLVL "
+    }
+    
     prompt_git_info() {
 	local branchname=$(git branch --no-color 2>/dev/null |sed -n 's/^\* *//p')
 	[ -n "$branchname" ] && echo -n "$branchname "
     }
 
-    prompt_color() {
-	local string="$1" color="$2"
-	[ -n "$color" ] && echo -n '\[\e['"$color"'m\]'
-	echo -n "$string"
-	[ -n "$color" ] && echo -n '\[\e[0m\]'
-    }
-
     if (echo "$PS1" |grep command_prompt >/dev/null 2>&1); then
 	: already set
     else
-	PS1=
+	PS1='\n'
 	PS1="$PS1"'$(command_prompt)'
 	PS1="$PS1"'$(prompt_xterm_title)'
+
+	PS1="$PS1$(prompt_color "$(echo -en '\u2554\u2550 ')" 32)"
 	PS1="$PS1$(prompt_color "\\u@\\h$os "        32)"
 	PS1="$PS1$(prompt_color '\W '                33)"
 	PS1="$PS1$(prompt_color '$(prompt_git_info)' 35)"
 	PS1="$PS1$(prompt_color '$PS1_STACK'         31)"
-	PS1="$PS1"'\n'"$(prompt_color '$ '           32)"
+	PS1="$PS1"'\[\e[31m\]$(prompt_shell_level)\[\e[0m\]'
+
+	PS1="$PS1"'\n'
+	PS1="$PS1$(prompt_color "$(echo -en '\u255a\u2550 ')" 32)"
+	PS1="$PS1$(prompt_color '\$ '                32)"
 
     fi
 

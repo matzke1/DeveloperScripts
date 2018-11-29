@@ -281,6 +281,29 @@ cmd_jenkins_help() {
     echo "   --backup: push to development repo, but not for jenkins"
 }
 
+# Returns a space-separated list of JIRA issues for the specified commit
+cmd_jenkins_jira() {
+    local commit="$1"
+    if [ -n "$commit" ]; then
+	git log -n1 --format='%B' "$commit" |\
+	    sed -n '/^[A-Z]\{2,16\}-[1-9][0-9]\{0,5\}$/p' |\
+	    paste -d' '
+    fi
+}
+
+# Like git log --oneline except each line is preceded by a title (first arg) and each line is followed by
+# a list of JIRA issues.
+cmd_jenkins_list_commits() {
+    local title="$1"; shift
+    for commit in $(git rev-list "$@"); do
+	(
+	    printf "    %-10s " "$title"
+	    git log --no-decorate --oneline -n1 "$commit"
+	) |cut -c1-$COLUMNS
+	cmd_jenkins_jira "$commit" |sort -u |sed 's/^/               /'
+    done
+}
+
 cmd_jenkins_status() {
     local me="$(git config user.email)"
     (
@@ -306,20 +329,12 @@ cmd_jenkins_status() {
 			# List those comments that have not been pushed to jenkins yet
 			local jenkins_dev_branch="devel/$JENKINS_USER/$project-dev"
 			local jenkins_dev_commit=$(git rev-parse --verify $jenkins_dev_branch 2>/dev/null)
-			git log --no-decorate --no-merges --oneline "$project" "^$branch" |\
-			    sed 's/^/    wip        /' |\
-			    cut -c1-$COLUMNS
+			cmd_jenkins_list_commits "wip" --no-merges "$project" "^$branch" |cut -c1-$COLUMNS
 			if [ -n "$jenkins_dev_commit" ]; then
-			    git log --no-decorate --no-merges --oneline "$branch" "^$jenkins_dev_branch" ^devel/master |\
-				sed 's/^/    staged     /' |\
-				cut -c1-$COLUMNS
-			    git log --no-decorate --no-merges --oneline "$jenkins_dev_branch" ^devel/master |\
-				sed 's/^/    testing    /' |\
-				cut -c1-$COLUMNS
+			    cmd_jenkins_list_commits "staged" --no-merges "$branch" "^$jenkins_dev_branch" ^devel/master
+			    cmd_jenkins_list_commits "testing" --no-merges "$jenkins_dev_branch" ^devel/master
 			else
-			    git log --no-decorate --no-merges --oneline "$branch" "^devel/master" |\
-				sed 's/^/    staged     /' |\
-				cut -c1-$COLUMNS
+			    cmd_jenkins_list_commits "staged" --no-merges "$branch" "^devel/master"
 			fi
 		    fi
 		    ;;

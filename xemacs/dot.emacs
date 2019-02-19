@@ -28,6 +28,7 @@
 (setq column-number-mode t)		;turn on column numbers in mode line
 (tool-bar-mode 0)			;turn off the tool bar since it just wastes screen real estate
 (setq read-quoted-char-radix 16)	;enter quoted chars in hexadecimal instead of octal
+(ido-mode)
 
 ;cursor might disappear when running with reverse video, so make it a color that shows up on either
 ;a light or dark background.
@@ -65,7 +66,6 @@
 ;; Make mouse wheel to scroll a constant amount each click
 (global-set-key [mouse-4] (lambda () (interactive) (scroll-down 5)))
 (global-set-key [mouse-5] (lambda () (interactive) (scroll-up 5)))
-
 
 ;; Pressing Control-Z when emacs is running in the i3 window manager causes emacs to enter some kindo of weird state
 ;; where the window flashes if you press C-g, but doesn't respond to anything else. Sinze "z" is right next to "x" on
@@ -421,6 +421,9 @@
  '(hide-ifdef-shadow t)
  '(next-error-highlight t)
  '(org-agenda-files nil)
+ '(package-selected-packages
+   (quote
+    (nhexl-mode auto-complete yaml-mode filladapt d-mode)))
  '(save-place t nil (saveplace))
  '(scroll-bar-mode (quote right))
  '(show-paren-mode t)

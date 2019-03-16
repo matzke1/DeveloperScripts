@@ -3,7 +3,7 @@
 
 eval $(~/bin/path-adjust insert ~/bin)
 
-export EDITOR=vim
+export EDITOR='emacs -nw'
 export ENSCRIPT="--media=Letter --font=Courier8"
 export LC_PAPER="en_US.UTF-8"
 #export LC_ALL="C"

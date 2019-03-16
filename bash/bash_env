@@ -1,4 +1,4 @@
-# Convert number of seconds to human readable format
+# Convert number of seconds to human readable format -*- shell-script -*-
 sec_to_hms () {
     local sec="$1"
     if [ $sec -ge 86400 ]; then

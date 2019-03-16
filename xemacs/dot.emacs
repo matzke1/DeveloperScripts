@@ -72,6 +72,16 @@
 ;; my keyboard, and since C-x is a common prefix, it's therefore easy to accidentally hit C-z.
 (global-unset-key (kbd "C-z"))
 
+;; Ergodox keyboard -- hyper keys
+(global-set-key (kbd "C-M-s-b") 'ido-switch-buffer)
+(global-set-key (kbd "C-M-s-c") 'compile)
+(global-set-key (kbd "C-M-s-e") 'next-error)
+(global-set-key (kbd "C-M-s-g") 'grep)
+(global-set-key (kbd "C-M-s-l") 'goto-line)
+(global-set-key (kbd "C-M-s-s") 'delete-other-windows)
+(global-set-key (kbd "C-M-s-o") 'other-window)
+(global-set-key (kbd "C-M-s-z") 'undo)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; IDO mode
 

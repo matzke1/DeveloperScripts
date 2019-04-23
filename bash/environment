@@ -5,9 +5,11 @@ eval $(~/bin/path-adjust insert ~/bin)
 
 export EDITOR='emacs -nw'
 export ENSCRIPT="--media=Letter --font=Courier8"
-export LC_PAPER="en_US.UTF-8"
-#export LC_ALL="C"
-export LC_ALL="en_US.UTF-8"
+
+# Setting the locale to en_US.UTF-8 fails on Debian 8 "Jessie" docker containers
+#export LC_PAPER="en_US.UTF-8"
+#export LC_ALL="en_US.UTF-8"
+
 export LESS="RSf"
 export TERMINAL=terminator
 

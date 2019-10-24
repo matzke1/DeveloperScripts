@@ -186,7 +186,7 @@ fi
 
 if [ "$SSH_AGENT_PID" = "" ]; then
     eval $(ssh-agent -s) 2>/dev/null >&2
-    trap 'eval $(ssh-agent -k) >/dev/null' EXIT
+    trap 'eval $(ssh-agent -k) >/dev/null 2>&1' EXIT
 fi
 
 ##############################################################################

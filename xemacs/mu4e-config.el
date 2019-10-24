@@ -95,7 +95,7 @@
 ;; Writing email
 ;;--------------------
 
-(setq user-mail-address "matzke@hoosierfocus.com"
+(setq user-mail-address "matzke1@llnl.gov"
       user-full-name "Robb Matzke")
 
 ;; No signature
@@ -110,6 +110,15 @@
 
 ;; Don't keep message buffers around after sending
 (setq message-kill-buffer-on-exit t)
+
+;; Add special headers
+(add-hook 'mu4e-compose-mode-hook
+	  (defun rpm-add-special-headers ()
+	    "Add extra headers when composing email."
+	    (save-excursion
+	      (message-add-header "Sender: Robb Matzke <matzke1@llnl.gov>")
+	      (message-add-header "Reply-to: Robb Matzke <matzke1@llnl.gov>")
+	      (flyspell-mode))))
 
 ;;--------------------
 ;; To-do lists

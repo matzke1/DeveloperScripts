@@ -197,7 +197,7 @@
 (setq perl-indent-level 4)
 
 ;; Tup build system files
-(load-file "~/.emacs.d/tup-mode/tup-mode.el")
+;(load-file "~/.emacs.d/tup-mode/tup-mode.el")
 
 ;; C programming
 (defconst rpm-c-style
@@ -431,6 +431,9 @@
  '(hide-ifdef-shadow t)
  '(next-error-highlight t)
  '(org-agenda-files nil)
+ '(package-selected-packages
+   (quote
+    (smex tup-mode projectile magit ido-vertical-mode auto-complete)))
  '(save-place t nil (saveplace))
  '(scroll-bar-mode (quote right))
  '(show-paren-mode t)

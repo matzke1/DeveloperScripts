@@ -55,6 +55,8 @@
 ;; Additional key bindings
 (global-set-key (kbd "<f3>") 'goto-line)
 (global-set-key (kbd "<C-f3>") 'goto-char)
+(global-set-key (kbd "<f4>") 'magit-status)
+(global-set-key (kbd "<C-f4>") 'magit-dispatch-popup)
 (global-set-key (kbd "<f5>") 'compile)
 (global-set-key (kbd "<C-f5>") 'grep)
 (global-set-key [?\C-c ?, ?i] 'semantic-analyze-proto-impl-toggle)
@@ -115,7 +117,11 @@
 (if (version< emacs-version "25")
     nil
   (unless (package-installed-p 'magit)
-    (package-install 'magit)))
+    (package-install 'magit))
+
+  (defadvice magit-status (after robb-magit-fullscreen activate)
+    "Open the magit-status window in full frame mode instead of splitting the current window."
+    (delete-other-windows)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)

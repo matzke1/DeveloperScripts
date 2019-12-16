@@ -56,13 +56,13 @@ branch_current() {
 cmd_wip_help() {
     echo "$arg0 clone PROJECT [DIRECTORY]"
     echo "    Checks out an existing project."
-    echo "$arg0 create DIRECTORY PROJECTS..."
+    echo "$arg0 create DIRECTORY [PROJECTS_TO_MERGE...]"
     echo "    Creates a new directory for doing work."
     echo "$arg0 rebase PROJECT"
     echo "    Rebases current work onto another project."
-    echo "$arg0 save"
+    echo "$arg0 save [COMMIT]"
     echo "    Push current branch back to staging area."
-    echo "$arg0 jenkins"
+    echo "$arg0 jenkins [COMMIT]"
     echo "    Push current branch back to staging area and mark it as ready-for-testing."
 }
 
@@ -213,29 +213,28 @@ cmd_wip_rebase() {
 }
 
 cmd_wip_save() {
+    local commitish="$1"
+    [ -n "$committish" ] || committish="HEAD"
     (
 	set -e
 	cd $(git rev-parse --show-toplevel)
 	local cur_project=$(branch_current)
-	git push staging +HEAD:"$cur_project"
+	git push staging +"$committish":"$cur_project"
 	git submodule foreach "git push staging +HEAD:$cur_project"
     )
 }
 
 cmd_wip_jenkins() {
+    local committish="$1"
+    [ -n "$committish" ] || committish="HEAD"
     local cur_project=$(branch_current)
     local remote_branch="${cur_project}-jenkins"
-    cmd_wip_save
-
-    # Do not push certain commits to Jenkins
-    if git log --no-merges --oneline HEAD "^staging/$cur_project" |grep '(Tup)'; then
-	die "previous list of commits are not suitable for Jenkins testing; please remove and try again"
-    fi
+    cmd_wip_save "$committish"
 
     (
 	set -e
 	cd $(git rev-parse --show-toplevel)
-	git push staging +HEAD:"$remote_branch"
+	git push staging +"$committish":"$remote_branch"
 	git submodule foreach "git push staging +HEAD:$remote_branch"
     )
 }

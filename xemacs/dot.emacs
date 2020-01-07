@@ -122,7 +122,19 @@
 
   (defadvice magit-status (after robb-magit-fullscreen activate)
     "Open the magit-status window in full frame mode instead of splitting the current window."
-    (delete-other-windows)))
+    (delete-other-windows))
+
+  (defun robb-magit-push-to-jenkins (source)
+    "Push an arbitrary branch or commit to Jenkins. The source is read from the minibuffer."
+    (interactive
+     (let ((source (magit-read-local-branch-or-commit "to push")))
+       (list source)))
+    (magit-git-command-topdir (concat "git push jenkins +" source ":refs/heads/matzke/rose-dev")))
+
+  (magit-define-popup-action 'magit-push-popup
+    ?j
+    "to jenkins matzke/rose-dev"
+    'robb-magit-push-to-jenkins))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)

@@ -120,6 +120,8 @@
   (unless (package-installed-p 'magit)
     (package-install 'magit))
 
+  (require 'magit)
+
   (defadvice magit-status (after robb-magit-fullscreen activate)
     "Open the magit-status window in full frame mode instead of splitting the current window."
     (delete-other-windows))

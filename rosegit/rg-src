@@ -14,6 +14,10 @@ cwd=$(realpath .)
 bld=$(realpath "$ROSE_BUILD")
 src=$(realpath "$ROSE_SOURCE")
 
-base="${cwd#$bld/}"
+if [ "$cwd" = "$bld" ]; then
+    echo "$src"
+else
+    base="${cwd#$bld/}"
+    echo "$src/$base"
+fi
 
-echo "$src/$base"

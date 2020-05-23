@@ -44,6 +44,7 @@ if [ -e $HOME/bin/rosegit-bin ]; then
     [ -n "$(type -p qgit4)" ] && alias qg='qgit4 --all'
     [ -f $HOME/GS-CAD/ROSE/zgrviewer/run.sh ] && alias zgrviewer="$HOME/GS-CAD/ROSE/zgrviewer/run.sh"
     export TUP_ACKNOWLEDGMENT=yes
+    eval $(path-adjust insert --prepend $HOME/rose-installed/latest/bin)
 fi
 
 

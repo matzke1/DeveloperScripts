@@ -166,8 +166,8 @@ static std::map<std::string, std::string> gNameTranslations = {
     {"vpavlu",                          "Viktor Pavlu"},
     {"vulov1",                          "Viktor Pavlu"},
     {"wang72", "wang"},
-    {"willcock2",                       "Jerimiah Willcock"},
-    {"willcock",                        "Jerimiah Willcock"},
+    {"willcock2",                       "Jeremiah Willcock"},
+    {"willcock",                        "Jeremiah Willcock"},
     {"yi7",                             "Qing  Yi"},
     // {"yuan5", "yuan5"}, // FIXME: lookup name from llnl.gov phone book
     {"zack.galbreath",                  "Zack Galbreath"},
@@ -204,6 +204,7 @@ parseCommandLine(int argc, char *argv[]) {
     }
 }
 
+// Convert an email address to a name using the global gNameTranslations table from above.
 static std::string
 emailToName(const std::string &email) {
     std::string user;
@@ -245,7 +246,7 @@ execute(const std::string &cmd) {
     return retval;
 }
 
-// Run a command and return it's first line of output without any trailing line termination.
+// Run a command and return its first line of output without any trailing line termination.
 static std::string
 execute1(const std::string &cmd) {
     auto output = execute(cmd);
@@ -297,9 +298,9 @@ lastComponents(boost::filesystem::path name, size_t nComponents) {
 // warnings have the file names relative to that CWD. We can't rely on the build system to say what the CWD was.
 //
 // So what we do is we start with just the base name of the warning file and see if we can find a unique matching base name in
-// the Git repository. If so, we're done. If nothing matched then we're also done--it was probably an error in a generated
-// file. Otherwise, we look at the base name plus the previous component, then base name plus previous two components, etc. until
-// we get a unique match, no matches, or we run out of components.
+// the Git repository. If so, we're done. If nothing matched then we're also done--it was probably a warning in a generated
+// file. Otherwise, we look at the base name plus the previous component, then base name plus previous two components,
+// etc. until we get a unique match, no matches, or we run out of components.
 //
 // If we can determine the Git file name then we return it, otherwise we return an empty file name.
 static boost::filesystem::path

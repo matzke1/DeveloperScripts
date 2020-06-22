@@ -120,6 +120,7 @@ static std::map<std::string, std::string> gNameTranslations = {
     {"nathan",                          "Nathan Matzke"},
     {"negara1",                         "Stanislav Negara"},
     {"nguyenthanh1",                    "Tan Nguyen"},
+    {"not.committed.yet",               "uncommitted code"},
     {"panas2",                          "Thomas Panas"},
     {"panas",                           "Thomas Panas"},
     {"pcc03",                           "Peter Collingbourne"},

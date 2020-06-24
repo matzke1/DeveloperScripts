@@ -23,9 +23,11 @@ struct Settings {
     bool showHistogram;                                 // show authors and number of warnings for each, at end of output
     bool showDups;                                      // show blame even when it would be the same as the previous warning
     boost::filesystem::path gitRepo;                    // location of Git repository (anywhere in the repo)
+    boost::regex highlight;                             // highlight blame line if pattern found in name or email 
+    bool useColor;
 
     Settings()
-        : verbose(false), debug(false), showHistogram(true), showDups(true), gitRepo(".") {}
+        : verbose(false), debug(false), showHistogram(true), showDups(true), gitRepo("."), useColor(true) {}
 };
 
 static Settings gSettings;
@@ -175,36 +177,6 @@ static std::map<std::string, std::string> gNameTranslations = {
 
 };
 
-// Parse the command line to initialize gSettings
-static void
-parseCommandLine(int argc, char *argv[]) {
-    for (int i = 1; i < argc; ++i) {
-        if (std::string("-h") == argv[i] || std::string("--help") == argv[i]) {
-            help();
-            exit(0);
-        } else if (std::string("--verbose") == argv[i]) {
-            gSettings.verbose = true;
-        } else if (std::string("--quiet") == argv[i] || std::string("--no-verbose") == argv[i]) {
-            gSettings.verbose = false;
-        } else if (std::string("--debug") == argv[i]) {
-            gSettings.debug = true;
-        } else if (std::string("--histogram") == argv[i]) {
-            gSettings.showHistogram = true;
-        } else if (std::string("--no-histogram") == argv[i]) {
-            gSettings.showHistogram = false;
-        } else if (std::string("--duplicates") == argv[i]) {
-            gSettings.showDups = true;
-        } else if (std::string("--no-duplicates") == argv[i]) {
-            gSettings.showDups = false;
-        } else if (boost::starts_with(argv[i], "--repo=")) {
-            gSettings.gitRepo = std::string(argv[i]).substr(7);
-        } else {
-            std::cerr <<argv[0] <<": unrecognized command-line argument: \"" <<argv[i] <<"\"\n";
-            exit(1);
-        }
-    }
-}
-
 // Convert an email address to a name using the global gNameTranslations table from above.
 static std::string
 emailToName(const std::string &email) {
@@ -254,11 +226,73 @@ execute1(const std::string &cmd) {
     return output.empty() ? std::string() : boost::trim_right_copy(output.front());
 }
 
+// Parse the command line to initialize gSettings
+static void
+initialize(int argc, char *argv[]) {
+    gSettings.useColor = isatty(1);
+    bool makeDefaultHighlight = true;
+
+    for (int i = 1; i < argc; ++i) {
+        if (std::string("-h") == argv[i] || std::string("--help") == argv[i]) {
+            help();
+            exit(0);
+        } else if (std::string("--verbose") == argv[i]) {
+            gSettings.verbose = true;
+        } else if (std::string("--quiet") == argv[i] || std::string("--no-verbose") == argv[i]) {
+            gSettings.verbose = false;
+        } else if (std::string("--debug") == argv[i]) {
+            gSettings.debug = true;
+        } else if (std::string("--color=always") == argv[i]) {
+            gSettings.useColor = true;
+        } else if (std::string("--color=auto") == argv[i]) {
+            gSettings.useColor = isatty(1);
+        } else if (std::string("--color=never") == argv[i]) {
+            gSettings.useColor = false;
+        } else if (std::string("--histogram") == argv[i]) {
+            gSettings.showHistogram = true;
+        } else if (std::string("--no-histogram") == argv[i]) {
+            gSettings.showHistogram = false;
+        } else if (boost::starts_with(argv[i], "--highlight=")) {
+            gSettings.highlight = std::string(argv[i]).substr(12);
+            makeDefaultHighlight = false;
+        } else if (std::string("--no-highlight") == argv[i]) {
+            gSettings.highlight = "";
+            makeDefaultHighlight = false;
+        } else if (std::string("--duplicates") == argv[i]) {
+            gSettings.showDups = true;
+        } else if (std::string("--no-duplicates") == argv[i]) {
+            gSettings.showDups = false;
+        } else if (boost::starts_with(argv[i], "--repo=")) {
+            gSettings.gitRepo = std::string(argv[i]).substr(7);
+        } else {
+            std::cerr <<argv[0] <<": unrecognized command-line argument: \"" <<argv[i] <<"\"\n";
+            exit(1);
+        }
+    }
+
+    gSettings.gitRepo = execute1("git -C '" + gSettings.gitRepo.string() + "' rev-parse --show-toplevel");
+    if (makeDefaultHighlight) {
+        std::string myName = execute1("git -C '" + gSettings.gitRepo.string() + "' config user.email");
+        if (myName.empty()) {
+            if (const char *s = getenv("USER"))
+                myName = s;
+        }
+        if (gSettings.debug)
+            std::cerr <<"debug: you are \"" <<myName <<"\"\n";
+        if (myName.empty()) {
+            gSettings.highlight = "uncommitted code";
+        } else {
+            boost::regex specials("[.^$|()\\[\\]{}*+?\\\\]");
+            myName = boost::regex_replace(myName, specials, "\\\\&", boost::match_default | boost::format_sed);
+            gSettings.highlight = myName + "|uncommitted code";
+        }
+    }
+}
+
 // Get all file names in the Git repository
 static FileNames
 findAllGitFiles() {
     FileNames retval;
-    gSettings.gitRepo = execute1("git -C '" + gSettings.gitRepo.string() + "' rev-parse --show-toplevel");
     for (auto line: execute("git -C '" + gSettings.gitRepo.string() + "' ls-tree --full-tree -r --name-only HEAD")) {
         auto fullName = gSettings.gitRepo / boost::filesystem::path(boost::trim_right_copy(line));
         if (gSettings.debug)
@@ -360,7 +394,7 @@ gitBlame(const boost::filesystem::path &fileName) {
 }
 
 int main(int argc, char *argv[]) {
-    parseCommandLine(argc, argv);
+    initialize(argc, argv);
     FileNames gitFiles = findAllGitFiles();
     std::map<boost::filesystem::path, std::vector<Commit>> allBlame;
     std::map<std::string /*author*/, size_t /*count*/> histogram;
@@ -423,10 +457,16 @@ int main(int argc, char *argv[]) {
             if (gSettings.debug)
                 std::cerr <<"debug: cannot parse blame for " <<gitFileName <<" line " <<warningLineNumber <<"\n";
             ++histogram.insert(std::make_pair("blame failure", size_t(0))).first->second;
-        } else {
-            std::cout <<"blamed on " <<commit.name <<" <" <<commit.email <<"> commit " <<commit.hash <<" from " <<commit.date <<"\n";
-            ++histogram.insert(std::make_pair(commit.name, size_t(0))).first->second;
+            continue;
         }
+        std::string endl = "";
+        if (!gSettings.highlight.empty() && gSettings.useColor &&
+            (boost::regex_search(commit.name, gSettings.highlight) || boost::regex_search(commit.email, gSettings.highlight))) {
+            std::cout <<"\033[30;103m";                 // black on bright yellow
+            endl = "\033[0m";
+        }
+        std::cout <<"blamed on " <<commit.name <<" <" <<commit.email <<"> commit " <<commit.hash <<" from " <<commit.date <<endl <<"\n";
+        ++histogram.insert(std::make_pair(commit.name, size_t(0))).first->second;
     }
 
     if (gSettings.showHistogram && !histogram.empty()) {

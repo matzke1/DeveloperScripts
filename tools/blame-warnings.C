@@ -434,7 +434,7 @@ gitBlame(const boost::filesystem::path &fileName) {
 // three TAB-separted fields: number of lines, author name, file name w.r.t. the Git repo root.
 static void
 updateAuthorship(const FileNames &files) {
-    auto fileName = gSettings.gitRepo / ".authorship";
+    auto fileName = gSettings.gitRepo / ".authorship.partial";
     std::ofstream out(fileName.c_str());
     if (!out) {
         std::cerr <<"blame-warnings: cannot write to " <<fileName <<"\n";
@@ -449,6 +449,9 @@ updateAuthorship(const FileNames &files) {
         for (auto &node: locCounts)
             out <<node.second <<"\t" <<node.first <<"\t" <<boost::filesystem::relative(file, gSettings.gitRepo).string() <<"\n";
     }
+
+    out.close();
+    boost::filesystem::rename(fileName, gSettings.gitRepo / ".authorship");
 }
 
 // If there's an ".authorship" file at the top of the git repo, then read it. The return value is a map
@@ -661,7 +664,8 @@ int main(int argc, char *argv[]) {
         std::cout <<"\t----- ---------- ---------- --------------------------------\n";
         std::vector<std::pair<std::string, size_t>> sorted(flawCounts.begin(), flawCounts.end());
         std::sort(sorted.begin(), sorted.end(), [](auto &a, auto &b) { return a.second > b.second; });
-        Histogram authorLoc = locPerAuthor(readAuthorship(), mentionedFiles);
+        Authorship authorship = readAuthorship();
+        Histogram authorLoc = locPerAuthor(authorship, mentionedFiles);
         bool showedRate = false;
         for (auto record: sorted) {
             std::string highlight, endl;
@@ -684,6 +688,13 @@ int main(int argc, char *argv[]) {
             std::cout <<"\tFlaws per million LOC is based on "
                       <<loc <<" line" <<(1 == loc ? "" : "s") <<" of code from "
                       <<nSrcFiles <<" file" <<(1 == nSrcFiles ? "" : "s") <<"\n";
+        } else if (authorship.empty()) {
+            std::cout <<"\tTo get LOC and flaw rates, run: ";
+            if (boost::filesystem::current_path() == gSettings.gitRepo) {
+                std::cout <<argv[0] <<" --authorship=. --verbose\n";
+            } else {
+                std::cout <<"(cd " <<gSettings.gitRepo <<" && " <<argv[0] <<" --authorship=. --verbose)\n";
+            }
         }
     }
 }

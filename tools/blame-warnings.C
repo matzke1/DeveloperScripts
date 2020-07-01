@@ -577,12 +577,12 @@ int main(int argc, char *argv[]) {
     std::map<boost::filesystem::path, std::vector<Commit>> allBlame;
     Histogram flawCounts;
 
-    // Read standard input, and for each line recognized as a compiler warning or error message, obtain information about which
-    // author possibly caused the warning or error.
+    // Read standard input, and for each line recognized as a compiler warning message, obtain information about which author
+    // possibly caused the warning.
     FileNames mentionedFiles;
     boost::filesystem::path prevWarningFileName;
     size_t prevWarningLineNumber = 0;
-    boost::regex warningRe("(.*?):([0-9]+)(:[0-9]+)?: (warning|error):");
+    boost::regex warningRe("(.*?):([0-9]+)(:[0-9]+)?: warning:");
     while (std::cin) {
         std::string line;
         std::getline(std::cin, line);
@@ -608,9 +608,9 @@ int main(int argc, char *argv[]) {
         prevWarningFileName = warningFileName;
         prevWarningLineNumber = warningLineNumber;
 
-        // We found a warning or error, so lay some blame. First we need to find the Git file that corresponds to the file
-        // name given in the compiler output. This is complicated by the fact that the build system often runs the compiler
-        // in different directories than the source code.
+        // We found a warning, so lay some blame. First we need to find the Git file that corresponds to the file name given in
+        // the compiler output. This is complicated by the fact that the build system often runs the compiler in different
+        // directories than the source code.
         boost::filesystem::path gitFileName = translateToGitFile(warningFileName, gitFiles);
         if (gitFileName.empty()) {
             if (gSettings.debug)

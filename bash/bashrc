@@ -203,7 +203,7 @@ if [ -n "$PS1" ]; then
     alias scr='screen -D -R -e^Hh'
     alias idea='env IDEA_JDK=/usr/lib/jvm/java-6-sun ~/idea-IC-133.696/bin/idea.sh'
     alias wi='exec ssh -X wisconsin'
-    alias rose-debug='cgdb -- $(find ~/rose-wip/rose/{src,tools} -type d -printf " -d %p")'
+    alias rose-debug='cgdb -- $(find ~/rose-wip/rose/{src,tools,projects,tests} -type d -printf " -d %p")'
 
     if [ -x /usr/bin/dircolors ]; then
 	eval "`dircolors -b`"

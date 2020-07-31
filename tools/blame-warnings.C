@@ -1,5 +1,5 @@
 // Compile as:
-//   c++ -Wall -g -I$BOOST_ROOT/include -o blame-warnings blame-warnings.C -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_filesystem -lboost_regex
+//   c++ -Wall -g -I$BOOST_ROOT/include -o blame-warnings blame-warnings.C -Wl,-rpath,$BOOST_ROOT/lib -L$BOOST_ROOT/lib -lboost_filesystem -lboost_regex -lboost_system
 //
 // where c++ is your C++14 or better compiler, and $BOOST_ROOT is the installation root for Boost compiled with that same compiler.
 

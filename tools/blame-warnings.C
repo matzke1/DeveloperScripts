@@ -27,14 +27,10 @@ struct Settings {
     boost::regex highlight;                             // highlight blame line if pattern found in name or email
     bool useColor = true;                               // colored output?
     boost::filesystem::path updateAuthorship;           // update the .authorship file by traversing specified repo path
+    boost::filesystem::path showTotalLoc;               // show total lines of code for location and below, relative to Git repo
 };
 
 static Settings gSettings;
-
-static void
-help() {
-    std::cout <<"blame-warnings: Help is not written yet. Use the source, Luke.\n"; // FIXME
-}
 
 using FileNames = std::set<boost::filesystem::path>;
 using Histogram = std::map<std::string, size_t>;
@@ -280,6 +276,100 @@ findRepository() {
     return {};
 }
 
+// We could use Sawyer for parsing the command-line and generating documentation, but we want to limit the number of
+// dependencies. Ideally, the only dependencies should be a modern C++ compiler and Boost libraries.
+static void showHelp() {
+    std::cout <<
+        /////////////////////////////////////////////////////////////////////////////////
+        "blame-warnings                  Tool Documentation               blame-warnings\n"
+        "\n"
+        "NAME\n"
+        "       blame-warnings - blame compiler warnings on particular Git commits\n"
+        "\n"
+        "SYNOPSIS\n"
+        "       cd $GIT_REPO && blame-warnings --authorship=. --verbose\n"
+        "       compile_command 2>&1 | blame-warnings --repo=$GIT_REPO\n"
+        "\n"
+        "DESCRIPTION\n"
+        "       This command is a filter that reads compiler output from standard input\n"
+        "       and augments it with information about what author last modified the\n"
+        "       line of code that precipitated the warning.  Warnings associated with\n"
+        "       the current user are highlighted.  A final histogram shows the totals\n"
+        "       per author and an estimated rate of flaws for each author.\n"
+        "\n"
+        "       In order to generate the estimated rate of flaws, a database needs to\n"
+        "       have been created first. The database is basically a snapshot of the\n"
+        "       git-blame(1) information stored in a more efficient manner. The databasee\n"
+        "       is created by supplying an \"--authorship\" switch whose argument is\n"
+        "       the directory relative to the top of the Git repository that will serve\n"
+        "       as the root for calculating the database (usually just \".\").\n"
+        "\n"
+        "SWITCHES\n"
+        "       --authorship=SEARCH_ROOT_WRT_GIT\n"
+        "           Causes a new authorship database to be created at the root of the\n"
+        "           Git repository. The database will contain information for all files\n"
+        "           in the specified search root and below, recursively, that are known\n"
+        "           to Git.  This information can take a long time to calculate for a\n"
+        "           large project, so it's often used in combination with \"--verbose\"\n"
+        "           in order to show the progress.  The database only needs to be updated\n"
+        "           infrequently, whenever there have been significant changes to the\n"
+        "           repository, since any output related to lines of code (LOC) is only\n"
+        "           an estimate anyway.\n"
+        "\n"
+        "           This switch suppresses the usual standard input processing.\n"
+        "\n"
+        "       --color=(auto|always|never)\n"
+        "           Specifies when to color the output with ANSI control characters.\n"
+        "           The default is \"always\", but \"auto\" causes color to be used only\n"
+        "           when standard output is a terminal.\n"
+        "\n"
+        "       --debug\n"
+        "           Emit various debugging information to aid development of this tool.\n"
+        "\n"
+        "       --no-duplicates\n"
+        "           Suppress annotations for all but the first warning for a particular\n"
+        "           line of code. The default, \"--duplicates\", tries to annotate every\n"
+        "           warning.\n"
+        "\n"
+        "       --highlight=RE\n"
+        "           Instead of highlighting warnings caused by the Git repo owner,\n"
+        "           highlight warnings whose author matches the specified regular\n"
+        "           expression.\n"
+        "\n"
+        "       --no-histogram\n"
+        "           Prevent the finnal histogram from appearing.  The default, specified\n"
+        "           with \"--histogram\", is to produce a histogram if any warnings were\n"
+        "           encountered.\n"
+        "\n"
+        "       --loc=DIRECTORY\n"
+        "           Show the total number of lines of code per author in the specified\n"
+        "           directory and below. This information is obtained from the datbase\n"
+        "           (see \"--authorship\") since querying git-blame would be much too\n"
+        "           slow.\n"
+        "\n"
+        "           This switch suppresses the usual standard input processing.\n"
+        "\n"
+        "       --quiet\n"
+        "           The opposite of \"--verbose\".\n"
+        "\n"
+        "       --repo=DIRECTORY\n"
+        "           Assume that the Git repository for the code being compiled lives in\n"
+        "           the specified repository. The DIRECTORY can actually be any directory\n"
+        "           within the repository or any of its submodules. The default is to\n"
+        "           assume that the current working directory is somewhere in the Git\n"
+        "           repository.\n"
+        "\n"
+        "       --verbose\n"
+        "           Produce more verbose output, including the underlying Git commands\n"
+        "           that are being run.\n"
+        "\n"
+        "AUTHOR\n"
+        "       Robb Matzke <matzke1@llnl.gov>\n"
+        "\n"
+        "blame-warnings                        2020-08-80                 blame-warnings\n";
+        /////////////////////////////////////////////////////////////////////////////////
+}
+
 // Parse the command line to initialize gSettings
 static void
 initialize(int argc, char *argv[]) {
@@ -289,7 +379,7 @@ initialize(int argc, char *argv[]) {
 
     for (int i = 1; i < argc; ++i) {
         if (std::string("-h") == argv[i] || std::string("--help") == argv[i]) {
-            help();
+            showHelp();
             exit(0);
         } else if (std::string("--verbose") == argv[i]) {
             gSettings.verbose = true;
@@ -297,6 +387,8 @@ initialize(int argc, char *argv[]) {
             gSettings.verbose = false;
         } else if (boost::starts_with(argv[i], "--authorship=")) {
             gSettings.updateAuthorship = std::string(argv[i]).substr(13);
+        } else if (boost::starts_with(argv[i], "--loc=")) {
+            gSettings.showTotalLoc = std::string(argv[i]).substr(6);
         } else if (std::string("--debug") == argv[i]) {
             gSettings.debug = true;
         } else if (std::string("--color=always") == argv[i]) {
@@ -539,6 +631,28 @@ locPerAuthor(const Authorship &authorship, const FileNames &files) {
     return retval;
 }
 
+// Show lines of code per author for all files
+static void
+showLocPerAuthor(const Authorship &authorship, const boost::filesystem::path &root) {
+    Histogram h = locPerAuthor(authorship, findGitFiles(root));
+    std::vector<std::pair<std::string /*author*/, size_t /*nlines*/>> records(h.begin(), h.end());
+    size_t total = 0;
+    for (auto &record: records)
+        total += record.second;
+    records.push_back(std::make_pair("Total", total));
+    std::sort(records.begin(), records.end(), [](const auto &a, const auto &b) {
+            return a.second > b.second;
+        });
+    for (auto &record: records) {
+        std::string highlight, endl;
+        if (!gSettings.highlight.empty() && gSettings.useColor && boost::regex_search(record.first, gSettings.highlight)) {
+            highlight = "\033[30;103m";                 // black on bright yellow
+            endl = "\033[0m";
+        }
+        std::cout <<(boost::format("%s%7d %s%s\n") %highlight %record.second %record.first %endl);
+    }
+}
+
 // Scans the specified line of compiler or build system output and tries to figure out which source files from the Git
 // repository are being accessed. Adds those files to the specified set.
 static void
@@ -619,6 +733,11 @@ int main(int argc, char *argv[]) {
     initialize(argc, argv);
     if (!gSettings.updateAuthorship.empty()) {
         updateAuthorship(findGitFiles(gSettings.updateAuthorship));
+        exit(0);
+    }
+    if (!gSettings.showTotalLoc.empty()) {
+        Authorship authorship = readAuthorship();
+        showLocPerAuthor(authorship, gSettings.showTotalLoc);
         exit(0);
     }
 

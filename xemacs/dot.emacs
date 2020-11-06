@@ -373,6 +373,12 @@ There are two things you can do about this warning:
     "to jenkins matzke/rose-dev"
     'robb-magit-push-to-jenkins))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; ws-butler -- unobtrusive whitespace cleanup at ends of lines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(require 'ws-butler)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; auto-complete-el (Debian package)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -585,6 +591,7 @@ There are two things you can do about this warning:
   (setq tab-width 8)			; The normal tab width
   (setq indent-tabs-mode nil)		; insert SPC rather than TAB characters
   (setq truncate-lines t)
+  (ws-butler-mode 1)
 
   (make-local-variable 'compile-command) ; set compile command on a per buffer basis
   (setq compile-command "make ")
@@ -628,7 +635,8 @@ There are two things you can do about this warning:
   (setq indent-tabs-mode nil)
   (setq truncate-lines t)
   (setq fill-column (- 132 5))
-  (setq comment-column 64))
+  (setq comment-column 64)
+  (ws-butler-mode 1))
 
 ;(load "rpmc")				;Robb's C minor mode
 (load "pilf")				;Robb's new C/C++ minor mode (2010)

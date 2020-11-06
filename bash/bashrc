@@ -33,6 +33,11 @@ shopt -u progcomp
 # later everything is still found.
 export MANPATH=$(manpath 2>/dev/null)
 
+# History expansion is sort of pointless when you can edit
+# command-lines with editor commands. Plus it gets in the way when
+# arguments contain legitimate bangs.
+set +H
+
 ##############################################################################
 # PROMPT
 ##############################################################################

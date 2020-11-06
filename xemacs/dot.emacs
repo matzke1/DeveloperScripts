@@ -119,7 +119,7 @@ There are two things you can do about this warning:
   (setq helm-google-suggest-use-curl-p t))
 
 (setq
- helm-full-frame 1
+ ;helm-full-frame 1
  helm-buffers-fuzzy-matching t
  helm-recent-fuzzy-match t
  helm-M-x-fuzzy-match t

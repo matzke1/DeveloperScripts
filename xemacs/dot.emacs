@@ -667,7 +667,8 @@ There are two things you can do about this warning:
 		     ROSE_ENABLE_ASM_A64
 		     ROSE_ENABLE_CONCOLIC_TESTING
 		     ROSE_ENABLE_SIMULATOR
-		     ROSE_BUILD_BINARY_ANALYSIS_SUPPORT)
+		     ROSE_BUILD_BINARY_ANALYSIS_SUPPORT
+		     __linux)
 		    (list2 ONE TWO THREE))))
 	(hide-ifdef-use-define-alist 'rose) ; use this list by default
 	))

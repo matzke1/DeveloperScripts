@@ -10,7 +10,7 @@ export ENSCRIPT="--media=Letter --font=Courier8"
 #export LC_PAPER="en_US.UTF-8"
 #export LC_ALL="en_US.UTF-8"
 
-export LESS="RSf"
+export LESS="RSfF"
 export TERMINAL=terminator
 
 ##############################################################################

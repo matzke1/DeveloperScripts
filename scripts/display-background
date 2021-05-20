@@ -16,7 +16,7 @@ cleanup() {
     echo "$arg0: cleaning up" >&2
     local filename
     for filename in "${TEMP_FILES[@]}"; do
-	(set -x; echo rm -f "$filename")
+	(set -x; rm -f "$filename")
     done
 }
 trap cleanup EXIT
@@ -35,11 +35,31 @@ blur() {
     local input="$1"
     local factor="$2"
     [ -n "$factor" ] || factor=1
-    local amount=$(dc -e "$WIDTH $HEIGHT * 0.0000006 * $factor * 0.5 + 1 ~ r p")
+    local amount=$(dc -e "$HEIGHT * 0.001 * $factor * 0.5 + 1 ~ r p")
     local output="$(make_temp_file)"
     remove_later "$output"
     echo "$arg0: blur sigma = $amount" >&2
-    convert "$input" -blur "x$amount" "$output" >&2
+    (set -x; convert "$input" -blur "x$amount" "$output") >&2
+    OUTPUT="$output"
+}
+
+gray() {
+    local input="$1"
+    local output="$(make_temp_file)"
+    remove_later "$output"
+    echo "$arg0: gray" >&2
+    (set -x; convert "$input" -colorspace Gray "$output") >&2
+    OUTPUT="$output"
+}
+
+darken() {
+    local input="$1"
+    local factor="$2"
+    [ -n "$factor" ] || factor='50'
+    local output="$(make_temp_file)"
+    remove_later "$output"
+    echo "$arg0: darken white point $factor" >&2
+    (set -x; convert "$input" +level "0,${factor}%" "$output") >&2
     OUTPUT="$output"
 }
 
@@ -49,6 +69,13 @@ for xform in "$@"; do
 	blur*)
 	    factor="${xform#blur}"
 	    blur "$OUTPUT" "$factor"
+	    ;;
+	gray)
+	    gray "$OUTPUT"
+	    ;;
+	darken*)
+	    factor="${xform#darken}"
+	    darken "$OUTPUT" "${factor}"
 	    ;;
 	*)
 	    echo "$arg0: error: unknown image transform: $xform" >&2

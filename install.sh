@@ -10,6 +10,7 @@ mkdir -p $HOME/bin
     cd $HOME/bin
     ln -sf $DEV_ROOT/scripts/args-adjust .
     ln -sf $DEV_ROOT/scripts/command-name .
+    ln -sf $DEV_ROOT/scripts/display-background .
     ln -sf $DEV_ROOT/scripts/mail-notify .
     ln -sf $DEV_ROOT/scripts/mv-lower .
     ln -sf $DEV_ROOT/scripts/mv-renumber .

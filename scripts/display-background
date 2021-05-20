@@ -1,0 +1,61 @@
+#!/bin/bash
+set -e
+arg0="${0##*/}"
+
+# First argument is the image file name. Remaining optional arguments are transformations to perform.
+INPUT="$1"
+shift
+
+WIDTH=$(identify -format '%w' "$INPUT")
+HEIGHT=$(identify -format '%h' "$INPUT")
+echo "$arg0: input ${WIDTH}x${HEIGHT} $INPUT" >&2
+
+TEMP_FILES=()
+
+cleanup() {
+    echo "$arg0: cleaning up" >&2
+    local filename
+    for filename in "${TEMP_FILES[@]}"; do
+	(set -x; echo rm -f "$filename")
+    done
+}
+trap cleanup EXIT
+
+remove_later() {
+    local filename="$1"
+    TEMP_FILES=("${TEMP_FILES[@]}" "$filename")
+}
+
+make_temp_file() {
+    local filename="$(tempfile)"
+    echo "$filename"
+}
+
+blur() {
+    local input="$1"
+    local factor="$2"
+    [ -n "$factor" ] || factor=1
+    local amount=$(dc -e "$WIDTH $HEIGHT * 0.0000006 * $factor * 0.5 + 1 ~ r p")
+    local output="$(make_temp_file)"
+    remove_later "$output"
+    echo "$arg0: blur sigma = $amount" >&2
+    convert "$input" -blur "x$amount" "$output" >&2
+    OUTPUT="$output"
+}
+
+OUTPUT="$INPUT"
+for xform in "$@"; do
+    case "$xform" in
+	blur*)
+	    factor="${xform#blur}"
+	    blur "$OUTPUT" "$factor"
+	    ;;
+	*)
+	    echo "$arg0: error: unknown image transform: $xform" >&2
+	    exit 1
+	    ;;
+    esac
+done
+
+echo "$arg0: output $OUTPUT" >&2
+feh --bg-scale "$OUTPUT"

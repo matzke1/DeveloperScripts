@@ -664,10 +664,12 @@ There are two things you can do about this warning:
 	(if (not hide-ifdef-define-alist)
 	    (setq hide-ifdef-define-alist
 		  '((rose
-		     ROSE_ENABLE_ASM_A64
+		     ROSE_ENABLE_ASM_AARCH32
+		     ROSE_ENABLE_ASM_AARCH64
+		     ROSE_ENABLE_BINARY_ANALYSIS
 		     ROSE_ENABLE_CONCOLIC_TESTING
 		     ROSE_ENABLE_SIMULATOR
-		     ROSE_BUILD_BINARY_ANALYSIS_SUPPORT
+		     ROSE_SUPPORTS_SERIAL_IO
 		     __linux)
 		    (list2 ONE TWO THREE))))
 	(hide-ifdef-use-define-alist 'rose) ; use this list by default
